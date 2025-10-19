@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="apple-touch-icon" sizes="76x76" href="../assets/img/apple-icon.png">
+  <link rel="icon" type="image/png" href="../assets/img/favicon.png">
+  <title>Daily Summary - Email Assistant</title>
+  <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700,900|Roboto+Slab:400,700" />
+  <link href="../assets/css/nucleo-icons.css" rel="stylesheet" />
+  <link href="../assets/css/nucleo-svg.css" rel="stylesheet" />
+  <script src="https://kit.fontawesome.com/42d5adcbca.js" crossorigin="anonymous"></script>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <link id="pagestyle" href="../assets/css/material-dashboard.css?v=3.0.0" rel="stylesheet" />
+</head>
+
+<body class="g-sidenav-show bg-gray-200">
+  <!-- Sidebar -->
+  <aside class="sidenav navbar navbar-vertical navbar-expand-xs border-0 border-radius-xl my-3 fixed-start ms-3 bg-gradient-dark" id="sidenav-main">
+    <div class="sidenav-header">
+      <i class="fas fa-times p-3 cursor-pointer text-white opacity-5 position-absolute end-0 top-0 d-none d-xl-none" aria-hidden="true" id="iconSidenav"></i>
+      <a class="navbar-brand m-0" href="/">
+        <i class="material-icons-round opacity-10">shield</i>
+        <span class="ms-1 font-weight-bold text-white">Email Assistant</span>
+      </a>
+    </div>
+    <hr class="horizontal light mt-0 mb-2">
+    <div class="collapse navbar-collapse w-auto max-height-vh-100" id="sidenav-collapse-main">
+      <ul class="navbar-nav">
+        <li class="nav-item">
+          <a class="nav-link text-white" href="/">
+            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
+              <i class="material-icons-round opacity-10">dashboard</i>
+            </div>
+            <span class="nav-link-text ms-1">Dashboard</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link text-white" href="/pages/mailbox.html">
+            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
+              <i class="material-icons-round opacity-10">email</i>
+            </div>
+            <span class="nav-link-text ms-1">Mailbox</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link text-white active bg-gradient-primary" href="/pages/daily-summary.html">
+            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
+              <i class="material-icons-round opacity-10">summarize</i>
+            </div>
+            <span class="nav-link-text ms-1">Daily Summary</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+  </aside>
+
+  <main class="main-content position-relative max-height-vh-100 h-100 border-radius-lg">
+    <!-- Navbar -->
+    <nav class="navbar navbar-main navbar-expand-lg px-0 mx-4 shadow-none border-radius-xl" id="navbarBlur">
+      <div class="container-fluid py-1 px-3">
+        <nav aria-label="breadcrumb">
+          <h6 class="font-weight-bolder mb-0">Daily Summary</h6>
+        </nav>
+      </div>
+    </nav>
+
+    <div class="container-fluid py-4">
+      <!-- Time Period Selector -->
+      <div class="row mb-4">
+        <div class="col-12">
+          <div class="card">
+            <div class="card-body p-3">
+              <div class="d-flex align-items-center">
+                <span class="text-sm font-weight-bold me-3">Time Period:</span>
+                <div class="btn-group" role="group">
+                  <button type="button" class="btn btn-sm btn-primary active" data-hours="24" onclick="loadSummary(24)">Last 24h</button>
+                  <button type="button" class="btn btn-sm btn-outline-primary" data-hours="72" onclick="loadSummary(72)">Last 3 Days</button>
+                  <button type="button" class="btn btn-sm btn-outline-primary" data-hours="168" onclick="loadSummary(168)">Last 7 Days</button>
+                </div>
+                <button class="btn btn-sm btn-success ms-auto" onclick="refreshSummary()">
+                  <i class="material-icons-round opacity-10" style="font-size: 14px;">refresh</i>
+                  Refresh
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Statistics Row -->
+      <div class="row">
+        <div class="col-xl-3 col-sm-6 mb-4">
+          <div class="card">
+            <div class="card-header p-3 pt-2">
+              <div class="icon icon-lg icon-shape bg-gradient-info shadow-info text-center border-radius-xl mt-n4 position-absolute">
+                <i class="material-icons-round opacity-10">mail</i>
+              </div>
+              <div class="text-end pt-1">
+                <p class="text-sm mb-0 text-capitalize">Total Emails</p>
+                <h4 class="mb-0" id="stat-total">0</h4>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-xl-3 col-sm-6 mb-4">
+          <div class="card">
+            <div class="card-header p-3 pt-2">
+              <div class="icon icon-lg icon-shape bg-gradient-primary shadow-primary text-center border-radius-xl mt-n4 position-absolute">
+                <i class="material-icons-round opacity-10">psychology</i>
+              </div>
+              <div class="text-end pt-1">
+                <p class="text-sm mb-0 text-capitalize">LLM Processed</p>
+                <h4 class="mb-0" id="stat-processed">0</h4>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-xl-3 col-sm-6 mb-4">
+          <div class="card">
+            <div class="card-header p-3 pt-2">
+              <div class="icon icon-lg icon-shape bg-gradient-danger shadow-danger text-center border-radius-xl mt-n4 position-absolute">
+                <i class="material-icons-round opacity-10">warning</i>
+              </div>
+              <div class="text-end pt-1">
+                <p class="text-sm mb-0 text-capitalize">Phishing Detected</p>
+                <h4 class="mb-0" id="stat-phishing">0</h4>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-xl-3 col-sm-6 mb-4">
+          <div class="card">
+            <div class="card-header p-3 pt-2">
+              <div class="icon icon-lg icon-shape bg-gradient-success shadow-success text-center border-radius-xl mt-n4 position-absolute">
+                <i class="material-icons-round opacity-10">schedule</i>
+              </div>
+              <div class="text-end pt-1">
+                <p class="text-sm mb-0 text-capitalize">Time Period</p>
+                <h4 class="mb-0" id="stat-period">24 hours</h4>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Aggregate Summary -->
+      <div class="row">
+        <div class="col-lg-12 mb-4">
+          <div class="card">
+            <div class="card-header pb-0">
+              <h6>Executive Summary</h6>
+              <p class="text-sm">AI-generated overview of your emails</p>
+            </div>
+            <div class="card-body">
+              <div id="loading-summary" class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="text-sm mt-2">Generating summary...</p>
+              </div>
+              <div id="aggregate-summary" class="text-sm" style="display: none; line-height: 1.8;">
+                <p class="text-muted">No data available for the selected time period.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Call-to-Actions and Top Senders Row -->
+      <div class="row">
+        <div class="col-lg-8 mb-4">
+          <div class="card">
+            <div class="card-header pb-0">
+              <h6>Consolidated Call-to-Actions</h6>
+              <p class="text-sm">Action items extracted from your emails</p>
+            </div>
+            <div class="card-body">
+              <div id="loading-ctas" class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+              </div>
+              <ul id="cta-list" class="list-unstyled" style="display: none;">
+                <!-- CTAs will be populated here -->
+              </ul>
+              <div id="no-ctas" style="display: none;">
+                <p class="text-sm text-muted">No call-to-actions found for this period.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-4 mb-4">
+          <div class="card">
+            <div class="card-header pb-0">
+              <h6>Top Senders</h6>
+              <p class="text-sm">Most active email senders</p>
+            </div>
+            <div class="card-body">
+              <div id="loading-senders" class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+              </div>
+              <ul id="sender-list" class="list-unstyled" style="display: none;">
+                <!-- Senders will be populated here -->
+              </ul>
+              <div id="no-senders" style="display: none;">
+                <p class="text-sm text-muted">No senders found for this period.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script src="../assets/js/core/popper.min.js"></script>
+  <script src="../assets/js/core/bootstrap.min.js"></script>
+  <script src="../assets/js/plugins/perfect-scrollbar.min.js"></script>
+  <script src="../assets/js/plugins/smooth-scrollbar.min.js"></script>
+  <script src="../assets/js/material-dashboard.min.js?v=3.0.0"></script>
+
+  <script>
+    const API_BASE = 'http://localhost:8000';
+    let currentHours = 24;
+
+    // Load summary on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      loadSummary(24);
+    });
+
+    function loadSummary(hours) {
+      currentHours = hours;
+
+      // Update active button
+      document.querySelectorAll('.btn-group button').forEach(btn => {
+        btn.classList.remove('btn-primary', 'active');
+        btn.classList.add('btn-outline-primary');
+      });
+      event.target.classList.remove('btn-outline-primary');
+      event.target.classList.add('btn-primary', 'active');
+
+      // Update period stat
+      document.getElementById('stat-period').textContent = hours === 24 ? '24 hours' : hours === 72 ? '3 days' : '7 days';
+
+      // Show loading states
+      document.getElementById('loading-summary').style.display = 'block';
+      document.getElementById('aggregate-summary').style.display = 'none';
+      document.getElementById('loading-ctas').style.display = 'block';
+      document.getElementById('cta-list').style.display = 'none';
+      document.getElementById('no-ctas').style.display = 'none';
+      document.getElementById('loading-senders').style.display = 'block';
+      document.getElementById('sender-list').style.display = 'none';
+      document.getElementById('no-senders').style.display = 'none';
+
+      // Fetch daily summary
+      fetch(`${API_BASE}/api/daily-summary?hours=${hours}`)
+        .then(response => response.json())
+        .then(data => {
+          // Update statistics
+          document.getElementById('stat-total').textContent = data.total_emails || 0;
+          document.getElementById('stat-processed').textContent = data.processed_emails || 0;
+          document.getElementById('stat-phishing').textContent = data.phishing_detected || 0;
+
+          // Hide loading, show summary
+          document.getElementById('loading-summary').style.display = 'none';
+          document.getElementById('aggregate-summary').style.display = 'block';
+
+          if (data.total_emails === 0) {
+            document.getElementById('aggregate-summary').innerHTML = '<p class="text-muted">No emails processed in the selected time period.</p>';
+          } else {
+            document.getElementById('aggregate-summary').innerHTML = `<p>${data.aggregate_summary}</p>`;
+          }
+
+          // Hide loading CTAs
+          document.getElementById('loading-ctas').style.display = 'none';
+
+          // Populate CTAs
+          const ctaList = document.getElementById('cta-list');
+          if (data.consolidated_ctas && data.consolidated_ctas.length > 0) {
+            ctaList.style.display = 'block';
+            ctaList.innerHTML = data.consolidated_ctas.map(cta => `
+              <li class="mb-2">
+                <i class="material-icons-round text-sm me-2" style="font-size: 16px; vertical-align: middle;">arrow_right</i>
+                <span class="text-sm">${cta}</span>
+              </li>
+            `).join('');
+          } else {
+            document.getElementById('no-ctas').style.display = 'block';
+          }
+
+          // Hide loading senders
+          document.getElementById('loading-senders').style.display = 'none';
+
+          // Populate top senders
+          const senderList = document.getElementById('sender-list');
+          if (data.top_senders && data.top_senders.length > 0) {
+            senderList.style.display = 'block';
+            senderList.innerHTML = data.top_senders.map((item, index) => `
+              <li class="mb-2">
+                <div class="d-flex justify-content-between">
+                  <span class="text-sm font-weight-bold">${index + 1}.</span>
+                  <span class="text-xs text-truncate" style="max-width: 150px;" title="${item.sender}">${item.sender}</span>
+                  <span class="badge badge-sm bg-gradient-primary">${item.count}</span>
+                </div>
+              </li>
+            `).join('');
+          } else {
+            document.getElementById('no-senders').style.display = 'block';
+          }
+        })
+        .catch(error => {
+          console.error('Error loading summary:', error);
+          document.getElementById('loading-summary').style.display = 'none';
+          document.getElementById('aggregate-summary').style.display = 'block';
+          document.getElementById('aggregate-summary').innerHTML = '<p class="text-danger">Error loading summary. Please try again.</p>';
+
+          document.getElementById('loading-ctas').style.display = 'none';
+          document.getElementById('no-ctas').style.display = 'block';
+
+          document.getElementById('loading-senders').style.display = 'none';
+          document.getElementById('no-senders').style.display = 'block';
+        });
+    }
+
+    function refreshSummary() {
+      loadSummary(currentHours);
+    }
+  </script>
+</body>
+</html>
