@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
-# Helper script to stop containers from other projects
-# Run this before starting ai-cup-2025 if you have port conflicts
+# Helper script to stop all running Docker containers from other projects
+# Run this before starting ai-cup-2025 to ensure clean state
+#
+# Usage:
+#   ./stop-other-projects.sh       # Stop all containers except mailbox-*
+#   ./stop-other-projects.sh --all # Stop ALL containers including mailbox-*
 
 set -euo pipefail
+
+# Parse arguments
+STOP_ALL=false
+if [ $# -gt 0 ] && [ "$1" == "--all" ]; then
+    STOP_ALL=true
+fi
 
 # Colors
 RED='\033[0;31m'
@@ -17,57 +27,80 @@ print_msg() {
     echo -e "${color}$@${NC}"
 }
 
-print_msg "$BLUE" "🔍 Finding what's using ports 80, 5432, 8000, 8025..."
-echo ""
-
-# Check for system-level services
-print_msg "$YELLOW" "Checking system services..."
-if sudo lsof -i :5432 >/dev/null 2>&1; then
-    print_msg "$YELLOW" "⚠️  Port 5432 is in use by:"
-    sudo lsof -i :5432 | grep LISTEN || true
-fi
-
-if sudo lsof -i :80 >/dev/null 2>&1; then
-    print_msg "$YELLOW" "⚠️  Port 80 is in use by:"
-    sudo lsof -i :80 | grep LISTEN || true
+if [ "$STOP_ALL" = true ]; then
+    print_msg "$BLUE" "🔍 Finding ALL running Docker containers..."
+else
+    print_msg "$BLUE" "🔍 Finding all running Docker containers (excluding mailbox-*)..."
 fi
 echo ""
 
-# Find all containers using our ports (excluding mailbox containers)
-CONTAINERS=""
-
-while read -r container; do
-    if [[ ! "$container" =~ ^mailbox- ]]; then
-        # Check all port mappings for this container
-        port_output=$(docker port "$container" 2>/dev/null || true)
-        if echo "$port_output" | grep -qE "0\.0\.0\.0:(80|5432|8000|8025)"; then
-            print_msg "$YELLOW" "📦 $container"
-            echo "$port_output" | grep -E "0\.0\.0\.0:(80|5432|8000|8025)" | sed 's/^/   /'
-            CONTAINERS="$CONTAINERS $container"
-        fi
-    fi
-done < <(docker ps --format '{{.Names}}')
+# Get all running containers (excluding mailbox containers unless --all flag is used)
+if [ "$STOP_ALL" = true ]; then
+    CONTAINERS=$(docker ps --format '{{.Names}}' || true)
+else
+    CONTAINERS=$(docker ps --format '{{.Names}}' | grep -v '^mailbox-' || true)
+fi
 
 if [ -z "$CONTAINERS" ]; then
-    print_msg "$GREEN" "✅ No conflicting containers found"
+    print_msg "$GREEN" "✅ No other containers running"
     exit 0
 fi
 
+# Display container information
+print_msg "$YELLOW" "Found running containers:"
 echo ""
-print_msg "$YELLOW" "Found containers:$CONTAINERS"
+
+while read -r container; do
+    if [ -n "$container" ]; then
+        print_msg "$YELLOW" "📦 $container"
+        # Show image and status
+        docker ps --filter "name=$container" --format "   Image: {{.Image}}" || true
+        docker ps --filter "name=$container" --format "   Status: {{.Status}}" || true
+        # Show port mappings
+        port_output=$(docker port "$container" 2>/dev/null || true)
+        if [ -n "$port_output" ]; then
+            echo "$port_output" | sed 's/^/   Port: /'
+        fi
+        echo ""
+    fi
+done <<< "$CONTAINERS"
+
+# Count containers
+CONTAINER_COUNT=$(echo "$CONTAINERS" | wc -l)
+print_msg "$YELLOW" "Total: $CONTAINER_COUNT container(s)"
 echo ""
-read -p "Stop these containers? (y/N): " -n 1 -r
+
+# Ask for confirmation
+read -p "Stop all these containers? (y/N): " -n 1 -r
 echo
+echo ""
 
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    print_msg "$BLUE" "Cancelled"
+    print_msg "$BLUE" "❌ Cancelled - no containers stopped"
     exit 0
 fi
 
-print_msg "$BLUE" "🛑 Stopping containers..."
-for container in $CONTAINERS; do
-    print_msg "$YELLOW" "   Stopping: $container"
-    docker stop "$container" >/dev/null 2>&1
-done
+# Stop all containers
+print_msg "$BLUE" "🛑 Stopping all containers..."
+echo ""
 
-print_msg "$GREEN" "✅ Done! You can now run ./start.sh"
+while read -r container; do
+    if [ -n "$container" ]; then
+        print_msg "$YELLOW" "   Stopping: $container"
+        if docker stop "$container" >/dev/null 2>&1; then
+            print_msg "$GREEN" "      ✓ Stopped"
+        else
+            print_msg "$RED" "      ✗ Failed to stop"
+        fi
+    fi
+done <<< "$CONTAINERS"
+
+echo ""
+if [ "$STOP_ALL" = true ]; then
+    print_msg "$GREEN" "✅ Done! All containers have been stopped."
+    print_msg "$BLUE" "💡 You can now run: docker compose up -d"
+else
+    print_msg "$GREEN" "✅ Done! All non-mailbox containers have been stopped."
+    print_msg "$BLUE" "💡 You can now run: docker compose up -d"
+    print_msg "$YELLOW" "💡 To stop mailbox containers too, use: ./stop-other-projects.sh --all"
+fi

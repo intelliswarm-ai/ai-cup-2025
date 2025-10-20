@@ -23,6 +23,12 @@ class Email(Base):
     llm_processed = Column(Boolean, default=False)
     llm_processed_at = Column(DateTime)
 
+    # Email categorization and badges
+    badges = Column(JSON)  # List of badge types: MEETING, RISK, EXTERNAL, etc.
+
+    # Quick reply drafts (3 versions: formal, friendly, brief)
+    quick_reply_drafts = Column(JSON)  # {formal: "", friendly: "", brief: ""}
+
     # Relationships
     workflow_results = relationship("WorkflowResult", back_populates="email", cascade="all, delete-orphan")
 

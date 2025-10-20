@@ -1,8 +1,9 @@
 from fastapi import FastAPI, Depends, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 import logging
 
 from database import get_db, init_db
@@ -11,7 +12,7 @@ from mailpit_client import MailPitClient
 from workflows import WorkflowEngine
 from llm_service import ollama_service
 from pydantic import BaseModel
-from datetime import timedelta
+from events import broadcaster
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -166,6 +167,11 @@ async def get_emails(
             "received_at": email.received_at,
             "is_phishing": email.is_phishing,
             "processed": email.processed,
+            "summary": email.summary,
+            "call_to_actions": email.call_to_actions,
+            "badges": email.badges,
+            "quick_reply_drafts": email.quick_reply_drafts,
+            "llm_processed": email.llm_processed,
             "workflow_results": [
                 {
                     "id": wr.id,
@@ -201,6 +207,11 @@ async def get_email(email_id: int, db: Session = Depends(get_db)):
         "received_at": email.received_at,
         "is_phishing": email.is_phishing,
         "processed": email.processed,
+        "summary": email.summary,
+        "call_to_actions": email.call_to_actions,
+        "badges": email.badges,
+        "quick_reply_drafts": email.quick_reply_drafts,
+        "llm_processed": email.llm_processed,
         "workflow_results": [
             {
                 "id": wr.id,
@@ -221,7 +232,7 @@ async def process_email(
     workflows: Optional[List[str]] = None,
     db: Session = Depends(get_db)
 ):
-    """Process an email through phishing detection workflows"""
+    """Process an email through phishing detection workflows and LLM analysis"""
     email = db.query(Email).filter(Email.id == email_id).first()
 
     if not email:
@@ -234,7 +245,7 @@ async def process_email(
         "body_html": email.body_html or ""
     }
 
-    # Run workflows
+    # Step 1: Run workflows
     workflow_results = await workflow_engine.run_all_workflows(email_data)
 
     # Store results
@@ -261,6 +272,44 @@ async def process_email(
     # Mark as phishing if majority of workflows detect it
     email.is_phishing = phishing_votes >= len(workflow_results) / 2
 
+    # Step 2: Process with LLM
+    llm_data = {}
+    try:
+        llm_result = await ollama_service.process_email(
+            email.subject or "",
+            email.body_text or ""
+        )
+
+        badges = await ollama_service.detect_email_badges(
+            email.subject or "",
+            email.body_text or "",
+            email.sender or "",
+            email.is_phishing
+        )
+
+        quick_reply_drafts = await ollama_service.generate_quick_reply_drafts(
+            email.subject or "",
+            email.body_text or "",
+            email.sender or ""
+        )
+
+        email.summary = llm_result["summary"]
+        email.call_to_actions = llm_result["call_to_actions"]
+        email.badges = badges
+        email.quick_reply_drafts = quick_reply_drafts
+        email.llm_processed = True
+        email.llm_processed_at = datetime.utcnow()
+
+        llm_data = {
+            "summary": email.summary,
+            "badges": badges,
+            "quick_reply_drafts": quick_reply_drafts
+        }
+
+    except Exception as llm_error:
+        logger.error(f"Error processing email {email_id} with LLM: {llm_error}")
+        # Continue even if LLM processing fails
+
     db.commit()
 
     return {
@@ -269,7 +318,8 @@ async def process_email(
         "is_phishing": email.is_phishing,
         "workflows_run": len(workflow_results),
         "average_confidence": total_confidence / len(workflow_results) if workflow_results else 0,
-        "results": workflow_results
+        "results": workflow_results,
+        "llm_data": llm_data
     }
 
 @app.post("/api/emails/process-all")
@@ -277,12 +327,13 @@ async def process_all_unprocessed_emails(
     background_tasks: BackgroundTasks,
     db: Session = Depends(get_db)
 ):
-    """Process all unprocessed emails"""
+    """Process all unprocessed emails with workflow analysis and LLM processing"""
     unprocessed = db.query(Email).filter(Email.processed == False).all()
 
     async def process_batch():
         for email in unprocessed:
             try:
+                # Step 1: Run workflow analysis
                 email_data = {
                     "subject": email.subject,
                     "sender": email.sender,
@@ -310,17 +361,73 @@ async def process_all_unprocessed_emails(
                 email.processed = True
                 email.is_phishing = phishing_votes >= len(workflow_results) / 2
 
+                # Broadcast event for workflow processing
+                await broadcaster.broadcast("email_processed", {
+                    "email_id": email.id,
+                    "is_phishing": email.is_phishing,
+                    "subject": email.subject,
+                    "processed_count": unprocessed.index(email) + 1,
+                    "total_count": len(unprocessed)
+                })
+
+                # Step 2: Process with LLM (summary, badges, quick replies)
+                try:
+                    llm_result = await ollama_service.process_email(
+                        email.subject or "",
+                        email.body_text or ""
+                    )
+
+                    # Detect badges
+                    badges = await ollama_service.detect_email_badges(
+                        email.subject or "",
+                        email.body_text or "",
+                        email.sender or "",
+                        email.is_phishing
+                    )
+
+                    # Generate quick reply drafts
+                    quick_reply_drafts = await ollama_service.generate_quick_reply_drafts(
+                        email.subject or "",
+                        email.body_text or "",
+                        email.sender or ""
+                    )
+
+                    email.summary = llm_result["summary"]
+                    email.call_to_actions = llm_result["call_to_actions"]
+                    email.badges = badges
+                    email.quick_reply_drafts = quick_reply_drafts
+                    email.llm_processed = True
+                    email.llm_processed_at = datetime.utcnow()
+
+                    # Broadcast event for LLM processing
+                    await broadcaster.broadcast("email_llm_processed", {
+                        "email_id": email.id,
+                        "badges": badges,
+                        "subject": email.subject,
+                        "processed_count": unprocessed.index(email) + 1,
+                        "total_count": len(unprocessed)
+                    })
+
+                except Exception as llm_error:
+                    logger.error(f"Error processing email {email.id} with LLM: {llm_error}")
+                    # Continue even if LLM processing fails
+
             except Exception as e:
                 logger.error(f"Error processing email {email.id}: {e}")
 
         db.commit()
+
+        # Broadcast completion event
+        await broadcaster.broadcast("batch_complete", {
+            "total_processed": len(unprocessed)
+        })
 
     background_tasks.add_task(process_batch)
 
     return {
         "status": "processing",
         "count": len(unprocessed),
-        "message": "Processing emails in background"
+        "message": "Processing emails with workflow analysis and LLM in background"
     }
 
 @app.get("/api/statistics")
@@ -334,13 +441,34 @@ async def get_statistics(db: Session = Depends(get_db)):
         Email.is_phishing == False
     ).count()
 
+    # Count emails by badge type
+    all_emails = db.query(Email).filter(Email.llm_processed == True).all()
+    badge_counts = {
+        "MEETING": 0,
+        "RISK": 0,
+        "EXTERNAL": 0,
+        "AUTOMATED": 0,
+        "VIP": 0,
+        "FOLLOW_UP": 0,
+        "NEWSLETTER": 0,
+        "FINANCE": 0
+    }
+
+    for email in all_emails:
+        if email.badges:
+            for badge in email.badges:
+                if badge in badge_counts:
+                    badge_counts[badge] += 1
+
     return {
         "total_emails": total_emails,
         "processed_emails": processed_emails,
         "unprocessed_emails": total_emails - processed_emails,
         "phishing_detected": phishing_emails,
         "legitimate_emails": legitimate_emails,
-        "phishing_percentage": (phishing_emails / processed_emails * 100) if processed_emails > 0 else 0
+        "phishing_percentage": (phishing_emails / processed_emails * 100) if processed_emails > 0 else 0,
+        "badge_counts": badge_counts,
+        "llm_processed": len(all_emails)
     }
 
 @app.get("/api/workflows")
@@ -373,7 +501,7 @@ async def process_email_with_llm(
     email_id: int,
     db: Session = Depends(get_db)
 ):
-    """Process an email with LLM: generate summary and extract CTAs"""
+    """Process an email with LLM: generate summary, extract CTAs, detect badges, and create quick reply drafts"""
     email = db.query(Email).filter(Email.id == email_id).first()
 
     if not email:
@@ -386,9 +514,26 @@ async def process_email_with_llm(
             email.body_text or ""
         )
 
+        # Detect badges
+        badges = await ollama_service.detect_email_badges(
+            email.subject or "",
+            email.body_text or "",
+            email.sender or "",
+            email.is_phishing
+        )
+
+        # Generate quick reply drafts
+        quick_reply_drafts = await ollama_service.generate_quick_reply_drafts(
+            email.subject or "",
+            email.body_text or "",
+            email.sender or ""
+        )
+
         # Update email
         email.summary = result["summary"]
         email.call_to_actions = result["call_to_actions"]
+        email.badges = badges
+        email.quick_reply_drafts = quick_reply_drafts
         email.llm_processed = True
         email.llm_processed_at = datetime.utcnow()
 
@@ -398,7 +543,9 @@ async def process_email_with_llm(
             "status": "success",
             "email_id": email_id,
             "summary": email.summary,
-            "call_to_actions": email.call_to_actions
+            "call_to_actions": email.call_to_actions,
+            "badges": email.badges,
+            "quick_reply_drafts": email.quick_reply_drafts
         }
 
     except Exception as e:
@@ -423,15 +570,46 @@ async def process_all_emails_with_llm(
                     email.body_text or ""
                 )
 
+                # Detect badges
+                badges = await ollama_service.detect_email_badges(
+                    email.subject or "",
+                    email.body_text or "",
+                    email.sender or "",
+                    email.is_phishing
+                )
+
+                # Generate quick reply drafts
+                quick_reply_drafts = await ollama_service.generate_quick_reply_drafts(
+                    email.subject or "",
+                    email.body_text or "",
+                    email.sender or ""
+                )
+
                 email.summary = result["summary"]
                 email.call_to_actions = result["call_to_actions"]
+                email.badges = badges
+                email.quick_reply_drafts = quick_reply_drafts
                 email.llm_processed = True
                 email.llm_processed_at = datetime.utcnow()
+
+                # Broadcast event for LLM processing
+                await broadcaster.broadcast("email_llm_processed", {
+                    "email_id": email.id,
+                    "badges": badges,
+                    "subject": email.subject,
+                    "processed_count": unprocessed.index(email) + 1,
+                    "total_count": len(unprocessed)
+                })
 
             except Exception as e:
                 logger.error(f"Error processing email {email.id} with LLM: {e}")
 
         db.commit()
+
+        # Broadcast completion event
+        await broadcaster.broadcast("llm_batch_complete", {
+            "total_processed": len(unprocessed)
+        })
 
     background_tasks.add_task(process_batch)
 
@@ -513,3 +691,88 @@ async def get_daily_summary(
     except Exception as e:
         logger.error(f"Error generating daily summary: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/inbox-digest")
+async def get_inbox_digest(
+    hours: int = 24,
+    db: Session = Depends(get_db)
+):
+    """Get emails grouped by badges for Daily Inbox Digest view"""
+    try:
+        # Calculate time threshold
+        time_threshold = datetime.utcnow() - timedelta(hours=hours)
+
+        # Get recent emails that have been LLM processed
+        recent_emails = db.query(Email).filter(
+            Email.received_at >= time_threshold,
+            Email.llm_processed == True
+        ).order_by(Email.received_at.desc()).all()
+
+        # Group emails by primary badge
+        grouped = {
+            "MEETING": [],
+            "RISK": [],
+            "EXTERNAL": [],
+            "AUTOMATED": [],
+            "VIP": [],
+            "FOLLOW_UP": [],
+            "NEWSLETTER": [],
+            "FINANCE": [],
+            "OTHER": []
+        }
+
+        total_today = len(recent_emails)
+
+        for email in recent_emails:
+            email_data = {
+                "id": email.id,
+                "subject": email.subject,
+                "sender": email.sender,
+                "summary": email.summary,
+                "badges": email.badges or [],
+                "received_at": email.received_at.isoformat(),
+                "is_phishing": email.is_phishing
+            }
+
+            # Add to primary badge group (first badge takes priority)
+            if email.badges and len(email.badges) > 0:
+                primary_badge = email.badges[0]
+                if primary_badge in grouped:
+                    grouped[primary_badge].append(email_data)
+                else:
+                    grouped["OTHER"].append(email_data)
+            else:
+                grouped["OTHER"].append(email_data)
+
+        # Calculate badge counts
+        badge_counts = {
+            badge: len(emails) for badge, emails in grouped.items() if len(emails) > 0
+        }
+
+        return {
+            "period_hours": hours,
+            "total_today": total_today,
+            "badge_counts": badge_counts,
+            "grouped_emails": grouped,
+            "time_range": {
+                "from": time_threshold.isoformat(),
+                "to": datetime.utcnow().isoformat()
+            }
+        }
+
+    except Exception as e:
+        logger.error(f"Error generating inbox digest: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/events")
+async def events():
+    """Server-Sent Events endpoint for real-time updates"""
+    return StreamingResponse(
+        broadcaster.event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        }
+    )

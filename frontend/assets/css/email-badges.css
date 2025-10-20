@@ -1,0 +1,221 @@
+/* Email Badge Styles - Based on design/pic5-email-badges.png */
+
+.email-badge {
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 8px;
+  margin-bottom: 8px;
+  border: 2px solid transparent;
+  transition: all 0.2s;
+}
+
+.email-badge i {
+  font-size: 1.25rem;
+}
+
+/* Meeting Badge - Calendar Icon */
+.email-badge-meeting {
+  background: #f0f4ff;
+  color: #4169e1;
+  border-color: #4169e1;
+}
+
+/* Risk Badge - Shield Icon with Exclamation */
+.email-badge-risk {
+  background: #ffe5e5;
+  color: #d32f2f;
+  border-color: #d32f2f;
+}
+
+/* External Badge - X Icon */
+.email-badge-external {
+  background: #fff3e0;
+  color: #e65100;
+  border-color: #e65100;
+}
+
+/* Automated Badge - Gear Icon */
+.email-badge-automated {
+  background: #f3e5f5;
+  color: #7b1fa2;
+  border-color: #7b1fa2;
+}
+
+/* VIP Badge - Star Icon */
+.email-badge-vip {
+  background: #fff9c4;
+  color: #f57f17;
+  border-color: #f57f17;
+}
+
+/* Follow-up Badge - Circular Arrow */
+.email-badge-follow_up, .email-badge-follow-up {
+  background: #e1f5fe;
+  color: #0277bd;
+  border-color: #0277bd;
+}
+
+/* Newsletter Badge - Envelope Icon */
+.email-badge-newsletter {
+  background: #e8f5e9;
+  color: #388e3c;
+  border-color: #388e3c;
+}
+
+/* Finance Badge - Dollar Sign/Briefcase */
+.email-badge-finance {
+  background: #fce4ec;
+  color: #c2185b;
+  border-color: #c2185b;
+}
+
+/* Quick Reply Drafts Styles - Based on design/pic4-quick-reply-drafts.png */
+
+.quick-reply-container {
+  background: #f8f9fa;
+  border-radius: 8px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.quick-reply-draft {
+  background: white;
+  border: 1px solid #dee2e6;
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.quick-reply-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: #495057;
+}
+
+.quick-reply-label {
+  background: #e9ecef;
+  padding: 4px 12px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.quick-reply-text {
+  color: #495057;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  padding: 12px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+
+.quick-reply-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.quick-reply-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 0.875rem;
+  color: #6c757d;
+}
+
+.quick-reply-signature {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #dee2e6;
+  font-size: 0.875rem;
+  color: #6c757d;
+}
+
+/* Message Card Anatomy - Based on design/pic2-message-card-anatomy.png */
+
+.message-card {
+  border: 2px dashed #dee2e6;
+  border-radius: 8px;
+  padding: 20px;
+  background: white;
+  margin-bottom: 16px;
+}
+
+.message-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.message-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.message-card-sender {
+  font-size: 0.875rem;
+  color: #6c757d;
+  text-align: right;
+}
+
+.message-card-subject {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #212529;
+  margin-bottom: 12px;
+}
+
+.message-card-summary {
+  list-style: none;
+  padding-left: 0;
+  margin-bottom: 16px;
+}
+
+.message-card-summary li {
+  padding-left: 20px;
+  position: relative;
+  margin-bottom: 6px;
+  color: #495057;
+  font-size: 0.9375rem;
+}
+
+.message-card-summary li:before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: #adb5bd;
+  font-weight: bold;
+}
+
+.message-card-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding-top: 12px;
+  border-top: 1px solid #e9ecef;
+}
+
+.action-checkbox-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-right: auto;
+}
+
+.action-buttons {
+  display: flex;
+  gap: 8px;
+}

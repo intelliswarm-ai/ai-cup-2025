@@ -196,5 +196,151 @@ Format: ["action 1", "action 2", ...]"""
             logger.error(f"Error consolidating CTAs: {e}")
             return list(set(flat_ctas))[:10]
 
+    async def detect_email_badges(self, subject: str, body: str, sender: str, is_phishing: bool) -> List[str]:
+        """Detect appropriate badges for an email
+
+        Available badges: MEETING, RISK, EXTERNAL, AUTOMATED, VIP, FOLLOW_UP, NEWSLETTER, FINANCE
+        """
+        badges = []
+
+        # RISK badge - if phishing detected
+        if is_phishing:
+            badges.append("RISK")
+
+        system_prompt = """You are an email categorization assistant. Analyze emails and assign relevant badges.
+Available badges: MEETING, EXTERNAL, AUTOMATED, VIP, FOLLOW_UP, NEWSLETTER, FINANCE
+Return ONLY a JSON array of applicable badges."""
+
+        prompt = f"""Analyze this email and determine which badges apply:
+
+Subject: {subject}
+Sender: {sender}
+Body: {body[:800]}
+
+Guidelines:
+- MEETING: Contains meeting invites, calendar events, scheduling
+- EXTERNAL: From external/unknown domains or partners
+- AUTOMATED: Auto-generated, no-reply, system notifications
+- VIP: From important contacts, executives, key stakeholders
+- FOLLOW_UP: Follow-up emails, reminders, pending responses
+- NEWSLETTER: Marketing emails, newsletters, bulk communications
+- FINANCE: Financial transactions, invoices, payment-related
+
+Return ONLY a JSON array like: ["MEETING", "EXTERNAL"] or []"""
+
+        try:
+            response = await self.generate(prompt, system_prompt)
+            response = response.strip()
+
+            # Extract JSON array
+            if response.startswith("```"):
+                lines = response.split("\n")
+                response = "\n".join(lines[1:-1])
+
+            start = response.find("[")
+            end = response.rfind("]") + 1
+            if start >= 0 and end > start:
+                json_str = response[start:end]
+                detected_badges = json.loads(json_str)
+                if isinstance(detected_badges, list):
+                    badges.extend(detected_badges)
+        except Exception as e:
+            logger.error(f"Error detecting badges: {e}")
+
+        # Remove duplicates and return
+        return list(set(badges))
+
+    async def generate_quick_reply_drafts(self, subject: str, body: str, sender: str) -> Dict[str, str]:
+        """Generate 3 quick reply drafts: formal, friendly, brief"""
+
+        system_prompt = """You are an email reply assistant. Generate appropriate email replies in different tones.
+Focus on being helpful and professional. Keep replies concise.
+You MUST return valid JSON only."""
+
+        prompt = f"""Generate 3 reply drafts for this email:
+
+Subject: {subject}
+From: {sender}
+Body: {body[:1000]}
+
+Create 3 versions:
+1. FORMAL - Professional, corporate tone
+2. FRIENDLY - Warm, conversational tone
+3. BRIEF - Short, to-the-point response
+
+Return ONLY a valid JSON object with this exact format (no other text):
+{{
+  "formal": "formal reply text here",
+  "friendly": "friendly reply text here",
+  "brief": "brief reply text here"
+}}"""
+
+        try:
+            response = await self.generate(prompt, system_prompt)
+            logger.info(f"Raw LLM response for quick reply drafts (length: {len(response)})")
+            logger.debug(f"Full response: {response[:500]}")
+
+            response = response.strip()
+
+            # Strategy 1: Remove markdown code blocks
+            if "```json" in response:
+                response = response.split("```json")[1].split("```")[0].strip()
+            elif response.startswith("```"):
+                lines = response.split("\n")
+                response = "\n".join(lines[1:-1]).strip()
+
+            # Strategy 2: Find JSON object boundaries
+            start = response.find("{")
+            end = response.rfind("}") + 1
+
+            if start >= 0 and end > start:
+                json_str = response[start:end]
+
+                # Strategy 3: Try to fix common JSON issues
+                # Replace smart quotes with regular quotes
+                json_str = json_str.replace('\u201c', '"').replace('\u201d', '"')
+                json_str = json_str.replace('\u2018', "'").replace('\u2019', "'")
+
+                # Try parsing
+                try:
+                    drafts = json.loads(json_str)
+
+                    # Validate structure
+                    if isinstance(drafts, dict) and all(k in drafts for k in ["formal", "friendly", "brief"]):
+                        logger.info("Successfully parsed quick reply drafts")
+                        return drafts
+                    else:
+                        logger.warning(f"Parsed JSON but missing required keys. Got: {list(drafts.keys())}")
+                except json.JSONDecodeError as je:
+                    logger.error(f"JSON decode error at position {je.pos}: {je.msg}")
+                    logger.error(f"Problematic JSON substring: {json_str[max(0, je.pos-50):je.pos+50]}")
+
+                    # Strategy 4: Try regex extraction as fallback
+                    import re
+                    formal_match = re.search(r'"formal"\s*:\s*"([^"]+)"', json_str)
+                    friendly_match = re.search(r'"friendly"\s*:\s*"([^"]+)"', json_str)
+                    brief_match = re.search(r'"brief"\s*:\s*"([^"]+)"', json_str)
+
+                    if formal_match and friendly_match and brief_match:
+                        logger.info("Extracted drafts using regex fallback")
+                        return {
+                            "formal": formal_match.group(1),
+                            "friendly": friendly_match.group(1),
+                            "brief": brief_match.group(1)
+                        }
+
+            logger.warning("Could not extract valid JSON from LLM response, using fallback")
+
+        except Exception as e:
+            logger.error(f"Error generating reply drafts: {e}", exc_info=True)
+
+        # Fallback drafts
+        logger.info("Using fallback quick reply drafts")
+        return {
+            "formal": f"Thank you for your email regarding '{subject}'. I will review this and get back to you shortly.",
+            "friendly": f"Hi! Thanks for reaching out about '{subject}'. I'll look into this and follow up with you soon!",
+            "brief": "Thanks for your email. Will respond shortly."
+        }
+
 # Global instance
 ollama_service = OllamaService()

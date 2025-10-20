@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="001-add-badges-column" author="ai-cup-2025">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="emails" columnName="badges"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="emails">
+            <column name="badges" type="jsonb">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+        <rollback>
+            <dropColumn tableName="emails" columnName="badges"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="002-add-quick-reply-drafts-column" author="ai-cup-2025">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="emails" columnName="quick_reply_drafts"/>
+            </not>
+        </preConditions>
+        <addColumn tableName="emails">
+            <column name="quick_reply_drafts" type="jsonb">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+        <rollback>
+            <dropColumn tableName="emails" columnName="quick_reply_drafts"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
