@@ -1,4 +1,4 @@
-/* Email Badge Styles - Based on design/pic5-email-badges.png */
+/* Email Category Badge Styles - Based on design/pic5-email-badges.png and pic7-ui-badges-for-digest.png */
 
 .email-badge {
   padding: 8px 16px;
@@ -16,6 +16,60 @@
 
 .email-badge i {
   font-size: 1.25rem;
+}
+
+/* UI State Badges - Based on design/pic6-ui-badges.png */
+
+.ui-badge {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 8px;
+  margin-bottom: 8px;
+  border: 2px solid #212529;
+  background: white;
+  color: #212529;
+  text-transform: uppercase;
+  transition: all 0.2s;
+}
+
+.ui-badge i {
+  font-size: 1rem;
+}
+
+/* Specific UI Badge Styles */
+.ui-badge-action-required {
+  border-color: #d32f2f;
+  color: #d32f2f;
+}
+
+.ui-badge-high-priority {
+  border-color: #f57c00;
+  color: #f57c00;
+}
+
+.ui-badge-replied {
+  border-color: #388e3c;
+  color: #388e3c;
+}
+
+.ui-badge-attachment {
+  border-color: #1976d2;
+  color: #1976d2;
+}
+
+.ui-badge-snoozed {
+  border-color: #7b1fa2;
+  color: #7b1fa2;
+}
+
+.ui-badge-ai-suggested {
+  border-color: #0288d1;
+  color: #0288d1;
 }
 
 /* Meeting Badge - Calendar Icon */
@@ -74,72 +128,34 @@
   border-color: #c2185b;
 }
 
-/* Quick Reply Drafts Styles - Based on design/pic4-quick-reply-drafts.png */
+/* Quick Reply Drafts Styles - Based on design/pic6-quick-reply-drafts.png */
 
 .quick-reply-container {
-  background: #f8f9fa;
+  border: 2px solid #212529;
   border-radius: 8px;
   padding: 20px;
-  margin-top: 20px;
-}
-
-.quick-reply-draft {
   background: white;
-  border: 1px solid #dee2e6;
-  border-radius: 6px;
-  padding: 16px;
-  margin-bottom: 16px;
 }
 
-.quick-reply-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
+.quick-reply-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
   font-weight: 600;
   color: #495057;
 }
 
-.quick-reply-label {
-  background: #e9ecef;
-  padding: 4px 12px;
-  border-radius: 12px;
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  font-weight: 700;
-}
-
-.quick-reply-text {
-  color: #495057;
-  font-size: 0.9375rem;
-  line-height: 1.5;
-  padding: 12px;
-  background: #f8f9fa;
-  border-radius: 4px;
-  margin-bottom: 12px;
-}
-
-.quick-reply-actions {
-  display: flex;
-  gap: 8px;
-  justify-content: flex-end;
-}
-
-.quick-reply-checkbox {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
+.quick-reply-text-input {
+  border: 2px solid #495057;
+  border-radius: 8px;
   font-size: 0.875rem;
-  color: #6c757d;
+  padding: 10px;
+  resize: vertical;
+  font-family: inherit;
 }
 
-.quick-reply-signature {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #dee2e6;
-  font-size: 0.875rem;
-  color: #6c757d;
+.quick-reply-text-input:focus {
+  border-color: #1976d2;
+  box-shadow: 0 0 0 0.2rem rgba(25, 118, 210, 0.15);
 }
 
 /* Message Card Anatomy - Based on design/pic2-message-card-anatomy.png */

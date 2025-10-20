@@ -26,6 +26,13 @@ class MailPitClient:
             response.raise_for_status()
             return response.json()
 
+    async def get_message_headers(self, message_id: str) -> Dict:
+        """Get message headers including custom headers"""
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{self.base_url}/message/{message_id}/headers")
+            response.raise_for_status()
+            return response.json()
+
     async def get_message_text(self, message_id: str) -> str:
         """Get message text content"""
         async with httpx.AsyncClient() as client:

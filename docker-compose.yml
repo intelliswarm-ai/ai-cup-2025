@@ -90,7 +90,7 @@ services:
     networks:
       - mailbox-network
 
-  # Email Seeder - Generates and sends test emails
+  # Email Seeder - Loads and sends emails from Kaggle dataset
   email-seeder:
     build:
       context: ./email-seeder
@@ -99,8 +99,10 @@ services:
     environment:
       MAILPIT_SMTP_HOST: mailpit
       MAILPIT_SMTP_PORT: 1025
-      NUM_EMAILS: 2000
-      PHISHING_PERCENTAGE: 20
+      DATASET_PATH: /dataset/phishing_legit_dataset_KD_10000.csv
+      NUM_EMAILS: 10000
+    volumes:
+      - ./email-seeder/dataset:/dataset
     depends_on:
       - mailpit
     networks:

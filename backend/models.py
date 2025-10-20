@@ -17,6 +17,10 @@ class Email(Base):
     is_phishing = Column(Boolean, default=False)
     processed = Column(Boolean, default=False)
 
+    # Ground truth labels from dataset
+    label = Column(Integer)  # 1 = phishing, 0 = legitimate (from dataset)
+    phishing_type = Column(String)  # e.g., authority_scam, credential_harvesting, legitimate
+
     # LLM Processing fields
     summary = Column(Text)  # LLM-generated summary
     call_to_actions = Column(JSON)  # List of extracted CTAs
@@ -25,6 +29,9 @@ class Email(Base):
 
     # Email categorization and badges
     badges = Column(JSON)  # List of badge types: MEETING, RISK, EXTERNAL, etc.
+
+    # UI state badges (ACTION_REQUIRED, HIGH_PRIORITY, REPLIED, ATTACHMENT, SNOOZED, AI_SUGGESTED)
+    ui_badges = Column(JSON)  # List of UI state badge types
 
     # Quick reply drafts (3 versions: formal, friendly, brief)
     quick_reply_drafts = Column(JSON)  # {formal: "", friendly: "", brief: ""}

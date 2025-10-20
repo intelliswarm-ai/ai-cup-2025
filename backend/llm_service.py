@@ -251,28 +251,35 @@ Return ONLY a JSON array like: ["MEETING", "EXTERNAL"] or []"""
         return list(set(badges))
 
     async def generate_quick_reply_drafts(self, subject: str, body: str, sender: str) -> Dict[str, str]:
-        """Generate 3 quick reply drafts: formal, friendly, brief"""
+        """Generate 3 quick reply drafts as responses TO the received email"""
 
-        system_prompt = """You are an email reply assistant. Generate appropriate email replies in different tones.
-Focus on being helpful and professional. Keep replies concise.
-You MUST return valid JSON only."""
+        system_prompt = """You are an email reply assistant. Generate appropriate REPLY emails responding to the received email.
+Each reply should directly address the content, questions, or requests in the original email.
+Be helpful, professional, and concise. You MUST return valid JSON only."""
 
-        prompt = f"""Generate 3 reply drafts for this email:
+        prompt = f"""You received this email:
 
 Subject: {subject}
 From: {sender}
-Body: {body[:1000]}
+Email Body:
+{body[:1000]}
 
-Create 3 versions:
-1. FORMAL - Professional, corporate tone
-2. FRIENDLY - Warm, conversational tone
-3. BRIEF - Short, to-the-point response
+Generate 3 different REPLY emails that respond to this email. Each reply should:
+- Acknowledge the email and its content
+- Address any questions, requests, or action items
+- Be appropriate for replying to the sender
+
+Create 3 reply versions in different tones:
+
+1. FORMAL - Professional, corporate tone. Start with "Dear [Name]" or "Hello". End with professional closing.
+2. FRIENDLY - Warm, conversational tone. Start with "Hi" or "Hey". Be personable but professional.
+3. BRIEF - Very short, to-the-point reply. 1-2 sentences acknowledging and responding to key points.
 
 Return ONLY a valid JSON object with this exact format (no other text):
 {{
-  "formal": "formal reply text here",
-  "friendly": "friendly reply text here",
-  "brief": "brief reply text here"
+  "formal": "Dear [Name],\n\n[Professional reply addressing the email content]\n\nBest regards",
+  "friendly": "Hi [Name]!\n\n[Friendly reply addressing the email content]\n\nCheers",
+  "brief": "[Short 1-2 sentence response]"
 }}"""
 
         try:
@@ -334,12 +341,12 @@ Return ONLY a valid JSON object with this exact format (no other text):
         except Exception as e:
             logger.error(f"Error generating reply drafts: {e}", exc_info=True)
 
-        # Fallback drafts
+        # Fallback drafts - generic replies when LLM fails
         logger.info("Using fallback quick reply drafts")
         return {
-            "formal": f"Thank you for your email regarding '{subject}'. I will review this and get back to you shortly.",
-            "friendly": f"Hi! Thanks for reaching out about '{subject}'. I'll look into this and follow up with you soon!",
-            "brief": "Thanks for your email. Will respond shortly."
+            "formal": f"Dear {sender.split('@')[0].title()},\n\nThank you for your email regarding '{subject}'. I have received your message and will review the details carefully. I will respond with a complete answer shortly.\n\nBest regards",
+            "friendly": f"Hi {sender.split('@')[0].title()}!\n\nThanks for reaching out about '{subject}'. I got your message and I'll look into this for you. I'll get back to you soon with more info!\n\nCheers",
+            "brief": f"Thanks for your email about '{subject}'. I'll respond shortly."
         }
 
 # Global instance

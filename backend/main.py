@@ -43,6 +43,14 @@ class EmailResponse(BaseModel):
     received_at: datetime
     is_phishing: bool
     processed: bool
+    label: Optional[int] = None  # Ground truth: 1=phishing, 0=legitimate
+    phishing_type: Optional[str] = None  # e.g., credential_harvesting, authority_scam, legitimate
+    summary: Optional[str] = None
+    call_to_actions: Optional[List[str]] = None
+    badges: Optional[List[str]] = None
+    ui_badges: Optional[List[str]] = None
+    quick_reply_drafts: Optional[dict] = None
+    llm_processed: Optional[bool] = False
     workflow_results: List[dict] = []
 
     class Config:
@@ -70,6 +78,31 @@ async def startup_event():
     logger.info("Initializing database...")
     init_db()
     logger.info("Database initialized successfully")
+
+def detect_ui_badges(email: Email) -> List[str]:
+    """Detect UI state badges for an email
+
+    Available UI badges: ACTION_REQUIRED, HIGH_PRIORITY, REPLIED, ATTACHMENT, SNOOZED, AI_SUGGESTED
+    """
+    ui_badges = []
+
+    # ACTION_REQUIRED: Email has call-to-actions
+    if email.call_to_actions and len(email.call_to_actions) > 0:
+        ui_badges.append("ACTION_REQUIRED")
+
+    # HIGH_PRIORITY: Email is marked as phishing (high risk)
+    if email.is_phishing:
+        ui_badges.append("HIGH_PRIORITY")
+
+    # AI_SUGGESTED: Email has AI-generated quick reply drafts
+    if email.quick_reply_drafts:
+        ui_badges.append("AI_SUGGESTED")
+
+    # ATTACHMENT: Would need email metadata - skip for now
+    # REPLIED: Would need user action tracking - skip for now
+    # SNOOZED: Would need user action tracking - skip for now
+
+    return ui_badges
 
 @app.get("/")
 async def root():
@@ -109,6 +142,25 @@ async def fetch_emails_from_mailpit(
             # Fetch full message details
             full_msg = await mailpit_client.get_message(msg_id)
 
+            # Fetch headers separately to get custom headers
+            headers = await mailpit_client.get_message_headers(msg_id)
+
+            # Extract ground truth labels from custom headers
+            label = None
+            phishing_type = None
+
+            if "X-Email-Label" in headers:
+                try:
+                    label = int(headers["X-Email-Label"][0])
+                except (ValueError, IndexError):
+                    pass
+
+            if "X-Phishing-Type" in headers:
+                try:
+                    phishing_type = headers["X-Phishing-Type"][0]
+                except IndexError:
+                    pass
+
             # Extract email data
             email = Email(
                 mailpit_id=msg_id,
@@ -117,7 +169,9 @@ async def fetch_emails_from_mailpit(
                 recipient=", ".join([addr.get("Address", "") for addr in msg.get("To", [])]),
                 body_text=full_msg.get("Text", ""),
                 body_html=full_msg.get("HTML", ""),
-                received_at=datetime.fromisoformat(msg.get("Created", "").replace("Z", "+00:00"))
+                received_at=datetime.fromisoformat(msg.get("Created", "").replace("Z", "+00:00")),
+                label=label,
+                phishing_type=phishing_type
             )
 
             db.add(email)
@@ -167,9 +221,12 @@ async def get_emails(
             "received_at": email.received_at,
             "is_phishing": email.is_phishing,
             "processed": email.processed,
+            "label": email.label,
+            "phishing_type": email.phishing_type,
             "summary": email.summary,
             "call_to_actions": email.call_to_actions,
             "badges": email.badges,
+            "ui_badges": email.ui_badges,
             "quick_reply_drafts": email.quick_reply_drafts,
             "llm_processed": email.llm_processed,
             "workflow_results": [
@@ -210,6 +267,7 @@ async def get_email(email_id: int, db: Session = Depends(get_db)):
         "summary": email.summary,
         "call_to_actions": email.call_to_actions,
         "badges": email.badges,
+        "ui_badges": email.ui_badges,
         "quick_reply_drafts": email.quick_reply_drafts,
         "llm_processed": email.llm_processed,
         "workflow_results": [
@@ -300,10 +358,14 @@ async def process_email(
         email.llm_processed = True
         email.llm_processed_at = datetime.utcnow()
 
+        # Detect and set UI badges
+        email.ui_badges = detect_ui_badges(email)
+
         llm_data = {
             "summary": email.summary,
             "badges": badges,
-            "quick_reply_drafts": quick_reply_drafts
+            "quick_reply_drafts": quick_reply_drafts,
+            "ui_badges": email.ui_badges
         }
 
     except Exception as llm_error:
@@ -399,10 +461,14 @@ async def process_all_unprocessed_emails(
                     email.llm_processed = True
                     email.llm_processed_at = datetime.utcnow()
 
+                    # Detect and set UI badges
+                    email.ui_badges = detect_ui_badges(email)
+
                     # Broadcast event for LLM processing
                     await broadcaster.broadcast("email_llm_processed", {
                         "email_id": email.id,
                         "badges": badges,
+                        "ui_badges": email.ui_badges,
                         "subject": email.subject,
                         "processed_count": unprocessed.index(email) + 1,
                         "total_count": len(unprocessed)

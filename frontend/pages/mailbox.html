@@ -13,6 +13,7 @@
   <script src="https://kit.fontawesome.com/42d5adcbca.js" crossorigin="anonymous"></script>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
   <link id="pagestyle" href="../assets/css/material-dashboard.css?v=3.0.0" rel="stylesheet" />
+  <link href="../assets/css/email-badges.css" rel="stylesheet" />
   <style>
     .email-card {
       cursor: pointer;
@@ -43,6 +44,14 @@
       margin-right: 5px;
       margin-bottom: 5px;
       display: inline-block;
+    }
+    .message-anatomy-container {
+      padding: 16px;
+      background: #f8f9fa;
+      border-top: 1px solid #dee2e6;
+    }
+    .email-card .card-body {
+      cursor: pointer;
     }
   </style>
 </head>
@@ -77,7 +86,7 @@
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link text-white" href="/pages/daily-summary.html">
+          <a class="nav-link text-white" href="/pages/daily-inbox-digest.html">
             <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
               <i class="material-icons-round opacity-10">summarize</i>
             </div>
@@ -225,8 +234,8 @@
 
     // Load emails on page load
     document.addEventListener('DOMContentLoaded', function() {
-      loadEmails();
       loadStatistics();
+      autoFetchEmailsFromMailpit();  // Auto-fetch emails on page load
 
       // Setup SSE event listeners for real-time updates
       sseClient.on('email_processed', function(data) {
@@ -261,13 +270,39 @@
     });
 
     function showProgress(message) {
-      // You can implement a toast/notification here
       console.log('Progress:', message);
+      // Update the page title or a status element
+      const container = document.getElementById('emails-container');
+      if (container && container.children.length === 0) {
+        container.innerHTML = `
+          <div class="alert alert-info d-flex align-items-center" role="alert">
+            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+            <div>${message}</div>
+          </div>
+        `;
+      }
     }
 
     function showSuccess(message) {
-      // You can implement a toast/notification here
       console.log('Success:', message);
+      // Could show a toast notification here
+      const container = document.getElementById('emails-container');
+      if (container && container.innerHTML.includes('spinner-border')) {
+        // Clear the progress message
+        loadEmails();
+      }
+    }
+
+    function showError(message) {
+      console.error('Error:', message);
+      const container = document.getElementById('emails-container');
+      if (container) {
+        container.innerHTML = `
+          <div class="alert alert-danger" role="alert">
+            ${message}
+          </div>
+        `;
+      }
     }
 
     async function loadStatistics() {
@@ -297,13 +332,31 @@
         }
 
         container.innerHTML = emails.map(email => `
-          <div class="card email-card mb-3" onclick="viewEmail(${email.id})">
-            <div class="card-body">
+          <div class="card email-card mb-3">
+            <div class="card-body" onclick="viewEmail(${email.id})">
               <div class="row">
                 <div class="col-8">
                   <h6 class="mb-1">${escapeHtml(email.subject)}</h6>
                   <p class="text-sm text-muted mb-1">From: ${escapeHtml(email.sender)}</p>
                   <p class="text-xs text-muted mb-0">${new Date(email.received_at).toLocaleString()}</p>
+                  ${(email.badges && email.badges.length > 0) || (email.ui_badges && email.ui_badges.length > 0) ? `
+                    <div class="mt-2">
+                      ${renderEmailBadges(email.badges || [])}
+                      ${renderUIBadges(email.ui_badges || [])}
+                    </div>
+                  ` : ''}
+                  ${email.label !== null && email.label !== undefined ? `
+                    <div class="mt-2">
+                      <span class="badge badge-sm ${email.label === 1 ? 'bg-gradient-danger' : 'bg-gradient-success'}" style="font-size: 10px;">
+                        Ground Truth: ${email.label === 1 ? 'PHISHING' : 'LEGITIMATE'}
+                      </span>
+                      ${email.phishing_type ? `
+                        <span class="badge badge-sm bg-gradient-secondary" style="font-size: 10px;">
+                          ${email.phishing_type.replace(/_/g, ' ').toUpperCase()}
+                        </span>
+                      ` : ''}
+                    </div>
+                  ` : ''}
                 </div>
                 <div class="col-4 text-end">
                   ${getStatusBadge(email)}
@@ -312,6 +365,15 @@
                 </div>
               </div>
             </div>
+            ${email.llm_processed ? `
+              <div class="card-footer bg-white border-top">
+                <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); toggleMessageAnatomy(${email.id})">
+                  <i class="material-icons-round" style="font-size: 18px; vertical-align: middle;">visibility</i>
+                  View Message Anatomy
+                </button>
+              </div>
+            ` : ''}
+            <div id="anatomy-${email.id}" class="message-anatomy-container" style="display: none;"></div>
           </div>
         `).join('');
 
@@ -332,6 +394,61 @@
         '<span class="badge safe-badge text-white">Safe</span>';
     }
 
+    function getBadgeIcon(badgeType) {
+      const icons = {
+        'MEETING': 'event',
+        'RISK': 'shield',
+        'EXTERNAL': 'close',
+        'AUTOMATED': 'settings',
+        'VIP': 'star',
+        'FOLLOW_UP': 'refresh',
+        'NEWSLETTER': 'mail',
+        'FINANCE': 'attach_money'
+      };
+      return icons[badgeType] || 'label';
+    }
+
+    function renderEmailBadges(badges) {
+      if (!badges || badges.length === 0) {
+        return '';
+      }
+      return badges.map(badge => {
+        const badgeClass = badge.toLowerCase().replace('_', '-');
+        const icon = getBadgeIcon(badge);
+        return `<span class="email-badge email-badge-${badgeClass}">
+          <i class="material-icons-round">${icon}</i>
+          ${badge.replace('_', ' ')}
+        </span>`;
+      }).join('');
+    }
+
+    function getUIBadgeIcon(badgeType) {
+      const icons = {
+        'ACTION_REQUIRED': 'error_outline',
+        'HIGH_PRIORITY': 'priority_high',
+        'REPLIED': 'reply',
+        'ATTACHMENT': 'attach_file',
+        'SNOOZED': 'schedule',
+        'AI_SUGGESTED': 'auto_awesome'
+      };
+      return icons[badgeType] || 'label';
+    }
+
+    function renderUIBadges(uiBadges) {
+      if (!uiBadges || uiBadges.length === 0) {
+        return '';
+      }
+      return uiBadges.map(badge => {
+        const badgeClass = badge.toLowerCase().replace('_', '-');
+        const icon = getUIBadgeIcon(badge);
+        const label = badge.replace('_', ' ');
+        return `<span class="ui-badge ui-badge-${badgeClass}">
+          <i class="material-icons-round">${icon}</i>
+          ${label}
+        </span>`;
+      }).join('');
+    }
+
     async function viewEmail(emailId) {
       try {
         const response = await fetch(`${API_BASE_URL}/emails/${emailId}`);
@@ -346,6 +463,40 @@
             <strong>Received:</strong> ${new Date(email.received_at).toLocaleString()}<br>
             <strong>Status:</strong> ${getStatusBadge(email)}
           </div>
+
+          ${email.label !== null && email.label !== undefined ? `
+            <div class="mb-3">
+              <strong>Ground Truth:</strong>
+              <div class="mt-2">
+                <span class="badge badge-sm ${email.label === 1 ? 'bg-gradient-danger' : 'bg-gradient-success'}">
+                  ${email.label === 1 ? 'PHISHING' : 'LEGITIMATE'}
+                </span>
+                ${email.phishing_type ? `
+                  <span class="badge badge-sm bg-gradient-secondary">
+                    Category: ${email.phishing_type.replace(/_/g, ' ').toUpperCase()}
+                  </span>
+                ` : ''}
+              </div>
+            </div>
+          ` : ''}
+
+          ${email.badges && email.badges.length > 0 ? `
+            <div class="mb-3">
+              <strong>Categories:</strong>
+              <div class="mt-2">
+                ${renderEmailBadges(email.badges)}
+              </div>
+            </div>
+          ` : ''}
+
+          ${email.ui_badges && email.ui_badges.length > 0 ? `
+            <div class="mb-3">
+              <strong>Status:</strong>
+              <div class="mt-2">
+                ${renderUIBadges(email.ui_badges)}
+              </div>
+            </div>
+          ` : ''}
 
           ${!email.processed ? `
             <div class="mb-3">
@@ -380,14 +531,62 @@
                 </div>
               </div>
             ` : ''}
-          ` : `
-            <div class="mb-3">
-              <button class="btn btn-info" onclick="processEmailWithLLM(${email.id})">
-                <i class="material-icons-round">psychology</i> Process with AI
-              </button>
-              <span class="text-sm text-muted ms-2">Generate summary and extract action items</span>
-            </div>
-          `}
+
+            ${email.quick_reply_drafts ? `
+              <div class="mb-3">
+                <div class="quick-reply-container">
+                  <h6 class="mb-3" style="border-bottom: 2px solid #212529; padding-bottom: 8px;">Quick Reply Drafts</h6>
+
+                  <div class="mb-3">
+                    <div class="d-flex align-items-center mb-2">
+                      <span class="badge bg-dark me-2">A</span>
+                      <span class="quick-reply-label">(FORMAL)</span>
+                    </div>
+                    <textarea class="form-control quick-reply-text-input" rows="3" readonly>${email.quick_reply_drafts.formal || ''}</textarea>
+                  </div>
+
+                  <div class="mb-3">
+                    <div class="d-flex align-items-center mb-2">
+                      <span class="badge bg-dark me-2">B</span>
+                      <span class="quick-reply-label">(FRIENDLY)</span>
+                    </div>
+                    <textarea class="form-control quick-reply-text-input" rows="3" readonly>${email.quick_reply_drafts.friendly || ''}</textarea>
+                  </div>
+
+                  <div class="mb-3">
+                    <div class="d-flex align-items-center mb-2">
+                      <span class="badge bg-dark me-2">C</span>
+                      <span class="quick-reply-label">(BRIEF)</span>
+                    </div>
+                    <textarea class="form-control quick-reply-text-input" rows="2" readonly>${email.quick_reply_drafts.brief || ''}</textarea>
+                  </div>
+
+                  <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="readyToSend${email.id}">
+                    <label class="form-check-label" for="readyToSend${email.id}">
+                      Looks good - ready to send
+                    </label>
+                  </div>
+
+                  <div class="d-flex gap-2 mb-3">
+                    <button class="btn btn-outline-secondary btn-sm">
+                      <i class="material-icons-round" style="font-size: 16px; vertical-align: middle;">edit</i>
+                      Edit
+                    </button>
+                    <button class="btn btn-primary btn-sm">
+                      <i class="material-icons-round" style="font-size: 16px; vertical-align: middle;">send</i>
+                      Approve & Send
+                    </button>
+                  </div>
+
+                  <div>
+                    <label class="form-label text-sm text-muted">Signature (optional)</label>
+                    <textarea class="form-control" rows="2" placeholder="Add your signature..."></textarea>
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+          ` : ''}
 
           ${email.workflow_results && email.workflow_results.length > 0 ? `
             <div class="mb-3">
@@ -421,6 +620,87 @@
         console.error('Error loading email details:', error);
         alert('Error loading email details');
       }
+    }
+
+    async function toggleMessageAnatomy(emailId) {
+      const container = document.getElementById(`anatomy-${emailId}`);
+
+      if (container.style.display === 'none') {
+        // Fetch email data and display anatomy
+        try {
+          const response = await fetch(`${API_BASE_URL}/emails/${emailId}`);
+          const email = await response.json();
+
+          // Parse summary into bullet points
+          let summaryBullets = [];
+          if (email.summary) {
+            // Try to split by common sentence delimiters and take first 3-4 points
+            const sentences = email.summary.split(/[.;]\s+/).filter(s => s.trim().length > 0);
+            summaryBullets = sentences.slice(0, 3);
+          }
+
+          container.innerHTML = `
+            <div class="message-card">
+              <div class="message-card-header">
+                <div class="message-card-badges">
+                  ${renderEmailBadges(email.badges || [])}
+                </div>
+                <div class="message-card-sender">
+                  ${escapeHtml(email.sender)}
+                </div>
+              </div>
+
+              <div class="message-card-subject">
+                ${escapeHtml(email.subject)}
+              </div>
+
+              ${summaryBullets.length > 0 ? `
+                <ul class="message-card-summary">
+                  ${summaryBullets.map(bullet => `<li>${escapeHtml(bullet)}</li>`).join('')}
+                </ul>
+              ` : ''}
+
+              <div class="message-card-actions">
+                <div class="action-checkbox-group">
+                  <label class="form-check mb-0">
+                    <input type="checkbox" class="form-check-input">
+                    <span class="form-check-label text-sm">Snooze</span>
+                  </label>
+                  <label class="form-check mb-0">
+                    <input type="checkbox" class="form-check-input">
+                    <span class="form-check-label text-sm">Move to...</span>
+                  </label>
+                </div>
+                <div class="action-buttons">
+                  <button class="btn btn-sm btn-outline-secondary" onclick="viewEmail(${email.id})">
+                    <i class="material-icons-round" style="font-size: 16px;">open_in_new</i>
+                    View Full
+                  </button>
+                  ${email.quick_reply_drafts ? `
+                    <button class="btn btn-sm btn-primary" onclick="showQuickReplies(${email.id})">
+                      <i class="material-icons-round" style="font-size: 16px;">reply</i>
+                      Quick Reply
+                    </button>
+                  ` : ''}
+                </div>
+              </div>
+            </div>
+          `;
+          container.style.display = 'block';
+        } catch (error) {
+          console.error('Error loading message anatomy:', error);
+          container.innerHTML = '<div class="alert alert-danger m-3">Error loading message details</div>';
+          container.style.display = 'block';
+        }
+      } else {
+        // Hide anatomy
+        container.style.display = 'none';
+      }
+    }
+
+    async function showQuickReplies(emailId) {
+      // This will open the full email modal which already shows quick replies
+      viewEmail(emailId);
     }
 
     async function processEmail(emailId) {
@@ -480,26 +760,101 @@
       }
     }
 
+    async function autoFetchEmailsFromMailpit() {
+      try {
+        const BATCH_SIZE = 200;
+        let totalFetched = 0;
+        let currentBatch = 0;
+
+        // First, check how many emails are in the database
+        const statsResponse = await fetch(`${API_BASE_URL}/statistics`);
+        const stats = await statsResponse.json();
+
+        if (stats.total_emails > 0) {
+          // Emails already loaded, just display them
+          console.log(`Found ${stats.total_emails} emails already in database`);
+          await loadEmails();
+          return;
+        }
+
+        // Check how many emails are in MailPit
+        const checkResponse = await fetch(`${API_BASE_URL}/emails/fetch?limit=1`, {
+          method: 'POST'
+        });
+        const checkResult = await checkResponse.json();
+        const totalInMailpit = checkResult.total_in_mailpit;
+
+        if (totalInMailpit === 0) {
+          console.log('No emails in MailPit yet');
+          await loadEmails();
+          return;
+        }
+
+        console.log(`Auto-fetching ${totalInMailpit} emails from MailPit in batches of ${BATCH_SIZE}...`);
+        showProgress(`Fetching emails from MailPit: 0/${totalInMailpit}`);
+
+        // Fetch in batches
+        while (totalFetched < totalInMailpit) {
+          currentBatch++;
+          const response = await fetch(`${API_BASE_URL}/emails/fetch?limit=${BATCH_SIZE}`, {
+            method: 'POST'
+          });
+          const result = await response.json();
+
+          totalFetched += result.fetched;
+
+          // Update progress
+          showProgress(`Fetching emails: ${totalFetched}/${totalInMailpit}`);
+
+          // Update UI periodically
+          if (currentBatch % 5 === 0 || totalFetched >= totalInMailpit) {
+            await loadEmails();
+            await loadStatistics();
+          }
+
+          // If no more emails to fetch, break
+          if (result.fetched === 0) {
+            break;
+          }
+        }
+
+        showSuccess(`Auto-fetched ${totalFetched} emails from MailPit!`);
+        await loadEmails();
+        await loadStatistics();
+      } catch (error) {
+        console.error('Error auto-fetching emails:', error);
+        // Still try to load any emails that were fetched
+        await loadEmails();
+        await loadStatistics();
+      }
+    }
+
     async function fetchEmailsFromMailpit() {
       try {
         const btn = event.target;
         btn.disabled = true;
-        btn.textContent = 'Fetching...';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Fetching...';
 
         const response = await fetch(`${API_BASE_URL}/emails/fetch`, {
           method: 'POST'
         });
         const result = await response.json();
 
-        alert(`Fetched ${result.fetched} new emails from MailPit!\nTotal in MailPit: ${result.total_in_mailpit}`);
+        // Refresh the UI
+        await loadEmails();
+        await loadStatistics();
 
         btn.disabled = false;
         btn.innerHTML = '<i class="material-icons-round">download</i> Fetch Emails from MailPit';
 
-        loadEmails();
+        // Show success message
+        showSuccess(`Fetched ${result.fetched} new emails from MailPit! Total: ${result.total_in_mailpit}`);
       } catch (error) {
         console.error('Error fetching emails:', error);
-        alert('Error fetching emails from MailPit');
+        showError('Error fetching emails from MailPit');
+        const btn = event.target;
+        btn.disabled = false;
+        btn.innerHTML = '<i class="material-icons-round">download</i> Fetch Emails from MailPit';
       }
     }
 
