@@ -1,6 +1,10 @@
 import re
 from typing import Dict, List
 import random
+import httpx
+import logging
+
+logger = logging.getLogger(__name__)
 
 class PhishingDetectionWorkflow:
     """Base class for phishing detection workflows"""
@@ -161,6 +165,84 @@ class ContentAnalysisWorkflow(PhishingDetectionWorkflow):
             }
         }
 
+class MLModelWorkflow(PhishingDetectionWorkflow):
+    """Base class for ML model workflows that call external model services"""
+
+    def __init__(self, name: str, model_url: str):
+        super().__init__(name)
+        self.model_url = model_url
+
+    async def analyze(self, email_data: Dict) -> Dict:
+        """Call the ML model service to analyze email"""
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{self.model_url}/predict",
+                    json={
+                        "subject": email_data.get("subject", ""),
+                        "sender": email_data.get("sender", ""),
+                        "body_text": email_data.get("body_text", ""),
+                        "body_html": email_data.get("body_html", "")
+                    }
+                )
+                response.raise_for_status()
+                result = response.json()
+
+                return {
+                    "workflow": self.name,
+                    "is_phishing_detected": result.get("is_phishing", False),
+                    "confidence_score": int(result.get("confidence_score", 0)),
+                    "risk_indicators": [
+                        f"Spam probability: {result.get('spam_probability', 0):.1f}%"
+                    ] if result.get("is_phishing") else [],
+                    "details": {
+                        "model": result.get("model_name", self.name),
+                        "spam_probability": result.get("spam_probability", 0),
+                        "ham_probability": result.get("ham_probability", 0)
+                    }
+                }
+        except Exception as e:
+            logger.error(f"ML model {self.name} error: {e}")
+            return {
+                "workflow": self.name,
+                "is_phishing_detected": False,
+                "confidence_score": 0,
+                "risk_indicators": [],
+                "error": str(e),
+                "details": {}
+            }
+
+
+class LogisticRegressionWorkflow(MLModelWorkflow):
+    """Logistic Regression ML model workflow"""
+    def __init__(self):
+        super().__init__("ML: Logistic Regression", "http://model-logistic-regression:8001")
+
+
+class NaiveBayesWorkflow(MLModelWorkflow):
+    """Naive Bayes ML model workflow"""
+    def __init__(self):
+        super().__init__("ML: Naive Bayes", "http://model-naive-bayes:8002")
+
+
+class NeuralNetworkWorkflow(MLModelWorkflow):
+    """Neural Network ML model workflow"""
+    def __init__(self):
+        super().__init__("ML: Neural Network", "http://model-neural-network:8003")
+
+
+class RandomForestWorkflow(MLModelWorkflow):
+    """Random Forest ML model workflow"""
+    def __init__(self):
+        super().__init__("ML: Random Forest", "http://model-random-forest:8004")
+
+
+class SVMWorkflow(MLModelWorkflow):
+    """Support Vector Machine ML model workflow"""
+    def __init__(self):
+        super().__init__("ML: SVM", "http://model-svm:8005")
+
+
 class WorkflowEngine:
     """Manages and executes multiple analysis workflows"""
 
@@ -168,7 +250,12 @@ class WorkflowEngine:
         self.workflows = [
             URLAnalysisWorkflow(),
             SenderAnalysisWorkflow(),
-            ContentAnalysisWorkflow()
+            ContentAnalysisWorkflow(),
+            LogisticRegressionWorkflow(),
+            NaiveBayesWorkflow(),
+            NeuralNetworkWorkflow(),
+            RandomForestWorkflow(),
+            SVMWorkflow()
         ]
 
     async def run_all_workflows(self, email_data: Dict) -> List[Dict]:

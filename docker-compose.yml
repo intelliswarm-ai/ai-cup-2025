@@ -109,6 +109,62 @@ services:
       - mailbox-network
     command: python seed_emails.py
 
+  # ML Model Services - Phishing Detection Models
+  model-logistic-regression:
+    build:
+      context: ./model-logistic-regression
+      dockerfile: Dockerfile
+    container_name: model-logistic-regression
+    ports:
+      - "8001:8001"
+    networks:
+      - mailbox-network
+    restart: unless-stopped
+
+  model-naive-bayes:
+    build:
+      context: ./model-naive-bayes
+      dockerfile: Dockerfile
+    container_name: model-naive-bayes
+    ports:
+      - "8002:8002"
+    networks:
+      - mailbox-network
+    restart: unless-stopped
+
+  model-neural-network:
+    build:
+      context: ./model-neural-network
+      dockerfile: Dockerfile
+    container_name: model-neural-network
+    ports:
+      - "8003:8003"
+    networks:
+      - mailbox-network
+    restart: unless-stopped
+
+  model-random-forest:
+    build:
+      context: ./model-random-forest
+      dockerfile: Dockerfile
+    container_name: model-random-forest
+    ports:
+      - "8004:8004"
+    networks:
+      - mailbox-network
+    restart: unless-stopped
+
+  model-svm:
+    build:
+      context: ./model-svm
+      dockerfile: Dockerfile
+    container_name: model-svm
+    ports:
+      - "8005:8005"
+    networks:
+      - mailbox-network
+    restart: unless-stopped
+
 networks:
   mailbox-network:
     driver: bridge
