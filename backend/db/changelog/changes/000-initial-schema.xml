@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Create emails table -->
+    <changeSet id="000-create-emails-table" author="ai-cup-2025">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="emails"/>
+            </not>
+        </preConditions>
+        
+        <createTable tableName="emails">
+            <column name="id" type="SERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="mailpit_id" type="VARCHAR">
+                <constraints nullable="true"/>
+            </column>
+            <column name="subject" type="VARCHAR">
+                <constraints nullable="true"/>
+            </column>
+            <column name="sender" type="VARCHAR">
+                <constraints nullable="true"/>
+            </column>
+            <column name="recipient" type="VARCHAR">
+                <constraints nullable="true"/>
+            </column>
+            <column name="body_text" type="TEXT">
+                <constraints nullable="true"/>
+            </column>
+            <column name="body_html" type="TEXT">
+                <constraints nullable="true"/>
+            </column>
+            <column name="received_at" type="TIMESTAMP WITHOUT TIME ZONE">
+                <constraints nullable="true"/>
+            </column>
+            <column name="is_phishing" type="BOOLEAN">
+                <constraints nullable="true"/>
+            </column>
+            <column name="processed" type="BOOLEAN">
+                <constraints nullable="true"/>
+            </column>
+            <column name="summary" type="TEXT">
+                <constraints nullable="true"/>
+            </column>
+            <column name="call_to_actions" type="JSON">
+                <constraints nullable="true"/>
+            </column>
+            <column name="llm_processed" type="BOOLEAN">
+                <constraints nullable="true"/>
+            </column>
+            <column name="llm_processed_at" type="TIMESTAMP WITHOUT TIME ZONE">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+        
+        <createIndex tableName="emails" indexName="ix_emails_id">
+            <column name="id"/>
+        </createIndex>
+        
+        <createIndex tableName="emails" indexName="ix_emails_mailpit_id" unique="true">
+            <column name="mailpit_id"/>
+        </createIndex>
+        
+        <rollback>
+            <dropTable tableName="emails"/>
+        </rollback>
+    </changeSet>
+
+    <!-- Create workflow_configs table -->
+    <changeSet id="000-create-workflow-configs-table" author="ai-cup-2025">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="workflow_configs"/>
+            </not>
+        </preConditions>
+        
+        <createTable tableName="workflow_configs">
+            <column name="id" type="SERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR">
+                <constraints nullable="true" unique="true"/>
+            </column>
+            <column name="description" type="TEXT">
+                <constraints nullable="true"/>
+            </column>
+            <column name="enabled" type="BOOLEAN">
+                <constraints nullable="true"/>
+            </column>
+            <column name="config" type="JSON">
+                <constraints nullable="true"/>
+            </column>
+            <column name="created_at" type="TIMESTAMP WITHOUT TIME ZONE">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+        
+        <createIndex tableName="workflow_configs" indexName="ix_workflow_configs_id">
+            <column name="id"/>
+        </createIndex>
+        
+        <rollback>
+            <dropTable tableName="workflow_configs"/>
+        </rollback>
+    </changeSet>
+
+    <!-- Create workflow_results table -->
+    <changeSet id="000-create-workflow-results-table" author="ai-cup-2025">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <tableExists tableName="workflow_results"/>
+            </not>
+        </preConditions>
+        
+        <createTable tableName="workflow_results">
+            <column name="id" type="SERIAL">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="email_id" type="INTEGER">
+                <constraints nullable="true" foreignKeyName="workflow_results_email_id_fkey" references="emails(id)"/>
+            </column>
+            <column name="workflow_name" type="VARCHAR">
+                <constraints nullable="true"/>
+            </column>
+            <column name="result" type="JSON">
+                <constraints nullable="true"/>
+            </column>
+            <column name="is_phishing_detected" type="BOOLEAN">
+                <constraints nullable="true"/>
+            </column>
+            <column name="confidence_score" type="INTEGER">
+                <constraints nullable="true"/>
+            </column>
+            <column name="risk_indicators" type="JSON">
+                <constraints nullable="true"/>
+            </column>
+            <column name="executed_at" type="TIMESTAMP WITHOUT TIME ZONE">
+                <constraints nullable="true"/>
+            </column>
+        </createTable>
+        
+        <createIndex tableName="workflow_results" indexName="ix_workflow_results_id">
+            <column name="id"/>
+        </createIndex>
+        
+        <rollback>
+            <dropTable tableName="workflow_results"/>
+        </rollback>
+    </changeSet>
+
+</databaseChangeLog>
