@@ -306,6 +306,9 @@ async def process_email(
     # Step 1: Run workflows
     workflow_results = await workflow_engine.run_all_workflows(email_data)
 
+    # Delete existing workflow results for this email to avoid duplicates
+    db.query(WorkflowResult).filter(WorkflowResult.email_id == email.id).delete()
+
     # Store results
     phishing_votes = 0
     total_confidence = 0

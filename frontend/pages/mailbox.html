@@ -14,41 +14,49 @@
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
   <link id="pagestyle" href="../assets/css/material-dashboard.css?v=3.0.0" rel="stylesheet" />
   <link href="../assets/css/email-badges.css" rel="stylesheet" />
+  <link href="../assets/css/professional-theme.css" rel="stylesheet" />
   <style>
     .email-card {
       cursor: pointer;
       transition: transform 0.2s;
+      border: 1px solid #E8E6E3;
     }
     .email-card:hover {
       transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 40, 85, 0.1);
     }
     .phishing-badge {
-      background: linear-gradient(195deg, #EC407A 0%, #D81B60 100%);
+      background: linear-gradient(195deg, #6B1C23 0%, #8B2430 100%);
     }
     .safe-badge {
-      background: linear-gradient(195deg, #66BB6A 0%, #43A047 100%);
+      background: linear-gradient(195deg, #2C5234 0%, #3A6B45 100%);
     }
     .pending-badge {
-      background: linear-gradient(195deg, #FFA726 0%, #FB8C00 100%);
+      background: linear-gradient(195deg, #B8551B 0%, #D46B28 100%);
     }
     .workflow-result {
-      border-left: 3px solid #e91e63;
+      border-left: 3px solid #8B1538;
       padding-left: 15px;
       margin-bottom: 15px;
+      background: #F7F6F4;
+      padding: 12px 15px;
+      border-radius: 4px;
     }
     .risk-indicator {
       font-size: 0.875rem;
       padding: 4px 8px;
       border-radius: 4px;
-      background-color: #f8f9fa;
+      background-color: #F7F6F4;
+      color: #5B5550;
+      border: 1px solid #D5D3CF;
       margin-right: 5px;
       margin-bottom: 5px;
       display: inline-block;
     }
     .message-anatomy-container {
       padding: 16px;
-      background: #f8f9fa;
-      border-top: 1px solid #dee2e6;
+      background: #F7F6F4;
+      border-top: 1px solid #E8E6E3;
     }
     .email-card .card-body {
       cursor: pointer;

@@ -1,4 +1,4 @@
-/* Email Category Badge Styles - Based on design/pic5-email-badges.png and pic7-ui-badges-for-digest.png */
+/* Email Category Badge Styles - Professional Banking Theme */
 
 .email-badge {
   padding: 8px 16px;
@@ -18,7 +18,7 @@
   font-size: 1.25rem;
 }
 
-/* UI State Badges - Based on design/pic6-ui-badges.png */
+/* UI State Badges - Professional Theme */
 
 .ui-badge {
   padding: 6px 12px;
@@ -30,9 +30,9 @@
   gap: 6px;
   margin-right: 8px;
   margin-bottom: 8px;
-  border: 2px solid #212529;
+  border: 2px solid #8B1538;
   background: white;
-  color: #212529;
+  color: #8B1538;
   text-transform: uppercase;
   transition: all 0.2s;
 }
@@ -41,97 +41,97 @@
   font-size: 1rem;
 }
 
-/* Specific UI Badge Styles */
+/* Specific UI Badge Styles - Professional Color Palette */
 .ui-badge-action-required {
-  border-color: #d32f2f;
-  color: #d32f2f;
+  border-color: #6B1C23;
+  color: #6B1C23;
 }
 
 .ui-badge-high-priority {
-  border-color: #f57c00;
-  color: #f57c00;
+  border-color: #B8551B;
+  color: #B8551B;
 }
 
 .ui-badge-replied {
-  border-color: #388e3c;
-  color: #388e3c;
+  border-color: #6B8E6F;
+  color: #4A6B4D;
 }
 
 .ui-badge-attachment {
-  border-color: #1976d2;
-  color: #1976d2;
+  border-color: #003D82;
+  color: #003D82;
 }
 
 .ui-badge-snoozed {
-  border-color: #7b1fa2;
-  color: #7b1fa2;
+  border-color: #5C4A72;
+  color: #5C4A72;
 }
 
 .ui-badge-ai-suggested {
-  border-color: #0288d1;
-  color: #0288d1;
+  border-color: #1A5F7A;
+  color: #1A5F7A;
 }
 
-/* Meeting Badge - Calendar Icon */
+/* Meeting Badge - Professional Burgundy */
 .email-badge-meeting {
-  background: #f0f4ff;
-  color: #4169e1;
-  border-color: #4169e1;
+  background: #F9E8EC;
+  color: #8B1538;
+  border-color: #8B1538;
 }
 
-/* Risk Badge - Shield Icon with Exclamation */
+/* Risk Badge - Burgundy Alert */
 .email-badge-risk {
-  background: #ffe5e5;
-  color: #d32f2f;
-  border-color: #d32f2f;
+  background: #F5E8E9;
+  color: #6B1C23;
+  border-color: #6B1C23;
 }
 
-/* External Badge - X Icon */
+/* External Badge - Warm Orange/Bronze */
 .email-badge-external {
-  background: #fff3e0;
-  color: #e65100;
-  border-color: #e65100;
+  background: #FBF3E8;
+  color: #B8551B;
+  border-color: #B8551B;
 }
 
-/* Automated Badge - Gear Icon */
+/* Automated Badge - Muted Purple */
 .email-badge-automated {
-  background: #f3e5f5;
-  color: #7b1fa2;
-  border-color: #7b1fa2;
+  background: #F0ECF3;
+  color: #5C4A72;
+  border-color: #5C4A72;
 }
 
-/* VIP Badge - Star Icon */
+/* VIP Badge - Bronze/Gold */
 .email-badge-vip {
-  background: #fff9c4;
-  color: #f57f17;
-  border-color: #f57f17;
+  background: #FAF6ED;
+  color: #8B7355;
+  border-color: #B8A068;
 }
 
-/* Follow-up Badge - Circular Arrow */
+/* Follow-up Badge - Professional Teal */
 .email-badge-follow_up, .email-badge-follow-up {
-  background: #e1f5fe;
-  color: #0277bd;
-  border-color: #0277bd;
+  background: #E8F3F5;
+  color: #1A5F7A;
+  border-color: #1A5F7A;
 }
 
-/* Newsletter Badge - Envelope Icon */
+/* Newsletter Badge - Mild Sage Green */
 .email-badge-newsletter {
-  background: #e8f5e9;
-  color: #388e3c;
-  border-color: #388e3c;
+  background: #EEF4EF;
+  color: #4A6B4D;
+  border-color: #6B8E6F;
 }
 
-/* Finance Badge - Dollar Sign/Briefcase */
+/* Finance Badge - Burgundy */
 .email-badge-finance {
-  background: #fce4ec;
-  color: #c2185b;
-  border-color: #c2185b;
+  background: #F5E8E9;
+  color: #6B1C23;
+  border-color: #6B1C23;
 }
 
-/* Quick Reply Drafts Styles - Based on design/pic6-quick-reply-drafts.png */
+/* Quick Reply Drafts Styles - Professional Theme */
 
 .quick-reply-container {
-  border: 2px solid #212529;
+  border: 2px solid #8B1538;
   border-radius: 8px;
   padding: 20px;
   background: white;
@@ -141,11 +141,11 @@
   font-size: 0.75rem;
   text-transform: uppercase;
   font-weight: 600;
-  color: #495057;
+  color: #5B5550;
 }
 
 .quick-reply-text-input {
-  border: 2px solid #495057;
+  border: 2px solid #8B8680;
   border-radius: 8px;
   font-size: 0.875rem;
   padding: 10px;
@@ -154,14 +154,14 @@
 }
 
 .quick-reply-text-input:focus {
-  border-color: #1976d2;
-  box-shadow: 0 0 0 0.2rem rgba(25, 118, 210, 0.15);
+  border-color: #8B1538;
+  box-shadow: 0 0 0 0.2rem rgba(139, 21, 56, 0.15);
 }
 
-/* Message Card Anatomy - Based on design/pic2-message-card-anatomy.png */
+/* Message Card Anatomy - Professional Theme */
 
 .message-card {
-  border: 2px dashed #dee2e6;
+  border: 2px dashed #D5D3CF;
   border-radius: 8px;
   padding: 20px;
   background: white;
@@ -183,14 +183,14 @@
 
 .message-card-sender {
   font-size: 0.875rem;
-  color: #6c757d;
+  color: #8B8680;
   text-align: right;
 }
 
 .message-card-subject {
   font-size: 1.125rem;
   font-weight: 600;
-  color: #212529;
+  color: #3C3935;
   margin-bottom: 12px;
 }
 
@@ -204,7 +204,7 @@
   padding-left: 20px;
   position: relative;
   margin-bottom: 6px;
-  color: #495057;
+  color: #5B5550;
   font-size: 0.9375rem;
 }
 
@@ -212,7 +212,7 @@
   content: "•";
   position: absolute;
   left: 0;
-  color: #adb5bd;
+  color: #B8A068;
   font-weight: bold;
 }
 
@@ -221,7 +221,7 @@
   gap: 8px;
   align-items: center;
   padding-top: 12px;
-  border-top: 1px solid #e9ecef;
+  border-top: 1px solid #E8E6E3;
 }
 
 .action-checkbox-group {

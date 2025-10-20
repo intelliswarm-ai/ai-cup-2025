@@ -13,6 +13,7 @@
   <script src="https://kit.fontawesome.com/42d5adcbca.js" crossorigin="anonymous"></script>
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
   <link id="pagestyle" href="../assets/css/material-dashboard.css?v=3.0.0" rel="stylesheet" />
+  <link href="../assets/css/professional-theme.css" rel="stylesheet" />
   <script src="../assets/js/plugins/chartjs.min.js"></script>
 </head>
 
@@ -235,14 +236,14 @@
           datasets: [{
             data: [0, 0, 0],
             backgroundColor: [
-              'rgba(76, 175, 80, 0.8)',
-              'rgba(244, 67, 54, 0.8)',
-              'rgba(255, 152, 0, 0.8)'
+              'rgba(107, 142, 111, 0.85)',   // Mild Sage Green
+              'rgba(139, 21, 56, 0.85)',     // Burgundy
+              'rgba(184, 85, 27, 0.85)'      // Bronze/Orange
             ],
             borderColor: [
-              'rgba(76, 175, 80, 1)',
-              'rgba(244, 67, 54, 1)',
-              'rgba(255, 152, 0, 1)'
+              'rgba(107, 142, 111, 1)',
+              'rgba(139, 21, 56, 1)',
+              'rgba(184, 85, 27, 1)'
             ],
             borderWidth: 2
           }]
@@ -253,6 +254,13 @@
           plugins: {
             legend: {
               position: 'bottom',
+              labels: {
+                font: {
+                  family: 'Roboto',
+                  size: 12
+                },
+                color: '#5B5550'
+              }
             }
           }
         }
@@ -267,14 +275,14 @@
           datasets: [{
             label: 'Phishing Detected',
             data: [0, 0, 0],
-            backgroundColor: 'rgba(244, 67, 54, 0.8)',
-            borderColor: 'rgba(244, 67, 54, 1)',
+            backgroundColor: 'rgba(139, 21, 56, 0.85)',    // Burgundy
+            borderColor: 'rgba(139, 21, 56, 1)',
             borderWidth: 2
           }, {
             label: 'Safe',
             data: [0, 0, 0],
-            backgroundColor: 'rgba(76, 175, 80, 0.8)',
-            borderColor: 'rgba(76, 175, 80, 1)',
+            backgroundColor: 'rgba(107, 142, 111, 0.85)',  // Mild Sage Green
+            borderColor: 'rgba(107, 142, 111, 1)',
             borderWidth: 2
           }]
         },
@@ -284,13 +292,40 @@
           plugins: {
             legend: {
               position: 'bottom',
+              labels: {
+                font: {
+                  family: 'Roboto',
+                  size: 12
+                },
+                color: '#5B5550'
+              }
             }
           },
           scales: {
             y: {
               beginAtZero: true,
               ticks: {
-                stepSize: 1
+                stepSize: 1,
+                color: '#5B5550',
+                font: {
+                  family: 'Roboto',
+                  size: 11
+                }
+              },
+              grid: {
+                color: 'rgba(213, 211, 207, 0.3)'
+              }
+            },
+            x: {
+              ticks: {
+                color: '#5B5550',
+                font: {
+                  family: 'Roboto',
+                  size: 11
+                }
+              },
+              grid: {
+                display: false
               }
             }
           }
