@@ -1,4 +1,4 @@
-# Email Security Dashboard - AI Cup 2025
+# Email Dashboard - AI Cup 2025
 
 A multi-container Docker application for analyzing and detecting phishing emails using multiple agentic workflows.
 
