@@ -392,7 +392,28 @@
         isLoadingEmails = true;
 
         const response = await fetch(`${API_BASE_URL}/emails?limit=${EMAILS_PER_PAGE}&offset=${offset}`);
-        const emails = await response.json();
+        let emails = await response.json();
+
+        // Sort emails: fully processed (both ML + enrichment) first
+        emails.sort((a, b) => {
+          // First priority: BOTH processed AND enriched (fully analyzed)
+          const aFullyProcessed = a.processed && a.enriched;
+          const bFullyProcessed = b.processed && b.enriched;
+
+          if (aFullyProcessed && !bFullyProcessed) return -1;
+          if (!aFullyProcessed && bFullyProcessed) return 1;
+
+          // Second priority: at least processed (ML analysis done)
+          if (a.processed && !b.processed) return -1;
+          if (!a.processed && b.processed) return 1;
+
+          // Third priority: at least enriched (wiki enrichment done)
+          if (a.enriched && !b.enriched) return -1;
+          if (!a.enriched && b.enriched) return 1;
+
+          // Fourth priority: received date (newest first)
+          return new Date(b.received_at) - new Date(a.received_at);
+        });
 
         const container = document.getElementById('emails-container');
 

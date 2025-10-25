@@ -42,6 +42,8 @@ class EmailResponse(BaseModel):
     subject: str
     sender: str
     recipient: str
+    body_text: Optional[str] = None
+    body_html: Optional[str] = None
     received_at: datetime
     is_phishing: bool
     processed: bool
@@ -223,6 +225,49 @@ async def fetch_emails_from_mailpit(
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/emails/update-bodies")
+async def update_email_bodies(
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    """Update body_text for existing emails from MailPit"""
+    try:
+        # Get emails without body_text
+        emails_to_update = db.query(Email).filter(
+            (Email.body_text == None) | (Email.body_text == "")
+        ).limit(limit).all()
+
+        updated_count = 0
+        for email in emails_to_update:
+            try:
+                # Fetch full message from MailPit
+                full_msg = await mailpit_client.get_message(email.mailpit_id)
+
+                # Update body_text and body_html
+                email.body_text = full_msg.get("Text", "")
+                email.body_html = full_msg.get("HTML", "")
+
+                updated_count += 1
+
+            except Exception as e:
+                logger.error(f"Error updating email {email.id}: {e}")
+                continue
+
+        db.commit()
+
+        return {
+            "status": "success",
+            "updated": updated_count,
+            "total_without_body": db.query(Email).filter(
+                (Email.body_text == None) | (Email.body_text == "")
+            ).count()
+        }
+
+    except Exception as e:
+        logger.error(f"Error updating email bodies: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/emails", response_model=List[EmailResponse])
 async def get_emails(
     skip: int = 0,
@@ -232,6 +277,8 @@ async def get_emails(
     db: Session = Depends(get_db)
 ):
     """Get emails from database with filters"""
+    from sqlalchemy import case, and_
+
     query = db.query(Email)
 
     if processed is not None:
@@ -240,7 +287,19 @@ async def get_emails(
     if is_phishing is not None:
         query = query.filter(Email.is_phishing == is_phishing)
 
-    emails = query.order_by(Email.received_at.desc()).offset(skip).limit(limit).all()
+    # Sort by analysis completion status:
+    # Priority 1: Both processed AND enriched (fully analyzed)
+    # Priority 2: Processed only
+    # Priority 3: Enriched only
+    # Priority 4: Received date (newest first)
+    priority = case(
+        (and_(Email.processed == True, Email.enriched == True), 0),  # Fully analyzed - highest priority
+        (Email.processed == True, 1),                                 # ML analysis done
+        (Email.enriched == True, 2),                                  # Wiki enrichment done
+        else_=3                                                        # Not processed - lowest priority
+    )
+
+    emails = query.order_by(priority, Email.received_at.desc()).offset(skip).limit(limit).all()
 
     # Convert to response format
     result = []
@@ -272,7 +331,12 @@ async def get_emails(
                     "result": wr.result
                 }
                 for wr in email.workflow_results
-            ]
+            ],
+            "body_text": email.body_text,
+            "body_html": email.body_html,
+            "enriched": email.enriched,
+            "enriched_data": email.enriched_data,
+            "enriched_at": email.enriched_at
         }
         result.append(email_dict)
 

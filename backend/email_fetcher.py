@@ -92,6 +92,8 @@ class EmailFetcherService:
                             subject=full_msg.get("Subject", ""),
                             sender=full_msg.get("From", {}).get("Address", ""),
                             recipient=full_msg.get("To", [{}])[0].get("Address", "") if full_msg.get("To") else "",
+                            body_text=full_msg.get("Text", ""),
+                            body_html=full_msg.get("HTML", ""),
                             received_at=received_at,
                             label=label,
                             phishing_type=phishing_type

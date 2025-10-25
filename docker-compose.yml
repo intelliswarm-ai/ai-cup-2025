@@ -131,6 +131,26 @@ services:
       - mailbox-network
     command: python seed_emails.py
 
+  # Email Analyzer - Processes emails sequentially with analysis and enrichment
+  email-analyzer:
+    build:
+      context: ./email-analyzer
+      dockerfile: Dockerfile
+    container_name: mailbox-analyzer
+    environment:
+      BACKEND_HOST: backend
+      BACKEND_PORT: 8000
+      BATCH_SIZE: 100          # Number of emails to process per batch
+      PROCESS_DELAY: 2         # Delay between emails (seconds)
+      CONTINUOUS_MODE: "false" # Set to "true" for continuous processing
+      LOOP_DELAY: 300          # Delay between batches in continuous mode (seconds)
+    depends_on:
+      - backend
+      - postgres
+    networks:
+      - mailbox-network
+    restart: "no"  # Change to "unless-stopped" for continuous mode
+
   # ML Model Services - Phishing Detection Models
   # Commented out non-performing models (0% precision/recall/F1):
   # model-logistic-regression:
