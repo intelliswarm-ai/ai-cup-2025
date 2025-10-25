@@ -110,16 +110,17 @@ services:
     command: python seed_emails.py
 
   # ML Model Services - Phishing Detection Models
-  model-logistic-regression:
-    build:
-      context: ./model-logistic-regression
-      dockerfile: Dockerfile
-    container_name: model-logistic-regression
-    ports:
-      - "8001:8001"
-    networks:
-      - mailbox-network
-    restart: unless-stopped
+  # Commented out non-performing models (0% precision/recall/F1):
+  # model-logistic-regression:
+  #   build:
+  #     context: ./model-logistic-regression
+  #     dockerfile: Dockerfile
+  #   container_name: model-logistic-regression
+  #   ports:
+  #     - "8001:8001"
+  #   networks:
+  #     - mailbox-network
+  #   restart: unless-stopped
 
   model-naive-bayes:
     build:
@@ -132,16 +133,16 @@ services:
       - mailbox-network
     restart: unless-stopped
 
-  model-neural-network:
-    build:
-      context: ./model-neural-network
-      dockerfile: Dockerfile
-    container_name: model-neural-network
-    ports:
-      - "8003:8003"
-    networks:
-      - mailbox-network
-    restart: unless-stopped
+  # model-neural-network:
+  #   build:
+  #     context: ./model-neural-network
+  #     dockerfile: Dockerfile
+  #   container_name: model-neural-network
+  #   ports:
+  #     - "8003:8003"
+  #   networks:
+  #     - mailbox-network
+  #   restart: unless-stopped
 
   model-random-forest:
     build:
@@ -154,13 +155,26 @@ services:
       - mailbox-network
     restart: unless-stopped
 
-  model-svm:
+  # model-svm:
+  #   build:
+  #     context: ./model-svm
+  #     dockerfile: Dockerfile
+  #   container_name: model-svm
+  #   ports:
+  #     - "8005:8005"
+  #   networks:
+  #     - mailbox-network
+  #   restart: unless-stopped
+
+  model-fine-tuned-llm:
     build:
-      context: ./model-svm
+      context: ./model-fine-tuned-llm
       dockerfile: Dockerfile
-    container_name: model-svm
+    container_name: model-fine-tuned-llm
     ports:
-      - "8005:8005"
+      - "8006:8006"
+    volumes:
+      - ./model-fine-tuned-llm/models:/app/models
     networks:
       - mailbox-network
     restart: unless-stopped

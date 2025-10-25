@@ -1,0 +1,68 @@
+ML MODEL ACCURACY TEST RESULTS
+===============================
+Date: 2025-10-25
+Dataset: 1000 samples (583 Phishing, 417 Legitimate)
+
+MODEL                   ACCURACY    PRECISION   RECALL      F1-SCORE
+------------------------------------------------------------------------
+Naive Bayes             76.50%      99.71%      59.86%      74.81%
+Random Forest           71.70%      70.55%      88.34%      78.45%
+Fine-tuned LLM          59.00%     100.00%      29.67%      45.77%
+Logistic Regression     41.70%       0.00%       0.00%       0.00%
+Neural Network          41.70%       0.00%       0.00%       0.00%
+SVM                     41.70%       0.00%       0.00%       0.00%
+
+CONFUSION MATRICES
+==================
+
+Naive Bayes:
+  True Positives:  349    True Negatives:  416
+  False Positives:   1    False Negatives: 234
+
+Random Forest:
+  True Positives:  515    True Negatives:  202
+  False Positives: 215    False Negatives:  68
+
+Fine-tuned LLM (DistilBERT):
+  True Positives:  173    True Negatives:  417
+  False Positives:   0    False Negatives: 410
+
+Logistic Regression:
+  True Positives:    0    True Negatives:  417
+  False Positives:   0    False Negatives: 583
+
+Neural Network:
+  True Positives:    0    True Negatives:  417
+  False Positives:   0    False Negatives: 583
+
+SVM:
+  True Positives:    0    True Negatives:  417
+  False Positives:   0    False Negatives: 583
+
+
+RULE-BASED WORKFLOW RESULTS
+======================================================================
+Date: 2025-10-25
+Dataset: 1000 samples (583 Phishing, 417 Legitimate)
+
+WORKFLOW                ACCURACY    PRECISION   RECALL      F1-SCORE
+----------------------------------------------------------------------
+URL Analysis             41.70%        0.00%      0.00%        0.00%
+Sender Analysis          41.70%        0.00%      0.00%        0.00%
+Content Analysis         44.10%      100.00%      4.12%        7.91%
+
+CONFUSION MATRICES
+======================================================================
+
+URL Analysis:
+  True Positives:     0    True Negatives:   417
+  False Positives:    0    False Negatives:  583
+
+Sender Analysis:
+  True Positives:     0    True Negatives:   417
+  False Positives:    0    False Negatives:  583
+
+Content Analysis:
+  True Positives:    24    True Negatives:   417
+  False Positives:    0    False Negatives:  559
+

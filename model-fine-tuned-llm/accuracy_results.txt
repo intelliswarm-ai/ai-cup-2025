@@ -1,0 +1,19 @@
+FINE-TUNED LLM (DistilBERT) MODEL - ACCURACY TEST RESULTS
+======================================================================
+Test Date: 2025-10-25 18:43:11
+Dataset: data/phishing_legit_dataset_KD_10000.csv
+Samples Tested: 1000
+Errors: 0
+Average Confidence: 91.05%
+
+Confusion Matrix:
+  True Positives:  173
+  True Negatives:  417
+  False Positives: 0
+  False Negatives: 410
+
+Performance Metrics:
+  Accuracy:  59.00%
+  Precision: 100.00%
+  Recall:    29.67%
+  F1-Score:  45.77%

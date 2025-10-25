@@ -63,7 +63,7 @@
     <nav class="navbar navbar-main navbar-expand-lg px-0 mx-4 shadow-none border-radius-xl" id="navbarBlur">
       <div class="container-fluid py-1 px-3">
         <nav aria-label="breadcrumb">
-          <h6 class="font-weight-bolder mb-0">Dashboard <span id="last-update" style="font-size: 0.7em; color: #888; font-weight: normal;"></span></h6>
+          <h6 class="font-weight-bolder mb-0">Dashboard</h6>
         </nav>
       </div>
     </nav>
@@ -196,12 +196,9 @@
             </div>
             <div class="card-body p-3">
               <div class="d-flex flex-column gap-3">
-                <button id="fetcherToggle" class="btn btn-primary w-100" onclick="toggleFetcher()">
-                  <i class="material-icons-round">download</i> <span id="fetcherBtnText">Start Fetcher</span>
+                <button class="btn btn-primary w-100" onclick="fetchEmails()">
+                  <i class="material-icons-round">download</i> Fetch Emails
                 </button>
-                <div id="fetcherStatus" class="text-sm text-center" style="display:none; padding: 8px; background: #e3f2fd; border-radius: 4px;">
-                  <strong>Fetching:</strong> <span id="fetchProgress">Batch 0, 0 emails</span>
-                </div>
                 <button class="btn btn-success w-100" onclick="processAllEmails()">
                   <i class="material-icons-round">play_arrow</i> Process All
                 </button>
@@ -227,9 +224,6 @@
   <script>
     const API_BASE_URL = '/api';
     let distributionChart, workflowChart;
-    let isLoadingWorkflowStats = false;
-    let eventSource = null;
-    let fetcherRunning = false;
 
     // Initialize charts
     function initCharts() {
@@ -342,28 +336,14 @@
     // Load statistics and update charts
     async function loadStatistics() {
       try {
-        console.log('[loadStatistics] Fetching stats from API...');
-        // Add cache-busting parameter to prevent cached responses
-        const cacheBuster = Date.now();
-        const response = await fetch(`${API_BASE_URL}/statistics?_=${cacheBuster}`, {
-          cache: 'no-store'
-        });
+        const response = await fetch(`${API_BASE_URL}/statistics`);
         const stats = await response.json();
-        console.log('[loadStatistics] Received stats:', stats);
 
         // Update stat cards
-        console.log('[loadStatistics] Updating UI elements...');
         document.getElementById('stat-total').textContent = stats.total_emails;
         document.getElementById('stat-processed').textContent = stats.processed_emails;
         document.getElementById('stat-legitimate').textContent = stats.legitimate_emails;
         document.getElementById('stat-phishing').textContent = stats.phishing_detected;
-
-        // Update last refresh timestamp
-        const now = new Date();
-        const timeStr = now.toLocaleTimeString();
-        document.getElementById('last-update').textContent = `(Updated: ${timeStr})`;
-
-        console.log('[loadStatistics] Updated Total Emails to:', stats.total_emails);
 
         // Update detection rate
         const detectionRate = stats.processed_emails > 0
@@ -387,25 +367,20 @@
         ];
         distributionChart.update();
 
-        // NOTE: loadWorkflowStats() is NOT called here to avoid excessive API calls
-        // It's only called once during initial page load
+        // Fetch workflow stats
+        await loadWorkflowStats();
 
       } catch (error) {
         console.error('Error loading statistics:', error);
       }
     }
 
-    // Load workflow-specific statistics (limited to 100 most recent emails)
+    // Load workflow-specific statistics
     async function loadWorkflowStats() {
-      // Prevent concurrent calls - only one batch loading process at a time
-      if (isLoadingWorkflowStats) {
-        console.log('Workflow stats already loading, skipping...');
-        return;
-      }
-
       try {
-        isLoadingWorkflowStats = true;
-        console.log('[loadWorkflowStats] Loading stats for up to 100 most recent emails...');
+        // Get all emails with workflow results
+        const response = await fetch(`${API_BASE_URL}/emails?limit=1000`);
+        const emails = await response.json();
 
         // Count detections by workflow
         const workflowStats = {
@@ -414,18 +389,6 @@
           'Content Analysis': { phishing: 0, safe: 0 }
         };
 
-        // Fetch only the 100 most recent emails (not all of them!)
-        const response = await fetch(`${API_BASE_URL}/emails?limit=100`);
-
-        if (!response.ok) {
-          console.error('Failed to fetch emails for workflow stats:', response.status);
-          return;
-        }
-
-        const emails = await response.json();
-        console.log(`[loadWorkflowStats] Processing ${emails.length} emails`);
-
-        // Process emails
         emails.forEach(email => {
           if (email.workflow_results && email.workflow_results.length > 0) {
             email.workflow_results.forEach(result => {
@@ -440,8 +403,6 @@
             });
           }
         });
-
-        console.log('[loadWorkflowStats] Workflow stats:', workflowStats);
 
         // Update workflow chart
         workflowChart.data.datasets[0].data = [
@@ -458,8 +419,6 @@
 
       } catch (error) {
         console.error('Error loading workflow stats:', error);
-      } finally {
-        isLoadingWorkflowStats = false;
       }
     }
 
@@ -486,25 +445,56 @@
       }
     }
 
+    async function processAllEmails() {
+      try {
+        const btn = event.target;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="material-icons-round">hourglass_empty</i> Processing...';
+
+        const response = await fetch(`${API_BASE_URL}/emails/process-all`, {
+          method: 'POST'
+        });
+        const result = await response.json();
+
+        alert(`Processing ${result.count} emails in background. Refresh in a few moments.`);
+
+        btn.disabled = false;
+        btn.innerHTML = '<i class="material-icons-round">play_arrow</i> Process All';
+
+        // Reload after delay
+        setTimeout(refreshDashboard, 3000);
+      } catch (error) {
+        console.error('Error processing emails:', error);
+        alert('Error processing emails');
+      }
+    }
+
+    function refreshDashboard() {
+      loadStatistics();
+    }
+
     // Auto-fetch emails in batches of 10
+    let isFetchingBatch = false;
+
     async function autoFetchInBatches() {
       // Check if already fetching
       if (isFetchingBatch) {
-        console.log('Batch fetch already in progress, skipping');
+        console.log('Batch fetch already in progress');
         return;
       }
 
       // Check localStorage for fetch status (persists across page changes)
       const fetchStatus = localStorage.getItem('autoFetchStatus');
       if (fetchStatus === 'in_progress') {
-        console.log('Batch fetch in progress (from localStorage), skipping');
+        console.log('Batch fetch in progress (from another page)');
         return;
       }
 
       try {
         isFetchingBatch = true;
         localStorage.setItem('autoFetchStatus', 'in_progress');
-        console.log('Starting automatic batch fetch...');
+
+        console.log('Starting auto-fetch in batches of 10...');
 
         let totalFetched = 0;
         let batchCount = 0;
@@ -520,279 +510,73 @@
           });
 
           if (!response.ok) {
-            console.error('Batch fetch failed:', response.status);
+            console.error('Fetch failed:', response.statusText);
             break;
           }
 
           const result = await response.json();
           totalFetched += result.fetched;
-          console.log(`[autoFetch] Batch ${batchCount}: Fetched ${result.fetched} emails (Total: ${totalFetched})`);
+
+          console.log(`Batch ${batchCount}: Fetched ${result.fetched} emails (Total: ${totalFetched})`);
 
           // Update stats after each batch
-          console.log(`[autoFetch] Updating stats after batch ${batchCount}...`);
           await loadStatistics();
-          console.log(`[autoFetch] Stats update complete for batch ${batchCount}`);
 
           // Check if there are more emails to fetch
           if (result.fetched === 0 || result.fetched < 10) {
             hasMore = false;
-            console.log('No more emails to fetch');
+            console.log('All emails fetched!');
           } else {
             // Small delay between batches to avoid overwhelming the server
             await new Promise(resolve => setTimeout(resolve, 500));
           }
         }
 
-        console.log(`Auto-fetch complete! Total fetched: ${totalFetched} emails`);
+        console.log(`Auto-fetch complete: ${totalFetched} total emails fetched in ${batchCount} batches`);
 
       } catch (error) {
-        console.error('Error during batch fetch:', error);
+        console.error('Error in auto-fetch:', error);
       } finally {
         isFetchingBatch = false;
         localStorage.removeItem('autoFetchStatus');
       }
     }
 
-    async function processAllEmails() {
+    // Check and resume auto-fetch on any page
+    async function checkAndResumeAutoFetch() {
+      // Check if we should auto-fetch (only if no emails exist)
       try {
-        const btn = event.target;
-        btn.disabled = true;
-        btn.innerHTML = '<i class="material-icons-round">hourglass_empty</i> Processing...';
+        const statsResponse = await fetch(`${API_BASE_URL}/statistics`);
+        const stats = await statsResponse.json();
 
-        // Get all unprocessed emails
-        let offset = 0;
-        const batchSize = 10;
-        let hasMore = true;
-        let totalProcessed = 0;
-        let batchCount = 0;
-
-        console.log('Starting batch email processing...');
-
-        while (hasMore) {
-          // Fetch next batch of unprocessed emails
-          const emailsResponse = await fetch(`${API_BASE_URL}/emails?limit=${batchSize}&offset=${offset}&processed=false`);
-
-          if (!emailsResponse.ok) {
-            console.error('Failed to fetch unprocessed emails');
-            break;
-          }
-
-          const emails = await emailsResponse.json();
-
-          if (emails.length === 0) {
-            hasMore = false;
-            console.log('No more emails to process');
-            break;
-          }
-
-          batchCount++;
-          console.log(`Processing batch ${batchCount}: ${emails.length} emails`);
-          btn.innerHTML = `<i class="material-icons-round">hourglass_empty</i> Processing batch ${batchCount}...`;
-
-          // Process all emails in this batch sequentially (one after another)
-          for (let i = 0; i < emails.length; i++) {
-            const email = emails[i];
-            console.log(`  Processing email ${i + 1}/${emails.length} (ID: ${email.id})`);
-
-            try {
-              const processResponse = await fetch(`${API_BASE_URL}/emails/${email.id}/process`, {
-                method: 'POST'
-              });
-
-              if (processResponse.ok) {
-                totalProcessed++;
-              } else {
-                console.error(`Failed to process email ${email.id}`);
-              }
-            } catch (error) {
-              console.error(`Error processing email ${email.id}:`, error);
-            }
-          }
-
-          console.log(`Batch ${batchCount} complete. Total processed: ${totalProcessed}`);
-
-          // Update stats after each batch
-          await loadStatistics();
-
-          // If we got fewer emails than requested, we're done
-          if (emails.length < batchSize) {
-            hasMore = false;
-          } else {
-            // Small delay between batches
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        }
-
-        btn.disabled = false;
-        btn.innerHTML = '<i class="material-icons-round">play_arrow</i> Process All';
-
-        alert(`Processing complete! Processed ${totalProcessed} emails in ${batchCount} batches.`);
-
-        // Final refresh
-        refreshDashboard();
-
-      } catch (error) {
-        console.error('Error processing emails:', error);
-        const btn = event.target;
-        btn.disabled = false;
-        btn.innerHTML = '<i class="material-icons-round">play_arrow</i> Process All';
-        alert('Error processing emails: ' + error.message);
-      }
-    }
-
-    function refreshDashboard() {
-      loadStatistics();
-    }
-
-    // Connect to Server-Sent Events for real-time updates
-    function connectSSE() {
-      if (eventSource) {
-        console.log('SSE already connected');
-        return;
-      }
-
-      console.log('[SSE] Connecting to event stream...');
-      eventSource = new EventSource(`${API_BASE_URL}/events`);
-
-      eventSource.onopen = function() {
-        console.log('[SSE] Connected successfully');
-      };
-
-      eventSource.onmessage = function(event) {
-        try {
-          const data = JSON.parse(event.data);
-          console.log('[SSE] Received event:', data);
-
-          switch(data.type) {
-            case 'connected':
-              console.log('[SSE] Connection established');
-              break;
-
-            case 'fetch_started':
-              console.log('[SSE] Email fetching started');
-              fetcherRunning = true;
-              updateFetcherUI(true);
-              document.getElementById('fetcherStatus').style.display = 'block';
-              break;
-
-            case 'emails_fetched':
-              console.log(`[SSE] Batch ${data.data.batch}: ${data.data.fetched_in_batch} emails (Total: ${data.data.total_fetched})`);
-              document.getElementById('fetchProgress').textContent =
-                `Batch ${data.data.batch}, ${data.data.total_fetched} emails fetched`;
-
-              // Update stats in real-time
-              loadStatistics();
-              break;
-
-            case 'fetch_completed':
-              console.log(`[SSE] Fetch completed: ${data.data.total_fetched} total emails in ${data.data.batches} batches`);
-              fetcherRunning = false;
-              updateFetcherUI(false);
-              document.getElementById('fetcherStatus').style.display = 'none';
-              loadStatistics();
-              break;
-
-            case 'fetch_stopped':
-              console.log('[SSE] Fetch stopped');
-              fetcherRunning = false;
-              updateFetcherUI(false);
-              document.getElementById('fetcherStatus').style.display = 'none';
-              break;
-
-            case 'fetch_error':
-              console.error('[SSE] Fetch error:', data.data.message);
-              alert(`Error fetching emails: ${data.data.message}`);
-              break;
-          }
-        } catch (error) {
-          console.error('[SSE] Error parsing event:', error);
-        }
-      };
-
-      eventSource.onerror = function(error) {
-        console.error('[SSE] Connection error:', error);
-        if (eventSource.readyState === EventSource.CLOSED) {
-          console.log('[SSE] Connection closed, reconnecting in 5 seconds...');
-          eventSource = null;
-          setTimeout(connectSSE, 5000);
-        }
-      };
-    }
-
-    function disconnectSSE() {
-      if (eventSource) {
-        console.log('[SSE] Disconnecting...');
-        eventSource.close();
-        eventSource = null;
-      }
-    }
-
-    // Toggle email fetcher
-    async function toggleFetcher() {
-      const btn = document.getElementById('fetcherToggle');
-      btn.disabled = true;
-
-      try {
-        if (fetcherRunning) {
-          // Stop fetcher
-          console.log('Stopping email fetcher...');
-          const response = await fetch(`${API_BASE_URL}/fetcher/stop`, {
-            method: 'POST'
-          });
-          const result = await response.json();
-          console.log('Fetcher stopped:', result);
-        } else {
-          // Start fetcher
-          console.log('Starting email fetcher...');
-          const response = await fetch(`${API_BASE_URL}/fetcher/start`, {
-            method: 'POST'
-          });
-          const result = await response.json();
-          console.log('Fetcher started:', result);
+        // Only auto-fetch if we have 0 emails (first time)
+        if (stats.total_emails === 0) {
+          console.log('No emails found. Starting auto-fetch...');
+          await autoFetchInBatches();
         }
       } catch (error) {
-        console.error('Error toggling fetcher:', error);
-        alert('Error: ' + error.message);
-      } finally {
-        btn.disabled = false;
-      }
-    }
-
-    function updateFetcherUI(running) {
-      const btn = document.getElementById('fetcherToggle');
-      const btnText = document.getElementById('fetcherBtnText');
-
-      if (running) {
-        btn.classList.remove('btn-primary');
-        btn.classList.add('btn-danger');
-        btnText.textContent = 'Stop Fetcher';
-      } else {
-        btn.classList.remove('btn-danger');
-        btn.classList.add('btn-primary');
-        btnText.textContent = 'Start Fetcher';
+        console.error('Error checking for auto-fetch:', error);
       }
     }
 
     // Initialize on page load
-    document.addEventListener('DOMContentLoaded', async function() {
+    document.addEventListener('DOMContentLoaded', function() {
       initCharts();
+      loadStatistics();
 
-      // Load initial statistics
-      await loadStatistics();
+      // Start auto-fetch on first load
+      checkAndResumeAutoFetch();
 
-      // Load workflow stats ONCE on initial page load (not during refreshes)
-      await loadWorkflowStats();
+      // Auto-refresh stats every 5 seconds during fetch, then every 30 seconds
+      let refreshInterval = setInterval(() => {
+        refreshDashboard();
 
-      // Connect to SSE for real-time updates
-      connectSSE();
-
-      // Auto-refresh every 30 seconds (stats also update via SSE)
-      setInterval(refreshDashboard, 30000);
-    });
-
-    // Cleanup on page unload
-    window.addEventListener('beforeunload', function() {
-      disconnectSSE();
+        // If not fetching anymore, slow down refresh rate
+        if (!isFetchingBatch && !localStorage.getItem('autoFetchStatus')) {
+          clearInterval(refreshInterval);
+          setInterval(refreshDashboard, 30000);
+        }
+      }, 5000);
     });
   </script>
 </body>

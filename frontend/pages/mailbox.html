@@ -712,6 +712,12 @@
     }
 
     async function processEmail(emailId) {
+      // Get the button and show loading state
+      const btn = event.target.closest('button');
+      const originalHTML = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Analyzing...';
+
       try {
         // Run phishing detection workflows
         const response = await fetch(`${API_BASE_URL}/emails/${emailId}/process`, {
@@ -720,22 +726,53 @@
         const result = await response.json();
 
         // Also run AI processing
+        let llmSuccess = false;
         try {
           await fetch(`${API_BASE_URL}/emails/${emailId}/process-llm`, {
             method: 'POST'
           });
+          llmSuccess = true;
         } catch (llmError) {
           console.warn('AI processing failed:', llmError);
         }
 
-        alert(`Analysis complete!\nPhishing: ${result.is_phishing ? 'Yes' : 'No'}\nWorkflows run: ${result.workflows_run}\nAverage confidence: ${result.average_confidence.toFixed(1)}%\n\nAI Summary and CTAs have also been generated.`);
+        // Reset button
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
 
-        // Reload the email details
-        viewEmail(emailId);
-        loadEmails();
+        // Reload the email details immediately to show results
+        await viewEmail(emailId);
+        await loadEmails();
+
+        // Show non-blocking success notification
+        const notificationHTML = `
+          <div class="alert alert-success alert-dismissible fade show position-fixed"
+               style="top: 20px; right: 20px; z-index: 9999; min-width: 300px;"
+               role="alert">
+            <strong>✓ Analysis Complete!</strong><br>
+            Phishing: ${result.is_phishing ? '<span class="text-danger">Yes</span>' : '<span class="text-success">No</span>'}<br>
+            Confidence: ${result.average_confidence.toFixed(1)}%<br>
+            ${llmSuccess ? 'AI Summary generated' : ''}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        `;
+
+        const notification = document.createElement('div');
+        notification.innerHTML = notificationHTML;
+        document.body.appendChild(notification.firstElementChild);
+
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+          const alert = document.querySelector('.alert.position-fixed');
+          if (alert) alert.remove();
+        }, 5000);
+
       } catch (error) {
         console.error('Error processing email:', error);
-        alert('Error processing email');
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
+
+        alert('Error processing email. Please try again.');
       }
     }
 

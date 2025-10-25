@@ -243,28 +243,39 @@ class SVMWorkflow(MLModelWorkflow):
         super().__init__("ML: SVM", "http://model-svm:8005")
 
 
+class FineTunedLLMWorkflow(MLModelWorkflow):
+    """Fine-tuned DistilBERT LLM model workflow"""
+    def __init__(self):
+        super().__init__("ML: Fine-tuned LLM (DistilBERT)", "http://model-fine-tuned-llm:8006")
+
+
 class WorkflowEngine:
     """Manages and executes multiple analysis workflows"""
 
     def __init__(self):
+        # Only keep models with meaningful performance (>50% F1-score)
+        # Removed based on accuracy tests:
+        # - URL Analysis: 0% precision/recall/F1
+        # - Sender Analysis: 0% precision/recall/F1
+        # - Content Analysis: 7.91% F1-score
+        # - Logistic Regression: 0% precision/recall/F1
+        # - Neural Network: 0% precision/recall/F1
+        # - SVM: 0% precision/recall/F1
         self.workflows = [
-            URLAnalysisWorkflow(),
-            SenderAnalysisWorkflow(),
-            ContentAnalysisWorkflow(),
-            LogisticRegressionWorkflow(),
-            NaiveBayesWorkflow(),
-            NeuralNetworkWorkflow(),
-            RandomForestWorkflow(),
-            SVMWorkflow()
+            NaiveBayesWorkflow(),          # 76.50% accuracy, 74.81% F1
+            RandomForestWorkflow(),         # 71.70% accuracy, 78.45% F1
+            FineTunedLLMWorkflow()          # 59.00% accuracy, 45.77% F1
         ]
 
     async def run_all_workflows(self, email_data: Dict) -> List[Dict]:
-        """Run all workflows on an email"""
-        results = []
-        for workflow in self.workflows:
-            result = await workflow.analyze(email_data)
-            results.append(result)
-        return results
+        """Run all workflows on an email in parallel for better performance"""
+        import asyncio
+
+        # Run all workflows in parallel using asyncio.gather
+        tasks = [workflow.analyze(email_data) for workflow in self.workflows]
+        results = await asyncio.gather(*tasks)
+
+        return list(results)
 
     async def run_workflow(self, workflow_name: str, email_data: Dict) -> Dict:
         """Run a specific workflow"""

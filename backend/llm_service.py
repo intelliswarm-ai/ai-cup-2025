@@ -200,13 +200,18 @@ Format: ["action 1", "action 2", ...]"""
         """Detect appropriate badges for an email
 
         Available badges: MEETING, RISK, EXTERNAL, AUTOMATED, VIP, FOLLOW_UP, NEWSLETTER, FINANCE
+
+        IMPORTANT: For phishing emails, ONLY return RISK badge to keep UI clean and focused.
         """
         badges = []
 
         # RISK badge - if phishing detected
+        # For phishing emails, ONLY show RISK badge - no other informational badges
         if is_phishing:
             badges.append("RISK")
+            return badges  # Skip all other badge detection for phishing emails
 
+        # For safe emails, detect informational badges
         system_prompt = """You are an email categorization assistant. Analyze emails and assign relevant badges.
 Available badges: MEETING, EXTERNAL, AUTOMATED, VIP, FOLLOW_UP, NEWSLETTER, FINANCE
 Return ONLY a JSON array of applicable badges."""

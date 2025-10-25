@@ -1,12 +1,13 @@
 ML MODEL ACCURACY TEST RESULTS
 ===============================
-Date: 2025-10-20
+Date: 2025-10-25
 Dataset: 1000 samples (583 Phishing, 417 Legitimate)
 
 MODEL                   ACCURACY    PRECISION   RECALL      F1-SCORE
 ------------------------------------------------------------------------
 Naive Bayes             76.50%      99.71%      59.86%      74.81%
 Random Forest           71.70%      70.55%      88.34%      78.45%
+Fine-tuned LLM          59.00%     100.00%      29.67%      45.77%
 Logistic Regression     41.70%       0.00%       0.00%       0.00%
 Neural Network          41.70%       0.00%       0.00%       0.00%
 SVM                     41.70%       0.00%       0.00%       0.00%
@@ -22,6 +23,10 @@ Random Forest:
   True Positives:  515    True Negatives:  202
   False Positives: 215    False Negatives:  68
 
+Fine-tuned LLM (DistilBERT):
+  True Positives:  173    True Negatives:  417
+  False Positives:   0    False Negatives: 410
+
 Logistic Regression:
   True Positives:    0    True Negatives:  417
   False Positives:   0    False Negatives: 583
@@ -33,3 +38,99 @@ Neural Network:
 SVM:
   True Positives:    0    True Negatives:  417
   False Positives:   0    False Negatives: 583
+
+
+RULE-BASED WORKFLOW RESULTS
+======================================================================
+Date: 2025-10-25
+Dataset: 1000 samples (583 Phishing, 417 Legitimate)
+
+WORKFLOW                ACCURACY    PRECISION   RECALL      F1-SCORE
+----------------------------------------------------------------------
+URL Analysis             41.70%        0.00%      0.00%        0.00%
+Sender Analysis          41.70%        0.00%      0.00%        0.00%
+Content Analysis         44.10%      100.00%      4.12%        7.91%
+
+CONFUSION MATRICES
+======================================================================
+
+URL Analysis:
+  True Positives:     0    True Negatives:   417
+  False Positives:    0    False Negatives:  583
+
+Sender Analysis:
+  True Positives:     0    True Negatives:   417
+  False Positives:    0    False Negatives:  583
+
+Content Analysis:
+  True Positives:    24    True Negatives:   417
+  False Positives:    0    False Negatives:  559
+
+
+ENSEMBLE COMBINATION RESULTS
+======================================================================
+Date: 2025-10-25
+Dataset: 1000 samples (583 Phishing, 417 Legitimate)
+
+STRATEGY                         ACCURACY    PRECISION   RECALL      F1-SCORE
+------------------------------------------------------------------------------
+High Precision (NB+LLM)            82.10%      99.75%     69.47%      81.90%
+Majority Voting (2/3)              81.50%     100.00%     68.27%      81.14%
+Weighted Voting (F1-based)         81.50%     100.00%     68.27%      81.14%
+Any Detection (1/3)                72.50%      70.81%     89.88%      79.21%
+High Recall (RF primary)           71.90%      70.63%     88.68%      78.63%
+Unanimous Voting (3/3)             53.20%     100.00%     19.73%      32.95%
+
+CONFUSION MATRICES
+======================================================================
+
+High Precision (NB+LLM) - **WINNER**:
+  True Positives:   405    True Negatives:   416
+  False Positives:    1    False Negatives:  178
+
+Majority Voting (2/3):
+  True Positives:   398    True Negatives:   417
+  False Positives:    0    False Negatives:  185
+
+Weighted Voting (F1-based):
+  True Positives:   398    True Negatives:   417
+  False Positives:    0    False Negatives:  185
+
+Any Detection (1/3):
+  True Positives:   524    True Negatives:   201
+  False Positives:  216    False Negatives:   59
+
+High Recall (RF primary):
+  True Positives:   517    True Negatives:   202
+  False Positives:  215    False Negatives:   66
+
+Unanimous Voting (3/3):
+  True Positives:   115    True Negatives:   417
+  False Positives:    0    False Negatives:  468
+
+CONCLUSION
+======================================================================
+✓ ENSEMBLE IMPROVES ACCURACY: 82.10% vs 76.50% (best individual)
+✓ ENSEMBLE IMPROVES F1-SCORE: 81.90% vs 78.45% (best individual)
+✓ IMPROVEMENT: +3.45 percentage points in F1-score
+
+IMPLEMENTED STRATEGY: "High Precision (NB+LLM)"
+- Uses Naive Bayes + Fine-tuned LLM with OR logic
+- If either high-precision model detects phishing, flag it
+- Maintains 99.75% precision while achieving 69.47% recall
+- Best balance of accuracy and reliability
+
+MODELS REMOVED (Poor Performance):
+- Logistic Regression (0% precision/recall/F1)
+- Neural Network (0% precision/recall/F1)
+- SVM (0% precision/recall/F1)
+- URL Analysis (0% precision/recall/F1)
+- Sender Analysis (0% precision/recall/F1)
+- Content Analysis (7.91% F1-score)
+
+FINAL SYSTEM USES:
+1. Naive Bayes (76.50% acc, 74.81% F1)
+2. Random Forest (71.70% acc, 78.45% F1)
+3. Fine-tuned LLM (59.00% acc, 45.77% F1)
+Combined with "High Precision" ensemble strategy
+
