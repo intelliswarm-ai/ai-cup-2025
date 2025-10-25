@@ -1,4 +1,4 @@
-# Email Security Dashboard - AI Cup 2025
+# Email Dashboard - AI Cup 2025
 
 A multi-container Docker application for analyzing and detecting phishing emails using multiple agentic workflows.
 
@@ -19,13 +19,13 @@ The application consists of 5 main components:
   - URL Analysis: Detects suspicious URLs, IP addresses, and URL shorteners
   - Sender Analysis: Identifies spoofing attempts and suspicious sender patterns
   - Content Analysis: Analyzes email content for phishing language patterns
-- **AI-Powered Email Processing** (NEW):
+- **AI-Powered Email Processing**:
   - LLM-generated email summaries
   - Automatic call-to-action (CTA) extraction
   - Smart email categorization with 8 badge types
   - 3 quick reply drafts (formal, friendly, brief) for each email
-- **Daily Inbox Digest** (NEW): Organized view of emails grouped by category
-- **Email Badges** (NEW): Visual categorization with icons
+- **Daily Inbox Digest**: Organized view of emails grouped by category
+- **Email Badges**: Visual categorization with icons
   - MEETING - Calendar events and scheduling
   - RISK - Phishing/security threats
   - EXTERNAL - Emails from external sources
@@ -34,7 +34,7 @@ The application consists of 5 main components:
   - FOLLOW_UP - Requires action or response
   - NEWSLETTER - Marketing/bulk emails
   - FINANCE - Financial transactions
-- **Quick Reply Drafts** (NEW): AI-generated reply suggestions in 3 tones
+- **Quick Reply Drafts**: AI-generated reply suggestions in 3 tones
 - **Real-time Dashboard**: Interactive UI showing email status and analysis results
 - **Statistics**: Overview of total emails, phishing detected, and processing status
 - **Database Migrations**: Liquibase-managed schema versioning
@@ -82,7 +82,7 @@ docker compose up -d
 
 Once started, access the following:
 - **Email Dashboard**: http://localhost (main application)
-- **Daily Inbox Digest**: http://localhost/pages/inbox-digest.html (NEW - categorized email view)
+- **Daily Inbox Digest**: http://localhost/pages/inbox-digest.html - (categorized email view)
 - **Mailbox**: http://localhost/pages/mailbox.html (detailed email view with quick replies)
 - **MailPit Web UI**: http://localhost:8025 (view raw emails)
 - **Backend API**: http://localhost:8000
@@ -157,7 +157,7 @@ PostgreSQL database with tables:
 - Web interface on port 8025
 - Pre-seeded with 10,000 emails from Kaggle phishing dataset (6,000 phishing, 4,000 legitimate)
 
-### Ollama LLM Service (NEW)
+### Ollama LLM Service
 - Local LLM inference using Phi3 model
 - Automatic model download on first startup
 - Used for email summarization, CTA extraction, badge detection, and quick reply generation
