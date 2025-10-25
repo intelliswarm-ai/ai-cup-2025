@@ -98,6 +98,9 @@ def run_analysis(email_id):
             workflows_run = result.get('workflows_run', 0)
             log(f"  ✓ Analysis complete: {workflows_run} workflows executed")
             return True
+        elif response.status_code == 404:
+            log(f"  ✗ Analysis failed: HTTP 404 - Email not found (may need to refresh email list)")
+            return None  # Special return value to indicate 404
         else:
             log(f"  ✗ Analysis failed: HTTP {response.status_code}")
             return False
@@ -121,6 +124,9 @@ def run_enrichment(email_id):
             pages_count = len(result.get('relevant_pages', []))
             log(f"  ✓ Enrichment complete: {keywords_count} keywords from {pages_count} wiki pages")
             return True
+        elif response.status_code == 404:
+            log(f"  ✗ Enrichment failed: HTTP 404 - Email not found (may need to refresh email list)")
+            return None  # Special return value to indicate 404
         else:
             log(f"  ✗ Enrichment failed: HTTP {response.status_code}")
             return False
@@ -143,22 +149,30 @@ def process_email(email_info):
     log(f"{'='*70}")
 
     success = True
+    got_404 = False
 
     # Run analysis if needed
     if needs_processing:
-        if not run_analysis(email_id):
+        result = run_analysis(email_id)
+        if result is None:  # 404 error
+            got_404 = True
+        elif not result:
             success = False
     else:
         log(f"  ⊘ Analysis skipped (already processed)")
 
-    # Run enrichment if needed
-    if needs_enrichment:
-        if not run_enrichment(email_id):
+    # Run enrichment if needed (skip if we got 404)
+    if needs_enrichment and not got_404:
+        result = run_enrichment(email_id)
+        if result is None:  # 404 error
+            got_404 = True
+        elif not result:
             success = False
-    else:
+    elif not got_404:
         log(f"  ⊘ Enrichment skipped (already enriched)")
 
-    return success
+    # Return None if we got 404 (email doesn't exist), otherwise return success status
+    return None if got_404 else success
 
 def run_batch():
     """Process a batch of unprocessed emails"""
@@ -186,7 +200,11 @@ def run_batch():
         try:
             success = process_email(email_info)
 
-            if success:
+            if success is None:  # Got 404 - email doesn't exist
+                log(f"\n⚠ Email not found (404) - breaking batch to refresh email list")
+                failed_count += 1
+                break  # Exit the loop early to fetch fresh emails
+            elif success:
                 processed_count += 1
             else:
                 failed_count += 1

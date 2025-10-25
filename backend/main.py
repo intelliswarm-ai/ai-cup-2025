@@ -5,6 +5,8 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timedelta
 import logging
+import httpx
+import os
 
 from database import get_db, init_db
 from models import Email, WorkflowResult, WorkflowConfig
@@ -35,6 +37,33 @@ app.add_middleware(
 mailpit_client = MailPitClient()
 workflow_engine = WorkflowEngine()
 
+# Employee Directory Configuration
+EMPLOYEE_DIRECTORY_HOST = os.getenv("EMPLOYEE_DIRECTORY_HOST", "employee-directory")
+EMPLOYEE_DIRECTORY_PORT = os.getenv("EMPLOYEE_DIRECTORY_PORT", "8100")
+EMPLOYEE_DIRECTORY_URL = f"http://{EMPLOYEE_DIRECTORY_HOST}:{EMPLOYEE_DIRECTORY_PORT}"
+
+async def lookup_employee_by_email(email: str) -> Optional[dict]:
+    """
+    Look up employee information from the Employee Directory API
+    Returns employee data including mobile, phone, department, etc.
+    Returns None if employee not found or on error
+    """
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(
+                f"{EMPLOYEE_DIRECTORY_URL}/api/employees/by-email/{email}"
+            )
+            if response.status_code == 200:
+                return response.json()
+            elif response.status_code == 404:
+                return None
+            else:
+                logger.warning(f"Employee directory returned status {response.status_code} for {email}")
+                return None
+    except Exception as e:
+        logger.warning(f"Failed to lookup employee {email}: {e}")
+        return None
+
 # Pydantic models for API
 class EmailResponse(BaseModel):
     id: int
@@ -59,6 +88,8 @@ class EmailResponse(BaseModel):
     enriched: Optional[bool] = False
     enriched_data: Optional[dict] = None
     enriched_at: Optional[datetime] = None
+    wiki_enriched: Optional[bool] = False
+    phone_enriched: Optional[bool] = False
 
     class Config:
         from_attributes = True
@@ -336,7 +367,9 @@ async def get_emails(
             "body_html": email.body_html,
             "enriched": email.enriched,
             "enriched_data": email.enriched_data,
-            "enriched_at": email.enriched_at
+            "enriched_at": email.enriched_at,
+            "wiki_enriched": email.wiki_enriched,
+            "phone_enriched": email.phone_enriched
         }
         result.append(email_dict)
 
@@ -370,6 +403,8 @@ async def get_email(email_id: int, db: Session = Depends(get_db)):
         "enriched": email.enriched,
         "enriched_data": email.enriched_data,
         "enriched_at": email.enriched_at,
+        "wiki_enriched": email.wiki_enriched,
+        "phone_enriched": email.phone_enriched,
         "workflow_results": [
             {
                 "id": wr.id,
@@ -800,6 +835,8 @@ async def enrich_email_with_wiki(
             "enriched_keywords": [],
             "relevant_pages": []
         }
+        email.wiki_enriched = False
+        email.phone_enriched = False
         db.commit()
 
         return {
@@ -817,18 +854,51 @@ async def enrich_email_with_wiki(
             email.body_text or ""
         )
 
+        # Look up sender in employee directory
+        sender_employee_data = None
+        if email.sender:
+            sender_employee_data = await lookup_employee_by_email(email.sender)
+            if sender_employee_data:
+                logger.info(f"Found sender employee data for {email.sender}: {sender_employee_data.get('first_name')} {sender_employee_data.get('last_name')}")
+
+        # Look up recipient in employee directory
+        recipient_employee_data = None
+        if email.recipient:
+            recipient_employee_data = await lookup_employee_by_email(email.recipient)
+            if recipient_employee_data:
+                logger.info(f"Found recipient employee data for {email.recipient}: {recipient_employee_data.get('first_name')} {recipient_employee_data.get('last_name')}")
+
+        # Combine wiki enrichment with employee directory data
+        enrichment_data["sender_employee"] = sender_employee_data
+        enrichment_data["recipient_employee"] = recipient_employee_data
+
+        # Set enrichment success tags
+        has_wiki_data = bool(
+            enrichment_data.get("enriched_keywords") or
+            enrichment_data.get("relevant_pages")
+        )
+        has_phone_data = bool(sender_employee_data or recipient_employee_data)
+
         # Update email with enrichment data
         email.enriched_data = enrichment_data
         email.enriched = True
         email.enriched_at = datetime.utcnow()
+        email.wiki_enriched = has_wiki_data
+        email.phone_enriched = has_phone_data
 
         db.commit()
+
+        logger.info(f"Email {email_id} enriched - Wiki: {has_wiki_data}, Phone: {has_phone_data}")
 
         return {
             "status": "success",
             "email_id": email_id,
             "enriched_keywords": enrichment_data.get("enriched_keywords", []),
-            "relevant_pages": enrichment_data.get("relevant_pages", [])
+            "relevant_pages": enrichment_data.get("relevant_pages", []),
+            "sender_employee": sender_employee_data,
+            "recipient_employee": recipient_employee_data,
+            "wiki_enriched": has_wiki_data,
+            "phone_enriched": has_phone_data
         }
 
     except Exception as e:

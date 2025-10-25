@@ -131,6 +131,33 @@ services:
       - mailbox-network
     command: python seed_emails.py
 
+  # Email Fetcher - Clears DB and auto-fetches emails on startup
+  email-fetcher:
+    build:
+      context: ./email-fetcher
+      dockerfile: Dockerfile
+    container_name: mailbox-fetcher
+    environment:
+      BACKEND_HOST: backend
+      BACKEND_PORT: 8000
+      POSTGRES_HOST: postgres
+      POSTGRES_DB: mailbox_db
+      POSTGRES_USER: mailbox_user
+      POSTGRES_PASSWORD: mailbox_pass
+      MAILPIT_HOST: mailpit
+      MAILPIT_PORT: 8025
+      FETCH_LIMIT: 10000
+      MAX_WAIT_TIME: 120
+      MIN_MESSAGES: 1000  # Wait for at least this many messages in MailPit before fetching
+    depends_on:
+      - backend
+      - postgres
+      - mailpit
+      - email-seeder
+    networks:
+      - mailbox-network
+    restart: "no"  # Run once on startup
+
   # Email Analyzer - Processes emails sequentially with analysis and enrichment
   email-analyzer:
     build:
@@ -142,14 +169,14 @@ services:
       BACKEND_PORT: 8000
       BATCH_SIZE: 100          # Number of emails to process per batch
       PROCESS_DELAY: 2         # Delay between emails (seconds)
-      CONTINUOUS_MODE: "false" # Set to "true" for continuous processing
+      CONTINUOUS_MODE: "true"  # Set to "true" for continuous processing
       LOOP_DELAY: 300          # Delay between batches in continuous mode (seconds)
     depends_on:
       - backend
       - postgres
     networks:
       - mailbox-network
-    restart: "no"  # Change to "unless-stopped" for continuous mode
+    restart: unless-stopped  # Change to "unless-stopped" for continuous mode
 
   # ML Model Services - Phishing Detection Models
   # Commented out non-performing models (0% precision/recall/F1):
@@ -221,6 +248,29 @@ services:
       - mailbox-network
     restart: unless-stopped
 
+  # Employee Directory API - Swiss Bank HR System
+  employee-directory:
+    build:
+      context: ./employee-directory
+      dockerfile: Dockerfile
+    container_name: employee-directory
+    ports:
+      - "8100:8100"
+    volumes:
+      - employee_directory_data:/app/data
+    networks:
+      - mailbox-network
+    depends_on:
+      - backend
+      - postgres
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8100/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+
 networks:
   mailbox-network:
     driver: bridge
@@ -230,3 +280,5 @@ volumes:
   mailpit_data:
   ollama_data:
   otterwiki_data:
+  employee_directory_data:
+
