@@ -61,6 +61,55 @@
     .email-card .card-body {
       cursor: pointer;
     }
+
+    /* RAG Enrichment Styles */
+    .enriched-keyword {
+      background-color: #fff3cd;
+      border-bottom: 2px dotted #856404;
+      cursor: help;
+      position: relative;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+
+    .keyword-tooltip {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: #212529;
+      color: white;
+      padding: 10px 15px;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      width: 300px;
+      z-index: 1000;
+      display: none;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+      margin-bottom: 8px;
+    }
+
+    .enriched-keyword:hover .keyword-tooltip {
+      display: block;
+    }
+
+    .keyword-tooltip::after {
+      content: '';
+      position: absolute;
+      top: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      border: 6px solid transparent;
+      border-top-color: #212529;
+    }
+
+    .wiki-enrichment-section {
+      background: #e8f5e9;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 4px solid #4caf50;
+      margin-top: 15px;
+    }
   </style>
 </head>
 
@@ -186,7 +235,7 @@
               <button class="btn btn-success" onclick="processAllEmails()">
                 <i class="material-icons-round">play_arrow</i> Process All Unprocessed
               </button>
-              <button class="btn btn-info" onclick="loadEmails()">
+              <button class="btn btn-info" onclick="resetEmailList()">
                 <i class="material-icons-round">refresh</i> Refresh
               </button>
             </div>
@@ -240,10 +289,19 @@
   <script>
     const API_BASE_URL = '/api';
 
+    // Infinite scroll state
+    let currentOffset = 0;
+    let isLoadingEmails = false;
+    let hasMoreEmails = true;
+    const EMAILS_PER_PAGE = 50;
+
     // Load emails on page load
     document.addEventListener('DOMContentLoaded', function() {
       loadStatistics();
       autoFetchEmailsFromMailpit();  // Auto-fetch emails on page load
+
+      // Setup infinite scroll
+      setupInfiniteScroll();
 
       // Setup SSE event listeners for real-time updates
       sseClient.on('email_processed', function(data) {
@@ -257,7 +315,7 @@
       sseClient.on('batch_complete', function(data) {
         console.log('Batch processing complete:', data);
         loadStatistics();
-        loadEmails();
+        resetEmailList();
         showSuccess(`Processed ${data.total_processed} emails!`);
       });
 
@@ -272,7 +330,7 @@
       sseClient.on('llm_batch_complete', function(data) {
         console.log('LLM batch complete:', data);
         loadStatistics();
-        loadEmails();
+        resetEmailList();
         showSuccess(`LLM processed ${data.total_processed} emails!`);
       });
     });
@@ -297,7 +355,7 @@
       const container = document.getElementById('emails-container');
       if (container && container.innerHTML.includes('spinner-border')) {
         // Clear the progress message
-        loadEmails();
+        resetEmailList();
       }
     }
 
@@ -327,19 +385,33 @@
       }
     }
 
-    async function loadEmails() {
+    async function loadEmails(offset = 0, append = false) {
       try {
-        const response = await fetch(`${API_BASE_URL}/emails?limit=100`);
+        // Prevent duplicate loads
+        if (isLoadingEmails) return;
+        isLoadingEmails = true;
+
+        const response = await fetch(`${API_BASE_URL}/emails?limit=${EMAILS_PER_PAGE}&offset=${offset}`);
         const emails = await response.json();
 
         const container = document.getElementById('emails-container');
 
-        if (emails.length === 0) {
+        // Remove loading indicator if present
+        const loadingIndicator = document.getElementById('loading-more');
+        if (loadingIndicator) loadingIndicator.remove();
+
+        if (emails.length === 0 && !append) {
           container.innerHTML = '<div class="text-center py-4"><p>No emails found. Click "Fetch Emails from MailPit" to load emails.</p></div>';
+          hasMoreEmails = false;
+          isLoadingEmails = false;
           return;
         }
 
-        container.innerHTML = emails.map(email => `
+        // Check if there are more emails to load
+        hasMoreEmails = emails.length === EMAILS_PER_PAGE;
+        currentOffset = offset + emails.length;
+
+        const emailHTML = emails.map(email => `
           <div class="card email-card mb-3">
             <div class="card-body" onclick="viewEmail(${email.id})">
               <div class="row">
@@ -385,9 +457,29 @@
           </div>
         `).join('');
 
+        if (append) {
+          container.insertAdjacentHTML('beforeend', emailHTML);
+        } else {
+          container.innerHTML = emailHTML;
+        }
+
+        // Add loading indicator if there are more emails
+        if (hasMoreEmails) {
+          container.insertAdjacentHTML('beforeend', `
+            <div id="loading-more" class="text-center py-3" style="display: none;">
+              <div class="spinner-border spinner-border-sm text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <p class="text-sm text-muted mt-2">Loading more emails...</p>
+            </div>
+          `);
+        }
+
         loadStatistics();
+        isLoadingEmails = false;
       } catch (error) {
         console.error('Error loading emails:', error);
+        isLoadingEmails = false;
         document.getElementById('emails-container').innerHTML =
           '<div class="alert alert-danger">Error loading emails. Please try again.</div>';
       }
@@ -506,18 +598,76 @@
             </div>
           ` : ''}
 
-          ${!email.processed ? `
+          <div class="mb-3">
+            <button class="btn btn-primary btn-sm" onclick="processEmail(${email.id})">
+              <i class="material-icons-round">play_arrow</i> ${email.processed ? 'Re-run Analysis' : 'Run Analysis'}
+            </button>
+            ${email.processed ? '<small class="text-muted ms-2">Run phishing detection again</small>' : ''}
+          </div>
+
+          ${email.enriched && email.enriched_data && email.enriched_data.enriched_keywords && email.enriched_data.enriched_keywords.length > 0 ? `
+            <div class="wiki-enrichment-section mb-3">
+              <h6><i class="material-icons-round" style="font-size: 20px; vertical-align: middle;">auto_awesome</i> Wiki Enrichment Applied</h6>
+
+              <div class="mb-3">
+                <p class="text-sm mb-2"><strong>📚 Relevant Wiki Pages (${email.enriched_data.relevant_pages.length}):</strong></p>
+                <div class="mb-2">
+                  ${email.enriched_data.relevant_pages.map(page => {
+                    const wikiSlug = page.replace(/\s+/g, '-');
+                    const wikiUrl = `http://localhost:9000/${wikiSlug}`;
+                    return `<a href="${wikiUrl}" target="_blank" class="badge bg-success me-1 mb-1" style="text-decoration: none; cursor: pointer;">${escapeHtml(page)} 📖</a>`;
+                  }).join('')}
+                </div>
+              </div>
+
+              <div class="mb-2">
+                <p class="text-sm mb-2"><strong>🔑 Enriched Keywords (${email.enriched_data.enriched_keywords.length}):</strong></p>
+                ${email.enriched_data.enriched_keywords.length > 0 ? `
+                  <div style="background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #4caf50;">
+                    ${email.enriched_data.enriched_keywords.map((kw, idx) => {
+                      const wikiSlug = kw.wiki_page.replace(/\s+/g, '-');
+                      const wikiUrl = `http://localhost:9000/${wikiSlug}`;
+                      return `
+                      <div class="mb-2 pb-2 ${idx < email.enriched_data.enriched_keywords.length - 1 ? 'border-bottom' : ''}">
+                        <div class="d-flex justify-content-between align-items-start">
+                          <div>
+                            <span class="badge bg-warning text-dark">"${escapeHtml(kw.keyword)}"</span>
+                            <span class="text-xs text-muted ms-2">from <a href="${wikiUrl}" target="_blank" style="color: #4caf50; text-decoration: underline;">${escapeHtml(kw.wiki_page)} 📖</a></span>
+                          </div>
+                          <span class="badge bg-info">${kw.confidence}% confidence</span>
+                        </div>
+                        <p class="text-xs text-muted mb-0 mt-1">${escapeHtml(kw.context.substring(0, 150))}...</p>
+                      </div>
+                      `;
+                    }).join('')}
+                  </div>
+                ` : '<p class="text-sm text-muted">No keywords found to enrich</p>'}
+              </div>
+
+              <p class="text-sm mb-0 mt-2">
+                <i class="material-icons-round text-xs">info</i>
+                <em>Hover over highlighted keywords in the email body below to see full wiki context</em>
+              </p>
+            </div>
+          ` : ''}
+
+          ${!email.enriched && email.processed && !email.is_phishing ? `
             <div class="mb-3">
-              <button class="btn btn-primary" onclick="processEmail(${email.id})">
-                <i class="material-icons-round">play_arrow</i> Run Analysis
+              <button class="btn btn-info btn-sm" onclick="enrichEmail(${email.id})">
+                <i class="material-icons-round">auto_awesome</i> Enrich with Wiki
               </button>
+              <small class="text-muted ms-2">Add contextual information from company wiki</small>
             </div>
           ` : ''}
 
           <div class="mb-3">
             <h6>Email Content:</h6>
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; max-height: 300px; overflow-y: auto;">
-              <pre style="white-space: pre-wrap; font-size: 0.875rem;">${escapeHtml(email.body_text || '')}</pre>
+              <pre style="white-space: pre-wrap; font-size: 0.875rem;">${
+                email.enriched && email.enriched_data
+                  ? renderEnrichedBody(email.body_text || '', email.enriched_data)
+                  : escapeHtml(email.body_text || '')
+              }</pre>
             </div>
           </div>
 
@@ -622,8 +772,16 @@
           ` : ''}
         `;
 
-        const modal = new bootstrap.Modal(document.getElementById('emailModal'));
-        modal.show();
+        // Get or create modal instance - reuse if already open
+        const modalElement = document.getElementById('emailModal');
+        let modal = bootstrap.Modal.getInstance(modalElement);
+
+        if (!modal) {
+          // Modal not open, create new instance
+          modal = new bootstrap.Modal(modalElement);
+          modal.show();
+        }
+        // If modal already exists, content is updated but modal stays open
       } catch (error) {
         console.error('Error loading email details:', error);
         alert('Error loading email details');
@@ -742,7 +900,7 @@
 
         // Reload the email details immediately to show results
         await viewEmail(emailId);
-        await loadEmails();
+        await resetEmailList();
 
         // Show non-blocking success notification
         const notificationHTML = `
@@ -790,7 +948,7 @@
 
         // Reload the email details to show the summary and CTAs
         viewEmail(emailId);
-        loadEmails();
+        resetEmailList();
 
         // Show success message
         setTimeout(() => {
@@ -818,7 +976,7 @@
         if (stats.total_emails > 0) {
           // Emails already loaded, just display them
           console.log(`Found ${stats.total_emails} emails already in database`);
-          await loadEmails();
+          await resetEmailList();
           return;
         }
 
@@ -831,7 +989,7 @@
 
         if (totalInMailpit === 0) {
           console.log('No emails in MailPit yet');
-          await loadEmails();
+          await resetEmailList();
           return;
         }
 
@@ -853,7 +1011,7 @@
 
           // Update UI periodically
           if (currentBatch % 5 === 0 || totalFetched >= totalInMailpit) {
-            await loadEmails();
+            await resetEmailList();
             await loadStatistics();
           }
 
@@ -864,12 +1022,12 @@
         }
 
         showSuccess(`Auto-fetched ${totalFetched} emails from MailPit!`);
-        await loadEmails();
+        await resetEmailList();
         await loadStatistics();
       } catch (error) {
         console.error('Error auto-fetching emails:', error);
         // Still try to load any emails that were fetched
-        await loadEmails();
+        await resetEmailList();
         await loadStatistics();
       }
     }
@@ -886,7 +1044,7 @@
         const result = await response.json();
 
         // Refresh the UI
-        await loadEmails();
+        await resetEmailList();
         await loadStatistics();
 
         btn.disabled = false;
@@ -920,11 +1078,68 @@
         btn.innerHTML = '<i class="material-icons-round">play_arrow</i> Process All Unprocessed';
 
         // Reload after a delay
-        setTimeout(loadEmails, 5000);
+        setTimeout(resetEmailList, 5000);
       } catch (error) {
         console.error('Error processing emails:', error);
         alert('Error processing emails');
       }
+    }
+
+    function setupInfiniteScroll() {
+      // The scroll handler function
+      function handleScroll() {
+        // Use window scroll (simpler and more reliable)
+        const scrollPosition = window.innerHeight + window.scrollY;
+        const threshold = document.documentElement.scrollHeight - 500; // 500px before bottom
+
+        console.log('Scroll check:', {
+          scrollPosition,
+          threshold,
+          isLoadingEmails,
+          hasMoreEmails,
+          currentOffset,
+          shouldLoad: scrollPosition >= threshold && !isLoadingEmails && hasMoreEmails
+        });
+
+        if (scrollPosition >= threshold && !isLoadingEmails && hasMoreEmails) {
+          console.log('Loading more emails at offset:', currentOffset);
+
+          // Show loading indicator
+          const loadingIndicator = document.getElementById('loading-more');
+          if (loadingIndicator) {
+            loadingIndicator.style.display = 'block';
+          }
+
+          // Load more emails
+          loadEmails(currentOffset, true);
+        }
+      }
+
+      // Attach scroll listener to window
+      window.addEventListener('scroll', handleScroll);
+
+      // Also check on initial load if we need more content
+      setTimeout(() => {
+        const needsMoreContent = document.documentElement.scrollHeight <= window.innerHeight;
+        if (needsMoreContent && hasMoreEmails && !isLoadingEmails) {
+          console.log('Page too short, loading more content automatically');
+          loadEmails(currentOffset, true);
+        }
+      }, 1000);
+    }
+
+    function resetEmailList() {
+      // Reset infinite scroll state
+      currentOffset = 0;
+      hasMoreEmails = true;
+      isLoadingEmails = false;
+
+      // Clear container
+      const container = document.getElementById('emails-container');
+      container.innerHTML = '<div class="text-center py-4"><p>Loading emails...</p></div>';
+
+      // Load first page
+      loadEmails(0, false);
     }
 
     function escapeHtml(text) {
@@ -936,6 +1151,85 @@
         "'": '&#039;'
       };
       return text ? text.replace(/[&<>"']/g, m => map[m]) : '';
+    }
+
+    // RAG Enrichment Functions
+    async function enrichEmail(emailId) {
+      try {
+        const btn = event.target;
+        const originalHTML = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Enriching...';
+
+        const response = await fetch(`${API_BASE_URL}/emails/${emailId}/enrich`, {
+          method: 'POST'
+        });
+        const result = await response.json();
+
+        if (result.status === 'skipped') {
+          alert(result.reason);
+          btn.innerHTML = originalHTML;
+          btn.disabled = false;
+        } else if (result.status === 'success') {
+          // Reload email to show enriched content
+          await viewEmail(emailId);
+          showNotification('success', `✓ Enriched with ${result.enriched_keywords.length} keywords from ${result.relevant_pages.length} wiki pages`);
+        } else {
+          alert('Error enriching email');
+          btn.innerHTML = originalHTML;
+          btn.disabled = false;
+        }
+      } catch (error) {
+        console.error('Error enriching email:', error);
+        alert('Error enriching email');
+      }
+    }
+
+    function renderEnrichedBody(bodyText, enrichedData) {
+      if (!enrichedData || !enrichedData.enriched_keywords || enrichedData.enriched_keywords.length === 0) {
+        return escapeHtml(bodyText);
+      }
+
+      let enrichedBody = escapeHtml(bodyText);
+
+      // Sort keywords by length (longest first) to avoid partial matches
+      const keywords = enrichedData.enriched_keywords.sort((a, b) =>
+        b.keyword.length - a.keyword.length
+      );
+
+      keywords.forEach(item => {
+        const keyword = escapeHtml(item.keyword);
+        const context = escapeHtml(item.context);
+        const wikiPage = escapeHtml(item.wiki_page);
+        const confidence = item.confidence;
+
+        // Convert wiki page name to URL slug (e.g., "Security Policy" -> "Security-Policy")
+        const wikiSlug = item.wiki_page.replace(/\s+/g, '-');
+        const wikiUrl = `http://localhost:9000/${wikiSlug}`;
+
+        // Create regex to find whole word matches (case insensitive)
+        const regex = new RegExp(`\\b(${keyword})\\b`, 'gi');
+
+        enrichedBody = enrichedBody.replace(regex, (match) => {
+          return `<span class="enriched-keyword">${match}<span class="keyword-tooltip"><strong>${wikiPage}</strong> (${confidence}% confidence)<br><br>${context}<br><br><a href="${wikiUrl}" target="_blank" style="color: #fff; text-decoration: underline;">📖 View full wiki page →</a></span></span>`;
+        });
+      });
+
+      return enrichedBody;
+    }
+
+    function showNotification(type, message) {
+      // Simple notification function
+      const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
+      const alert = document.createElement('div');
+      alert.className = `alert ${alertClass} alert-dismissible fade show position-fixed top-0 start-50 translate-middle-x mt-3`;
+      alert.style.zIndex = '9999';
+      alert.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+      `;
+      document.body.appendChild(alert);
+      setTimeout(() => alert.remove(), 5000);
     }
   </script>
 </body>

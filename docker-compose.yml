@@ -90,6 +90,28 @@ services:
     networks:
       - mailbox-network
 
+  # OtterWiki - Internal Company Wiki
+  otterwiki:
+    image: redimp/otterwiki:latest
+    container_name: mailbox-otterwiki
+    ports:
+      - "9000:80"  # Web UI on port 9000
+    environment:
+      SITE_NAME: "IntelliSwarm Company Wiki"
+      SITE_LOGO: "/static/img/logo.png"
+    volumes:
+      - otterwiki_data:/app-data
+      - ./generate_wiki_pages.py:/docker-entrypoint-initdb.d/generate_wiki_pages.py:ro
+      - ./wiki-init.sh:/docker-entrypoint-initdb.d/wiki-init.sh:ro
+    networks:
+      - mailbox-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   # Email Seeder - Loads and sends emails from Kaggle dataset
   email-seeder:
     build:
@@ -187,3 +209,4 @@ volumes:
   postgres_data:
   mailpit_data:
   ollama_data:
+  otterwiki_data:

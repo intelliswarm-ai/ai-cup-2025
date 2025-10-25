@@ -36,6 +36,11 @@ class Email(Base):
     # Quick reply drafts (3 versions: formal, friendly, brief)
     quick_reply_drafts = Column(JSON)  # {formal: "", friendly: "", brief: ""}
 
+    # Wiki enrichment data
+    enriched_data = Column(JSON)  # {enriched_keywords: [{keyword, context, wiki_page, confidence}], relevant_pages: []}
+    enriched = Column(Boolean, default=False)  # Flag to indicate if email has been enriched
+    enriched_at = Column(DateTime)  # When enrichment was performed
+
     # Relationships
     workflow_results = relationship("WorkflowResult", back_populates="email", cascade="all, delete-orphan")
 

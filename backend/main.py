@@ -11,6 +11,7 @@ from models import Email, WorkflowResult, WorkflowConfig
 from mailpit_client import MailPitClient
 from workflows import WorkflowEngine
 from llm_service import ollama_service
+from wiki_enrichment import email_enricher
 from pydantic import BaseModel
 from events import broadcaster
 from email_fetcher import email_fetcher
@@ -53,6 +54,9 @@ class EmailResponse(BaseModel):
     quick_reply_drafts: Optional[dict] = None
     llm_processed: Optional[bool] = False
     workflow_results: List[dict] = []
+    enriched: Optional[bool] = False
+    enriched_data: Optional[dict] = None
+    enriched_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -87,6 +91,11 @@ async def startup_event():
     asyncio.create_task(email_fetcher.start_fetching())
     logger.info("Email fetcher started")
 
+    # Initialize wiki enrichment knowledge base
+    logger.info("Initializing wiki enrichment knowledge base...")
+    await email_enricher.initialize()
+    logger.info("Wiki enrichment ready")
+
 def detect_ui_badges(email: Email) -> List[str]:
     """Detect UI state badges for an email
 
@@ -106,8 +115,9 @@ def detect_ui_badges(email: Email) -> List[str]:
 
     # If email is phishing or has risk indicators, ONLY show security badges
     if email.is_phishing or has_risk_indicators:
-        # Only show HIGH_PRIORITY for phishing emails
-        if email.is_phishing:
+        # Only show HIGH_PRIORITY for phishing emails that DON'T have explicit risk badges
+        # If RISK badge is already present, don't add redundant HIGH_PRIORITY
+        if email.is_phishing and not has_risk_indicators:
             ui_badges.append("HIGH_PRIORITY")
         # Do NOT add any other informational badges for risky emails
         return ui_badges
@@ -293,6 +303,9 @@ async def get_email(email_id: int, db: Session = Depends(get_db)):
         "ui_badges": email.ui_badges,
         "quick_reply_drafts": email.quick_reply_drafts,
         "llm_processed": email.llm_processed,
+        "enriched": email.enriched,
+        "enriched_data": email.enriched_data,
+        "enriched_at": email.enriched_at,
         "workflow_results": [
             {
                 "id": wr.id,
@@ -700,6 +713,53 @@ async def process_email_with_llm(
 
     except Exception as e:
         logger.error(f"Error processing email {email_id} with LLM: {e}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/emails/{email_id}/enrich")
+async def enrich_email_with_wiki(
+    email_id: int,
+    db: Session = Depends(get_db)
+):
+    """Enrich email with wiki context using RAG - ONLY for non-phishing emails"""
+    email = db.query(Email).filter(Email.id == email_id).first()
+
+    if not email:
+        raise HTTPException(status_code=404, detail="Email not found")
+
+    # IMPORTANT: Only enrich safe (non-phishing) emails
+    if email.is_phishing:
+        return {
+            "status": "skipped",
+            "email_id": email_id,
+            "reason": "Enrichment is only available for safe (non-phishing) emails",
+            "enriched_keywords": [],
+            "relevant_pages": []
+        }
+
+    try:
+        # Enrich email with wiki context
+        enrichment_data = await email_enricher.enrich_email(
+            email.subject or "",
+            email.body_text or ""
+        )
+
+        # Update email with enrichment data
+        email.enriched_data = enrichment_data
+        email.enriched = True
+        email.enriched_at = datetime.utcnow()
+
+        db.commit()
+
+        return {
+            "status": "success",
+            "email_id": email_id,
+            "enriched_keywords": enrichment_data.get("enriched_keywords", []),
+            "relevant_pages": enrichment_data.get("relevant_pages", [])
+        }
+
+    except Exception as e:
+        logger.error(f"Error enriching email {email_id}: {e}")
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 

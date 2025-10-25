@@ -10,5 +10,6 @@
     <include file="db/changelog/changes/001-add-email-badges-and-drafts.xml"/>
     <include file="db/changelog/changes/002-add-ui-badges.xml"/>
     <include file="db/changelog/changes/003-add-dataset-labels.xml"/>
+    <include file="db/changelog/changes/004-add-wiki-enrichment-columns.xml"/>
 
 </databaseChangeLog>

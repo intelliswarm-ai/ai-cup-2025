@@ -67,6 +67,8 @@ aside.bg-gradient-dark {
 
 /* Override sidebar text colors for light background */
 .sidenav.bg-gradient-dark .navbar-brand,
+.sidenav.bg-gradient-dark .navbar-brand span,
+.sidenav.bg-gradient-dark .navbar-brand .text-white,
 .sidenav.bg-gradient-dark .nav-link,
 .sidenav.bg-gradient-dark .nav-link-text {
   color: #3C3935 !important;
