@@ -20,13 +20,13 @@ liquibase \
 
 echo "Migrations completed successfully!"
 
-echo "Clearing existing email data for fresh start..."
-PGPASSWORD=mailbox_pass psql -h postgres -U mailbox_user -d mailbox_db <<EOF
-TRUNCATE TABLE workflow_results CASCADE;
-TRUNCATE TABLE emails RESTART IDENTITY CASCADE;
-EOF
-
-echo "Database cleared! Starting with fresh system..."
+# Temporarily disabled to preserve data during development
+# echo "Clearing existing email data for fresh start..."
+# PGPASSWORD=mailbox_pass psql -h postgres -U mailbox_user -d mailbox_db <<EOF
+# TRUNCATE TABLE workflow_results CASCADE;
+# TRUNCATE TABLE emails RESTART IDENTITY CASCADE;
+# EOF
+# echo "Database cleared! Starting with fresh system..."
 
 echo "Starting FastAPI application..."
 exec uvicorn main:app --host 0.0.0.0 --port 8000 --reload

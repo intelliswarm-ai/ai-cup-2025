@@ -793,6 +793,15 @@ async def enrich_email_with_wiki(
 
     # IMPORTANT: Only enrich safe (non-phishing) emails
     if email.is_phishing:
+        # Mark as enriched even though we skipped it (the enrichment process completed)
+        email.enriched = True
+        email.enriched_at = datetime.utcnow()
+        email.enriched_data = {
+            "enriched_keywords": [],
+            "relevant_pages": []
+        }
+        db.commit()
+
         return {
             "status": "skipped",
             "email_id": email_id,

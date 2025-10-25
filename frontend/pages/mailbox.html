@@ -793,16 +793,17 @@
           ` : ''}
         `;
 
-        // Get or create modal instance - reuse if already open
+        // Get or create modal instance and always show it
         const modalElement = document.getElementById('emailModal');
         let modal = bootstrap.Modal.getInstance(modalElement);
 
         if (!modal) {
           // Modal not open, create new instance
           modal = new bootstrap.Modal(modalElement);
-          modal.show();
         }
-        // If modal already exists, content is updated but modal stays open
+
+        // Always show the modal (works whether it's already open or not)
+        modal.show();
       } catch (error) {
         console.error('Error loading email details:', error);
         alert('Error loading email details');
