@@ -440,10 +440,11 @@
                   <h6 class="mb-1">${escapeHtml(email.subject)}</h6>
                   <p class="text-sm text-muted mb-1">From: ${escapeHtml(email.sender)}</p>
                   <p class="text-xs text-muted mb-0">${new Date(email.received_at).toLocaleString()}</p>
-                  ${(email.badges && email.badges.length > 0) || (email.ui_badges && email.ui_badges.length > 0) ? `
+                  ${(email.badges && email.badges.length > 0) || (email.ui_badges && email.ui_badges.length > 0) || email.wiki_enriched || email.phone_enriched ? `
                     <div class="mt-2">
                       ${renderEmailBadges(email.badges || [])}
                       ${renderUIBadges(email.ui_badges || [])}
+                      ${renderEnrichmentTags(email)}
                     </div>
                   ` : ''}
                   ${email.label !== null && email.label !== undefined ? `
@@ -568,6 +569,30 @@
           ${label}
         </span>`;
       }).join('');
+    }
+
+    function renderEnrichmentTags(email) {
+      const tags = [];
+
+      if (email.wiki_enriched) {
+        tags.push(`
+          <span class="badge badge-sm" style="background: linear-gradient(195deg, #4caf50 0%, #66bb6a 100%); color: white; font-size: 10px;">
+            <i class="material-icons-round" style="font-size: 12px; vertical-align: middle;">auto_awesome</i>
+            WIKI
+          </span>
+        `);
+      }
+
+      if (email.phone_enriched) {
+        tags.push(`
+          <span class="badge badge-sm" style="background: linear-gradient(195deg, #2196f3 0%, #42a5f5 100%); color: white; font-size: 10px;">
+            <i class="material-icons-round" style="font-size: 12px; vertical-align: middle;">contact_phone</i>
+            PHONE
+          </span>
+        `);
+      }
+
+      return tags.join('');
     }
 
     async function viewEmail(emailId) {
