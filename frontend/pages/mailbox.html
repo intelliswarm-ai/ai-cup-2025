@@ -697,6 +697,73 @@
             </div>
           ` : ''}
 
+          ${email.enriched && email.enriched_data && (email.enriched_data.sender_employee || email.enriched_data.recipient_employee) ? `
+            <div class="phone-enrichment-section mb-3">
+              <h6><i class="material-icons-round" style="font-size: 20px; vertical-align: middle;">contact_phone</i> Employee Directory Match</h6>
+
+              ${email.enriched_data.sender_employee ? `
+                <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; border-left: 4px solid #2196f3; margin-bottom: 10px;">
+                  <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                      <span class="badge bg-primary me-2">SENDER</span>
+                      <strong>${escapeHtml(email.enriched_data.sender_employee.first_name)} ${escapeHtml(email.enriched_data.sender_employee.last_name)}</strong>
+                      <a href="http://localhost:8100/api/employees/${escapeHtml(email.enriched_data.sender_employee.employee_id)}" target="_blank" class="ms-2" style="font-size: 12px;">
+                        <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">open_in_new</i>
+                        View API
+                      </a>
+                    </div>
+                    <span class="badge bg-secondary">${escapeHtml(email.enriched_data.sender_employee.employee_id)}</span>
+                  </div>
+                  <div class="row text-sm">
+                    <div class="col-6">
+                      <p class="mb-1"><i class="material-icons-round text-xs">business</i> <strong>Department:</strong> ${escapeHtml(email.enriched_data.sender_employee.department)}</p>
+                      <p class="mb-1"><i class="material-icons-round text-xs">badge</i> <strong>Title:</strong> ${escapeHtml(email.enriched_data.sender_employee.designation)}</p>
+                      <p class="mb-1"><i class="material-icons-round text-xs">email</i> <strong>Email:</strong> ${escapeHtml(email.enriched_data.sender_employee.email)}</p>
+                    </div>
+                    <div class="col-6">
+                      <p class="mb-1"><i class="material-icons-round text-xs">phone</i> <strong>Phone:</strong> ${escapeHtml(email.enriched_data.sender_employee.phone)}</p>
+                      <p class="mb-1"><i class="material-icons-round text-xs">smartphone</i> <strong>Mobile:</strong> ${escapeHtml(email.enriched_data.sender_employee.mobile)}</p>
+                      <p class="mb-1"><i class="material-icons-round text-xs">location_on</i> <strong>Location:</strong> ${escapeHtml(email.enriched_data.sender_employee.city)}, ${escapeHtml(email.enriched_data.sender_employee.country)}</p>
+                    </div>
+                  </div>
+                </div>
+              ` : ''}
+
+              ${email.enriched_data.recipient_employee ? `
+                <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; border-left: 4px solid #2196f3;">
+                  <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                      <span class="badge bg-info me-2">RECIPIENT</span>
+                      <strong>${escapeHtml(email.enriched_data.recipient_employee.first_name)} ${escapeHtml(email.enriched_data.recipient_employee.last_name)}</strong>
+                      <a href="http://localhost:8100/api/employees/${escapeHtml(email.enriched_data.recipient_employee.employee_id)}" target="_blank" class="ms-2" style="font-size: 12px;">
+                        <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">open_in_new</i>
+                        View API
+                      </a>
+                    </div>
+                    <span class="badge bg-secondary">${escapeHtml(email.enriched_data.recipient_employee.employee_id)}</span>
+                  </div>
+                  <div class="row text-sm">
+                    <div class="col-6">
+                      <p class="mb-1"><i class="material-icons-round text-xs">business</i> <strong>Department:</strong> ${escapeHtml(email.enriched_data.recipient_employee.department)}</p>
+                      <p class="mb-1"><i class="material-icons-round text-xs">badge</i> <strong>Title:</strong> ${escapeHtml(email.enriched_data.recipient_employee.designation)}</p>
+                      <p class="mb-1"><i class="material-icons-round text-xs">email</i> <strong>Email:</strong> ${escapeHtml(email.enriched_data.recipient_employee.email)}</p>
+                    </div>
+                    <div class="col-6">
+                      <p class="mb-1"><i class="material-icons-round text-xs">phone</i> <strong>Phone:</strong> ${escapeHtml(email.enriched_data.recipient_employee.phone)}</p>
+                      <p class="mb-1"><i class="material-icons-round text-xs">smartphone</i> <strong>Mobile:</strong> ${escapeHtml(email.enriched_data.recipient_employee.mobile)}</p>
+                      <p class="mb-1"><i class="material-icons-round text-xs">location_on</i> <strong>Location:</strong> ${escapeHtml(email.enriched_data.recipient_employee.city)}, ${escapeHtml(email.enriched_data.recipient_employee.country)}</p>
+                    </div>
+                  </div>
+                </div>
+              ` : ''}
+
+              <p class="text-sm mb-0 mt-2">
+                <i class="material-icons-round text-xs">info</i>
+                <em>Employee information enriched from company directory</em>
+              </p>
+            </div>
+          ` : ''}
+
           ${!email.enriched && email.processed && !email.is_phishing ? `
             <div class="mb-3">
               <button class="btn btn-info btn-sm" onclick="enrichEmail(${email.id})">
@@ -709,11 +776,11 @@
           <div class="mb-3">
             <h6>Email Content:</h6>
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; max-height: 300px; overflow-y: auto;">
-              <pre style="white-space: pre-wrap; font-size: 0.875rem;">${
-                email.enriched && email.enriched_data
-                  ? renderEnrichedBody(email.body_text || '', email.enriched_data)
-                  : escapeHtml(email.body_text || '')
-              }</pre>
+              ${email.enriched && email.enriched_data ? `
+                <div style="white-space: pre-wrap; font-size: 0.875rem; font-family: monospace;">${renderEnrichedBody(email.body_text || '', email.enriched_data)}</div>
+              ` : `
+                <pre style="white-space: pre-wrap; font-size: 0.875rem;">${escapeHtml(email.body_text || '')}</pre>
+              `}
             </div>
           </div>
 
@@ -1245,7 +1312,6 @@
       );
 
       keywords.forEach(item => {
-        const keyword = escapeHtml(item.keyword);
         const context = escapeHtml(item.context);
         const wikiPage = escapeHtml(item.wiki_page);
         const confidence = item.confidence;
@@ -1254,8 +1320,10 @@
         const wikiSlug = item.wiki_page.replace(/\s+/g, '-');
         const wikiUrl = `http://localhost:9000/${wikiSlug}`;
 
-        // Create regex to find whole word matches (case insensitive)
-        const regex = new RegExp(`\\b(${keyword})\\b`, 'gi');
+        // Create regex to find whole word matches (case insensitive) - use raw keyword, not escaped
+        // Escape special regex characters in the keyword
+        const escapedKeyword = item.keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\b(${escapedKeyword})\\b`, 'gi');
 
         enrichedBody = enrichedBody.replace(regex, (match) => {
           return `<span class="enriched-keyword">${match}<span class="keyword-tooltip"><strong>${wikiPage}</strong> (${confidence}% confidence)<br><br>${context}<br><br><a href="${wikiUrl}" target="_blank" style="color: #fff; text-decoration: underline;">📖 View full wiki page →</a></span></span>`;
