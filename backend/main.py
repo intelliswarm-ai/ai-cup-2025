@@ -90,6 +90,8 @@ class EmailResponse(BaseModel):
     enriched_at: Optional[datetime] = None
     wiki_enriched: Optional[bool] = False
     phone_enriched: Optional[bool] = False
+    wiki_enriched_at: Optional[datetime] = None
+    phone_enriched_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -872,23 +874,28 @@ async def enrich_email_with_wiki(
         enrichment_data["sender_employee"] = sender_employee_data
         enrichment_data["recipient_employee"] = recipient_employee_data
 
-        # Set enrichment success tags
-        has_wiki_data = bool(
-            enrichment_data.get("enriched_keywords") or
-            enrichment_data.get("relevant_pages")
-        )
-        has_phone_data = bool(sender_employee_data or recipient_employee_data)
+        # Set enrichment success tags - ONLY when actual data is found
+        has_wiki_keywords = bool(enrichment_data.get("enriched_keywords"))  # Only true if keywords were actually matched
+        has_phone_data = bool(sender_employee_data or recipient_employee_data)  # True if employee data was found
 
         # Update email with enrichment data
         email.enriched_data = enrichment_data
         email.enriched = True
         email.enriched_at = datetime.utcnow()
-        email.wiki_enriched = has_wiki_data
+
+        # Set flags and timestamps only when actual data is found
+        email.wiki_enriched = has_wiki_keywords
         email.phone_enriched = has_phone_data
+
+        if has_wiki_keywords:
+            email.wiki_enriched_at = datetime.utcnow()
+
+        if has_phone_data:
+            email.phone_enriched_at = datetime.utcnow()
 
         db.commit()
 
-        logger.info(f"Email {email_id} enriched - Wiki: {has_wiki_data}, Phone: {has_phone_data}")
+        logger.info(f"Email {email_id} enriched - Wiki keywords: {has_wiki_keywords} ({len(enrichment_data.get('enriched_keywords', []))} found), Phone: {has_phone_data}")
 
         return {
             "status": "success",

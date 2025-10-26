@@ -42,8 +42,10 @@ class Email(Base):
     enriched_at = Column(DateTime)  # When enrichment was performed
 
     # Enrichment success tags
-    wiki_enriched = Column(Boolean, default=False)  # True if wiki data was successfully enriched
+    wiki_enriched = Column(Boolean, default=False)  # True if wiki keywords were successfully enriched
     phone_enriched = Column(Boolean, default=False)  # True if phone/employee data was successfully enriched
+    wiki_enriched_at = Column(DateTime)  # When wiki enrichment was performed
+    phone_enriched_at = Column(DateTime)  # When phone enrichment was performed
 
     # Relationships
     workflow_results = relationship("WorkflowResult", back_populates="email", cascade="all, delete-orphan")
