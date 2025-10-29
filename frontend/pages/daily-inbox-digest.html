@@ -178,6 +178,23 @@
         <p class="text-center">Loading digest...</p>
       </div>
     </div>
+
+    <!-- Email Details Modal -->
+    <div class="modal fade" id="emailModal" tabindex="-1" role="dialog" aria-labelledby="emailModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-lg" role="document">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title font-weight-normal" id="emailModalLabel">Email Details</h5>
+            <button type="button" class="btn-close text-dark" data-bs-dismiss="modal" aria-label="Close">
+              <span aria-hidden="true">&times;</span>
+            </button>
+          </div>
+          <div class="modal-body" id="emailModalBody">
+            <!-- Email details will be loaded here -->
+          </div>
+        </div>
+      </div>
+    </div>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
@@ -327,7 +344,7 @@
       const summaryPoints = email.summary ? email.summary.split(/[.!?]/).filter(s => s.trim()).slice(0, 3) : [];
 
       return `
-        <div class="email-card-compact" onclick="window.location.href='/pages/mailbox.html?id=${email.id}'">
+        <div class="email-card-compact" onclick="viewEmail(${email.id})">
           <div class="d-flex justify-content-between align-items-start mb-2">
             <div class="flex-grow-1">
               <div class="mb-2">
@@ -461,6 +478,510 @@
       } catch (error) {
         console.error('Error loading quick replies:', error);
         alert('Error loading quick reply drafts');
+      }
+    }
+
+    // Helper Functions for Email Modal
+    function escapeHtml(text) {
+      const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+      };
+      return text ? text.replace(/[&<>"']/g, m => map[m]) : '';
+    }
+
+    function getStatusBadge(email) {
+      if (!email.processed) {
+        return '<span class="badge badge-sm" style="background: #ffc107; color: #000;">Pending</span>';
+      }
+      return email.is_phishing ?
+        '<span class="badge badge-sm bg-danger">Phishing</span>' :
+        '<span class="badge badge-sm bg-success">Safe</span>';
+    }
+
+    function getBadgeIcon(badgeType) {
+      const icons = {
+        'MEETING': 'event',
+        'RISK': 'shield',
+        'EXTERNAL': 'close',
+        'AUTOMATED': 'settings',
+        'VIP': 'star',
+        'FOLLOW_UP': 'refresh',
+        'NEWSLETTER': 'mail',
+        'FINANCE': 'attach_money'
+      };
+      return icons[badgeType] || 'label';
+    }
+
+    function renderEmailBadges(badges) {
+      if (!badges || badges.length === 0) {
+        return '';
+      }
+      return badges.map(badge => {
+        const badgeClass = badge.toLowerCase().replace('_', '-');
+        const icon = getBadgeIcon(badge);
+        return `<span class="badge-pill badge-${badgeClass}">
+          <i class="material-icons-round" style="font-size: 14px;">${icon}</i>
+          ${badge.replace('_', ' ')}
+        </span>`;
+      }).join('');
+    }
+
+    function getUIBadgeIcon(badgeType) {
+      const icons = {
+        'ACTION_REQUIRED': 'error_outline',
+        'HIGH_PRIORITY': 'priority_high',
+        'REPLIED': 'reply',
+        'ATTACHMENT': 'attach_file',
+        'SNOOZED': 'schedule',
+        'AI_SUGGESTED': 'auto_awesome'
+      };
+      return icons[badgeType] || 'label';
+    }
+
+    function renderUIBadges(uiBadges) {
+      if (!uiBadges || uiBadges.length === 0) {
+        return '';
+      }
+      return uiBadges.map(badge => {
+        const badgeClass = badge.toLowerCase().replace('_', '-');
+        const icon = getUIBadgeIcon(badge);
+        const label = badge.replace('_', ' ');
+        return `<span class="badge badge-sm" style="background: linear-gradient(195deg, #607d8b 0%, #78909c 100%); color: white;">
+          <i class="material-icons-round" style="font-size: 12px; vertical-align: middle;">${icon}</i>
+          ${label}
+        </span>`;
+      }).join('');
+    }
+
+    function renderEnrichmentTags(email) {
+      const tags = [];
+
+      if (email.wiki_enriched) {
+        tags.push(`
+          <span class="badge badge-sm" style="background: linear-gradient(195deg, #4caf50 0%, #66bb6a 100%); color: white; font-size: 10px;">
+            <i class="material-icons-round" style="font-size: 12px; vertical-align: middle;">auto_awesome</i>
+            WIKI
+          </span>
+        `);
+      }
+
+      if (email.phone_enriched) {
+        tags.push(`
+          <span class="badge badge-sm" style="background: linear-gradient(195deg, #2196f3 0%, #42a5f5 100%); color: white; font-size: 10px;">
+            <i class="material-icons-round" style="font-size: 12px; vertical-align: middle;">contact_phone</i>
+            PHONE
+          </span>
+        `);
+      }
+
+      return tags.join('');
+    }
+
+    function renderEnrichedBody(bodyText, enrichedData) {
+      if (!enrichedData || !enrichedData.enriched_keywords || enrichedData.enriched_keywords.length === 0) {
+        return escapeHtml(bodyText);
+      }
+
+      let enrichedBody = escapeHtml(bodyText);
+
+      // Sort keywords by length (longest first) to avoid partial matches
+      const keywords = enrichedData.enriched_keywords.sort((a, b) =>
+        b.keyword.length - a.keyword.length
+      );
+
+      keywords.forEach(item => {
+        const context = escapeHtml(item.context);
+        const wikiPage = escapeHtml(item.wiki_page);
+        const confidence = item.confidence;
+
+        // Convert wiki page name to URL slug
+        const wikiSlug = item.wiki_page.replace(/\s+/g, '-');
+        const wikiUrl = `http://localhost:9000/${wikiSlug}`;
+
+        // Create regex to find whole word matches (case insensitive)
+        const escapedKeyword = item.keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(`\\b(${escapedKeyword})\\b`, 'gi');
+
+        enrichedBody = enrichedBody.replace(regex, (match) => {
+          return `<span style="background: #fff3cd; padding: 2px 4px; border-radius: 3px; cursor: help;" title="${wikiPage} (${confidence}% confidence): ${context}">${match}</span>`;
+        });
+      });
+
+      return enrichedBody;
+    }
+
+    async function viewEmail(emailId) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/emails/${emailId}`);
+        const email = await response.json();
+
+        const modalBody = document.getElementById('emailModalBody');
+        modalBody.innerHTML = `
+          <div class="mb-3">
+            <strong>Subject:</strong> ${escapeHtml(email.subject)}<br>
+            <strong>From:</strong> ${escapeHtml(email.sender)}<br>
+            <strong>To:</strong> ${escapeHtml(email.recipient)}<br>
+            <strong>Received:</strong> ${new Date(email.received_at).toLocaleString()}<br>
+            <strong>Status:</strong> ${getStatusBadge(email)}
+          </div>
+
+          ${email.label !== null && email.label !== undefined ? `
+            <div class="mb-3">
+              <strong>Ground Truth:</strong>
+              <div class="mt-2">
+                <span class="badge badge-sm ${email.label === 1 ? 'bg-danger' : 'bg-success'}">
+                  ${email.label === 1 ? 'PHISHING' : 'LEGITIMATE'}
+                </span>
+                ${email.phishing_type ? `
+                  <span class="badge badge-sm" style="background: #6c757d; color: white;">
+                    Category: ${email.phishing_type.replace(/_/g, ' ').toUpperCase()}
+                  </span>
+                ` : ''}
+              </div>
+            </div>
+          ` : ''}
+
+          ${email.badges && email.badges.length > 0 ? `
+            <div class="mb-3">
+              <strong>Categories:</strong>
+              <div class="mt-2">
+                ${renderEmailBadges(email.badges)}
+              </div>
+            </div>
+          ` : ''}
+
+          ${email.ui_badges && email.ui_badges.length > 0 ? `
+            <div class="mb-3">
+              <strong>Status:</strong>
+              <div class="mt-2">
+                ${renderUIBadges(email.ui_badges)}
+              </div>
+            </div>
+          ` : ''}
+
+          <div class="mb-3">
+            <button class="btn btn-primary btn-sm" onclick="processEmail(${email.id})">
+              <i class="material-icons-round" style="font-size: 16px; vertical-align: middle;">play_arrow</i> ${email.processed ? 'Re-run Analysis' : 'Run Analysis'}
+            </button>
+            ${email.processed ? '<small class="text-muted ms-2">Run phishing detection again</small>' : ''}
+          </div>
+
+          ${email.enriched && email.enriched_data && email.enriched_data.enriched_keywords && email.enriched_data.enriched_keywords.length > 0 ? `
+            <div class="mb-3" style="background: #f0f8ff; padding: 15px; border-radius: 8px; border-left: 4px solid #4caf50;">
+              <h6><i class="material-icons-round" style="font-size: 20px; vertical-align: middle;">auto_awesome</i> Wiki Enrichment Applied</h6>
+
+              <div class="mb-3">
+                <p class="text-sm mb-2"><strong>📚 Relevant Wiki Pages (${email.enriched_data.relevant_pages.length}):</strong></p>
+                <div class="mb-2">
+                  ${email.enriched_data.relevant_pages.map(page => {
+                    const wikiSlug = page.replace(/\s+/g, '-');
+                    const wikiUrl = `http://localhost:9000/${wikiSlug}`;
+                    return `<a href="${wikiUrl}" target="_blank" class="badge" style="background: #4caf50; color: white; text-decoration: none; margin-right: 4px; margin-bottom: 4px;">${escapeHtml(page)} 📖</a>`;
+                  }).join('')}
+                </div>
+              </div>
+
+              <div class="mb-2">
+                <p class="text-sm mb-2"><strong>🔑 Enriched Keywords (${email.enriched_data.enriched_keywords.length}):</strong></p>
+                ${email.enriched_data.enriched_keywords.length > 0 ? `
+                  <div style="background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #4caf50;">
+                    ${email.enriched_data.enriched_keywords.map((kw, idx) => {
+                      const wikiSlug = kw.wiki_page.replace(/\s+/g, '-');
+                      const wikiUrl = `http://localhost:9000/${wikiSlug}`;
+                      return `
+                      <div class="mb-2 pb-2 ${idx < email.enriched_data.enriched_keywords.length - 1 ? 'border-bottom' : ''}">
+                        <div class="d-flex justify-content-between align-items-start">
+                          <div>
+                            <span class="badge" style="background: #ffc107; color: #000;">"${escapeHtml(kw.keyword)}"</span>
+                            <span class="text-xs text-muted ms-2">from <a href="${wikiUrl}" target="_blank" style="color: #4caf50; text-decoration: underline;">${escapeHtml(kw.wiki_page)} 📖</a></span>
+                          </div>
+                          <span class="badge" style="background: #2196f3; color: white;">${kw.confidence}% confidence</span>
+                        </div>
+                        <p class="text-xs text-muted mb-0 mt-1">${escapeHtml(kw.context.substring(0, 150))}...</p>
+                      </div>
+                      `;
+                    }).join('')}
+                  </div>
+                ` : '<p class="text-sm text-muted">No keywords found to enrich</p>'}
+              </div>
+
+              <p class="text-sm mb-0 mt-2">
+                <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">info</i>
+                <em>Hover over highlighted keywords in the email body below to see full wiki context</em>
+              </p>
+            </div>
+          ` : ''}
+
+          ${email.enriched && email.enriched_data && (email.enriched_data.sender_employee || email.enriched_data.recipient_employee) ? `
+            <div class="mb-3" style="background: #e3f2fd; padding: 15px; border-radius: 8px; border-left: 4px solid #2196f3;">
+              <h6><i class="material-icons-round" style="font-size: 20px; vertical-align: middle;">contact_phone</i> Employee Directory Match</h6>
+
+              ${email.enriched_data.sender_employee ? `
+                <div style="background: #fff; padding: 15px; border-radius: 8px; margin-bottom: 10px;">
+                  <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                      <span class="badge" style="background: #2196f3; color: white;">SENDER</span>
+                      <strong>${escapeHtml(email.enriched_data.sender_employee.first_name)} ${escapeHtml(email.enriched_data.sender_employee.last_name)}</strong>
+                      <a href="http://localhost:8100/api/employees/${escapeHtml(email.enriched_data.sender_employee.employee_id)}" target="_blank" class="ms-2" style="font-size: 12px;">
+                        <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">open_in_new</i>
+                        View API
+                      </a>
+                    </div>
+                    <span class="badge" style="background: #6c757d; color: white;">${escapeHtml(email.enriched_data.sender_employee.employee_id)}</span>
+                  </div>
+                  <div class="row text-sm">
+                    <div class="col-6">
+                      <p class="mb-1"><i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">business</i> <strong>Department:</strong> ${escapeHtml(email.enriched_data.sender_employee.department)}</p>
+                      <p class="mb-1"><i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">badge</i> <strong>Title:</strong> ${escapeHtml(email.enriched_data.sender_employee.designation)}</p>
+                      <p class="mb-1"><i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">email</i> <strong>Email:</strong> ${escapeHtml(email.enriched_data.sender_employee.email)}</p>
+                    </div>
+                    <div class="col-6">
+                      <p class="mb-1"><i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">phone</i> <strong>Phone:</strong> ${escapeHtml(email.enriched_data.sender_employee.phone)}</p>
+                      <p class="mb-1"><i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">smartphone</i> <strong>Mobile:</strong> ${escapeHtml(email.enriched_data.sender_employee.mobile)}</p>
+                      <p class="mb-1"><i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">location_on</i> <strong>Location:</strong> ${escapeHtml(email.enriched_data.sender_employee.city)}, ${escapeHtml(email.enriched_data.sender_employee.country)}</p>
+                    </div>
+                  </div>
+                </div>
+              ` : ''}
+
+              ${email.enriched_data.recipient_employee ? `
+                <div style="background: #fff; padding: 15px; border-radius: 8px;">
+                  <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                      <span class="badge" style="background: #00bcd4; color: white;">RECIPIENT</span>
+                      <strong>${escapeHtml(email.enriched_data.recipient_employee.first_name)} ${escapeHtml(email.enriched_data.recipient_employee.last_name)}</strong>
+                      <a href="http://localhost:8100/api/employees/${escapeHtml(email.enriched_data.recipient_employee.employee_id)}" target="_blank" class="ms-2" style="font-size: 12px;">
+                        <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">open_in_new</i>
+                        View API
+                      </a>
+                    </div>
+                    <span class="badge" style="background: #6c757d; color: white;">${escapeHtml(email.enriched_data.recipient_employee.employee_id)}</span>
+                  </div>
+                  <div class="row text-sm">
+                    <div class="col-6">
+                      <p class="mb-1"><i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">business</i> <strong>Department:</strong> ${escapeHtml(email.enriched_data.recipient_employee.department)}</p>
+                      <p class="mb-1"><i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">badge</i> <strong>Title:</strong> ${escapeHtml(email.enriched_data.recipient_employee.designation)}</p>
+                      <p class="mb-1"><i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">email</i> <strong>Email:</strong> ${escapeHtml(email.enriched_data.recipient_employee.email)}</p>
+                    </div>
+                    <div class="col-6">
+                      <p class="mb-1"><i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">phone</i> <strong>Phone:</strong> ${escapeHtml(email.enriched_data.recipient_employee.phone)}</p>
+                      <p class="mb-1"><i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">smartphone</i> <strong>Mobile:</strong> ${escapeHtml(email.enriched_data.recipient_employee.mobile)}</p>
+                      <p class="mb-1"><i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">location_on</i> <strong>Location:</strong> ${escapeHtml(email.enriched_data.recipient_employee.city)}, ${escapeHtml(email.enriched_data.recipient_employee.country)}</p>
+                    </div>
+                  </div>
+                </div>
+              ` : ''}
+
+              <p class="text-sm mb-0 mt-2">
+                <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">info</i>
+                <em>Employee information enriched from company directory</em>
+              </p>
+            </div>
+          ` : ''}
+
+          ${!email.enriched && email.processed && !email.is_phishing ? `
+            <div class="mb-3">
+              <button class="btn btn-info btn-sm" onclick="enrichEmail(${email.id})">
+                <i class="material-icons-round" style="font-size: 16px; vertical-align: middle;">auto_awesome</i> Enrich with Wiki
+              </button>
+              <small class="text-muted ms-2">Add contextual information from company wiki</small>
+            </div>
+          ` : ''}
+
+          <div class="mb-3">
+            <h6>Email Content:</h6>
+            <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; max-height: 300px; overflow-y: auto;">
+              ${email.enriched && email.enriched_data ? `
+                <div style="white-space: pre-wrap; font-size: 0.875rem; font-family: monospace;">${renderEnrichedBody(email.body_text || '', email.enriched_data)}</div>
+              ` : `
+                <pre style="white-space: pre-wrap; font-size: 0.875rem;">${escapeHtml(email.body_text || '')}</pre>
+              `}
+            </div>
+          </div>
+
+          ${email.llm_processed ? `
+            <div class="mb-3">
+              <h6><i class="material-icons-round" style="font-size: 20px; vertical-align: middle;">psychology</i> AI Summary:</h6>
+              <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; border-left: 4px solid #2196f3;">
+                <p class="text-sm mb-0">${escapeHtml(email.summary || 'No summary available')}</p>
+              </div>
+            </div>
+
+            ${email.call_to_actions && email.call_to_actions.length > 0 ? `
+              <div class="mb-3">
+                <h6><i class="material-icons-round" style="font-size: 20px; vertical-align: middle;">task_alt</i> Call-to-Actions:</h6>
+                <div style="background: #fff3e0; padding: 15px; border-radius: 8px; border-left: 4px solid #ff9800;">
+                  <ul class="mb-0">
+                    ${email.call_to_actions.map(cta => `<li class="text-sm">${escapeHtml(cta)}</li>`).join('')}
+                  </ul>
+                </div>
+              </div>
+            ` : ''}
+
+            ${email.quick_reply_drafts ? `
+              <div class="mb-3">
+                <div style="background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #ddd;">
+                  <h6 class="mb-3" style="border-bottom: 2px solid #212529; padding-bottom: 8px;">Quick Reply Drafts</h6>
+
+                  <div class="mb-3">
+                    <div class="d-flex align-items-center mb-2">
+                      <span class="badge bg-dark me-2">A</span>
+                      <span>(FORMAL)</span>
+                    </div>
+                    <textarea class="form-control" rows="3" readonly style="font-size: 0.875rem;">${email.quick_reply_drafts.formal || ''}</textarea>
+                  </div>
+
+                  <div class="mb-3">
+                    <div class="d-flex align-items-center mb-2">
+                      <span class="badge bg-dark me-2">B</span>
+                      <span>(FRIENDLY)</span>
+                    </div>
+                    <textarea class="form-control" rows="3" readonly style="font-size: 0.875rem;">${email.quick_reply_drafts.friendly || ''}</textarea>
+                  </div>
+
+                  <div class="mb-3">
+                    <div class="d-flex align-items-center mb-2">
+                      <span class="badge bg-dark me-2">C</span>
+                      <span>(BRIEF)</span>
+                    </div>
+                    <textarea class="form-control" rows="2" readonly style="font-size: 0.875rem;">${email.quick_reply_drafts.brief || ''}</textarea>
+                  </div>
+
+                  <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="readyToSend${email.id}">
+                    <label class="form-check-label" for="readyToSend${email.id}">
+                      Looks good - ready to send
+                    </label>
+                  </div>
+
+                  <div class="d-flex gap-2 mb-3">
+                    <button class="btn btn-outline-secondary btn-sm">
+                      <i class="material-icons-round" style="font-size: 16px; vertical-align: middle;">edit</i>
+                      Edit
+                    </button>
+                    <button class="btn btn-primary btn-sm">
+                      <i class="material-icons-round" style="font-size: 16px; vertical-align: middle;">send</i>
+                      Approve & Send
+                    </button>
+                  </div>
+
+                  <div>
+                    <label class="form-label text-sm text-muted">Signature (optional)</label>
+                    <textarea class="form-control" rows="2" placeholder="Add your signature..."></textarea>
+                  </div>
+                </div>
+              </div>
+            ` : ''}
+          ` : ''}
+
+          ${email.workflow_results && email.workflow_results.length > 0 ? `
+            <div class="mb-3">
+              <h6>Analysis Results:</h6>
+              ${email.workflow_results.map(result => `
+                <div style="background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #ddd; margin-bottom: 10px;">
+                  <h6 class="mb-2">
+                    ${result.workflow_name}
+                    <span class="badge ${result.is_phishing_detected ? 'bg-danger' : 'bg-success'}">
+                      ${result.is_phishing_detected ? 'Phishing Detected' : 'Safe'}
+                    </span>
+                    <span class="badge" style="background: #6c757d; color: white;">Confidence: ${result.confidence_score}%</span>
+                  </h6>
+                  ${result.risk_indicators && result.risk_indicators.length > 0 ? `
+                    <p class="text-sm mb-2"><strong>Risk Indicators:</strong></p>
+                    <div class="mb-2">
+                      ${result.risk_indicators.map(indicator =>
+                        `<span class="badge badge-sm" style="background: #dc3545; color: white; margin-right: 4px; margin-bottom: 4px;">${escapeHtml(indicator)}</span>`
+                      ).join('')}
+                    </div>
+                  ` : '<p class="text-sm" style="color: #28a745;">No risk indicators found</p>'}
+                </div>
+              `).join('')}
+            </div>
+          ` : ''}
+        `;
+
+        // Get or create modal instance and show it
+        const modalElement = document.getElementById('emailModal');
+        let modal = bootstrap.Modal.getInstance(modalElement);
+
+        if (!modal) {
+          modal = new bootstrap.Modal(modalElement);
+        }
+
+        modal.show();
+      } catch (error) {
+        console.error('Error loading email details:', error);
+        alert('Error loading email details');
+      }
+    }
+
+    async function processEmail(emailId) {
+      const btn = event.target.closest('button');
+      const originalHTML = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Analyzing...';
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/emails/${emailId}/process`, {
+          method: 'POST'
+        });
+        const result = await response.json();
+
+        // Also run AI processing
+        try {
+          await fetch(`${API_BASE_URL}/emails/${emailId}/process-llm`, {
+            method: 'POST'
+          });
+        } catch (llmError) {
+          console.warn('AI processing failed:', llmError);
+        }
+
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
+
+        // Reload the email details
+        await viewEmail(emailId);
+
+        alert(`Analysis Complete!\nPhishing: ${result.is_phishing ? 'Yes' : 'No'}\nConfidence: ${result.average_confidence.toFixed(1)}%`);
+      } catch (error) {
+        console.error('Error processing email:', error);
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
+        alert('Error processing email. Please try again.');
+      }
+    }
+
+    async function enrichEmail(emailId) {
+      try {
+        const btn = event.target;
+        const originalHTML = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Enriching...';
+
+        const response = await fetch(`${API_BASE_URL}/emails/${emailId}/enrich`, {
+          method: 'POST'
+        });
+        const result = await response.json();
+
+        if (result.status === 'skipped') {
+          alert(result.reason);
+          btn.innerHTML = originalHTML;
+          btn.disabled = false;
+        } else if (result.status === 'success') {
+          await viewEmail(emailId);
+          alert(`✓ Enriched with ${result.enriched_keywords.length} keywords from ${result.relevant_pages.length} wiki pages`);
+        } else {
+          alert('Error enriching email');
+          btn.innerHTML = originalHTML;
+          btn.disabled = false;
+        }
+      } catch (error) {
+        console.error('Error enriching email:', error);
+        alert('Error enriching email');
       }
     }
   </script>

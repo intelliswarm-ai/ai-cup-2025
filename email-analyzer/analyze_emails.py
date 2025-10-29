@@ -50,10 +50,10 @@ def wait_for_backend():
 def get_unprocessed_emails(limit=100):
     """Fetch emails that haven't been processed yet"""
     try:
-        # Get all emails
+        # Get unprocessed emails only (processed=false filter)
         response = requests.get(
             f"{BACKEND_URL}/api/emails",
-            params={'limit': limit, 'offset': 0},
+            params={'limit': limit, 'offset': 0, 'processed': False},
             timeout=30
         )
 
@@ -63,7 +63,7 @@ def get_unprocessed_emails(limit=100):
 
         emails = response.json()
 
-        # Filter for unprocessed emails (no workflow_results or not enriched)
+        # Filter for emails that need processing or enrichment
         unprocessed = []
         for email in emails:
             # Check if email needs processing or enrichment

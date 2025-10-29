@@ -26,8 +26,12 @@ services:
     container_name: mailbox-ollama
     ports:
       - "11434:11434"
+    environment:
+      OLLAMA_MODEL: phi3  # Model to auto-pull on startup
     volumes:
       - ollama_data:/root/.ollama
+      - ./ollama-entrypoint.sh:/entrypoint.sh:ro
+    entrypoint: ["/bin/bash", "/entrypoint.sh"]
     networks:
       - mailbox-network
     restart: unless-stopped
