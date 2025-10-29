@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel="apple-touch-icon" sizes="76x76" href="../assets/img/apple-icon.png">
+  <link rel="icon" type="image/png" href="../assets/img/favicon.png">
+  <title>AI Bank Teams - Virtual Collaboration Dashboard</title>
+  <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700,900|Roboto+Slab:400,700" />
+  <link href="../assets/css/nucleo-icons.css" rel="stylesheet" />
+  <link href="../assets/css/nucleo-svg.css" rel="stylesheet" />
+  <script src="https://kit.fontawesome.com/42d5adcbca.js" crossorigin="anonymous"></script>
+  <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+  <link id="pagestyle" href="../assets/css/material-dashboard.css?v=3.0.0" rel="stylesheet" />
+  <link href="../assets/css/professional-theme.css" rel="stylesheet" />
+
+  <style>
+
+    .dashboard-grid {
+      display: grid;
+      grid-template-columns: 350px 1fr;
+      gap: 20px;
+      height: calc(100vh - 180px);
+    }
+
+    /* Email Queue Panel */
+    .email-queue {
+      background: white;
+      border-radius: 0.75rem;
+      padding: 1.5rem;
+      box-shadow: 0 20px 27px 0 rgba(0,0,0,0.05);
+      overflow-y: auto;
+    }
+
+    .email-queue-header {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 2px solid #e0e0e0;
+    }
+
+    .email-card {
+      background: #f8f9fa;
+      border-radius: 12px;
+      padding: 15px;
+      margin-bottom: 15px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border-left: 4px solid transparent;
+    }
+
+    .email-card:hover {
+      transform: translateX(5px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .email-card.active {
+      border-left-color: #e91e63;
+      background: #f8f9fa;
+    }
+
+    .email-card.processing {
+      border-left-color: #4caf50;
+      background: #f8f9fa;
+    }
+
+    .email-card.completed {
+      border-left-color: #9e9e9e;
+      opacity: 0.7;
+    }
+
+    .email-subject {
+      font-weight: 600;
+      font-size: 14px;
+      margin-bottom: 8px;
+      color: #333;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .email-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 8px;
+    }
+
+    .team-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+      margin-top: 8px;
+    }
+
+    .team-credit { background: #e3f2fd; color: #1976d2; }
+    .team-fraud { background: #ffebee; color: #c62828; }
+    .team-compliance { background: #f3e5f5; color: #7b1fa2; }
+    .team-wealth { background: #e8f5e9; color: #388e3c; }
+    .team-corporate { background: #fff3e0; color: #f57c00; }
+    .team-operations { background: #fce4ec; color: #c2185b; }
+
+    .status-indicator {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 5px;
+    }
+
+    .status-pending { background: #9e9e9e; }
+    .status-processing {
+      background: #4caf50;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    .status-completed { background: #2196f3; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    /* Team Discussion Panel */
+    .discussion-panel {
+      background: white;
+      border-radius: 0.75rem;
+      padding: 0;
+      box-shadow: 0 20px 27px 0 rgba(0,0,0,0.05);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .discussion-header {
+      background: linear-gradient(195deg, #42424a 0%, #191919 100%);
+      color: white;
+      padding: 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .discussion-title {
+      font-size: 18px;
+      font-weight: 600;
+    }
+
+    .discussion-subtitle {
+      font-size: 13px;
+      opacity: 0.9;
+      margin-top: 5px;
+    }
+
+    .progress-bar {
+      background: rgba(255,255,255,0.3);
+      height: 6px;
+      border-radius: 3px;
+      margin-top: 10px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      background: white;
+      height: 100%;
+      transition: width 0.5s ease;
+    }
+
+    /* Chat Messages */
+    .chat-container {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      background: #f8f9fa;
+    }
+
+    .chat-message {
+      margin-bottom: 20px;
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .message-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .agent-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      margin-right: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .avatar-analyst { background: linear-gradient(195deg, #42424a 0%, #191919 100%); }
+    .avatar-risk { background: linear-gradient(195deg, #EC407A 0%, #D81B60 100%); }
+    .avatar-relationship { background: linear-gradient(195deg, #42A5F5 0%, #1E88E5 100%); }
+    .avatar-cro { background: linear-gradient(195deg, #66BB6A 0%, #43A047 100%); }
+    .avatar-fraud { background: linear-gradient(195deg, #EF5350 0%, #E53935 100%); }
+    .avatar-compliance { background: linear-gradient(195deg, #AB47BC 0%, #8E24AA 100%); }
+
+    .agent-info {
+      flex: 1;
+    }
+
+    .agent-name {
+      font-weight: 600;
+      font-size: 14px;
+      color: #333;
+    }
+
+    .message-time {
+      font-size: 11px;
+      color: #999;
+      margin-left: 10px;
+    }
+
+    .message-content {
+      background: white;
+      padding: 15px 20px;
+      border-radius: 12px;
+      margin-left: 52px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      position: relative;
+    }
+
+    .message-content::before {
+      content: '';
+      position: absolute;
+      left: -8px;
+      top: 15px;
+      width: 0;
+      height: 0;
+      border-style: solid;
+      border-width: 0 8px 8px 0;
+      border-color: transparent white transparent transparent;
+    }
+
+    .message-text {
+      color: #444;
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+
+    .thinking-indicator {
+      display: inline-flex;
+      align-items: center;
+      font-style: italic;
+      color: #999;
+      margin-left: 52px;
+      padding: 10px 15px;
+    }
+
+    .thinking-dots {
+      display: inline-flex;
+      margin-left: 8px;
+    }
+
+    .thinking-dots span {
+      width: 6px;
+      height: 6px;
+      background: #999;
+      border-radius: 50%;
+      margin: 0 2px;
+      animation: bounce 1.4s infinite ease-in-out both;
+    }
+
+    .thinking-dots span:nth-child(1) { animation-delay: -0.32s; }
+    .thinking-dots span:nth-child(2) { animation-delay: -0.16s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0); }
+      40% { transform: scale(1); }
+    }
+
+    .decision-panel {
+      background: linear-gradient(195deg, #66BB6A 0%, #43A047 100%);
+      color: white;
+      padding: 1.25rem;
+      border-radius: 0.75rem;
+      margin: 1.25rem 0;
+      margin-left: 52px;
+    }
+
+    .decision-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 15px;
+      display: flex;
+      align-items: center;
+    }
+
+    .decision-title::before {
+      content: '✅';
+      font-size: 20px;
+      margin-right: 10px;
+    }
+
+    .decision-details {
+      background: rgba(255,255,255,0.2);
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 10px;
+    }
+
+    /* Team Members Panel */
+    .team-members {
+      background: white;
+      padding: 20px;
+      border-top: 1px solid #e0e0e0;
+    }
+
+    .team-members-header {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 15px;
+    }
+
+    .member-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+    }
+
+    .member-card {
+      background: #f8f9fa;
+      padding: 12px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+    }
+
+    .member-status {
+      font-size: 11px;
+      color: #666;
+      margin-top: 4px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #999;
+    }
+
+    .empty-state h3 {
+      color: #666;
+      margin-bottom: 10px;
+    }
+
+    .empty-state p {
+      color: #999;
+    }
+
+    .empty-state-icon {
+      font-size: 64px;
+      margin-bottom: 20px;
+      opacity: 0.5;
+    }
+
+    /* Action buttons */
+    .action-buttons {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    .btn-action {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+      background: linear-gradient(195deg, #EC407A 0%, #D81B60 100%);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(233, 30, 99, 0.4);
+    }
+  </style>
+</head>
+
+<body class="g-sidenav-show bg-gray-200">
+  <!-- Sidebar -->
+  <aside class="sidenav navbar navbar-vertical navbar-expand-xs border-0 border-radius-xl my-3 fixed-start ms-3 bg-gradient-dark" id="sidenav-main">
+    <div class="sidenav-header">
+      <i class="fas fa-times p-3 cursor-pointer text-white opacity-5 position-absolute end-0 top-0 d-none d-xl-none" aria-hidden="true" id="iconSidenav"></i>
+      <a class="navbar-brand m-0" href="/">
+        <i class="material-icons-round opacity-10">shield</i>
+        <span class="ms-1 font-weight-bold text-white">Email Assistant</span>
+      </a>
+    </div>
+    <hr class="horizontal light mt-0 mb-2">
+    <div class="collapse navbar-collapse w-auto max-height-vh-100" id="sidenav-collapse-main">
+      <ul class="navbar-nav">
+        <li class="nav-item">
+          <a class="nav-link text-white" href="/">
+            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
+              <i class="material-icons-round opacity-10">dashboard</i>
+            </div>
+            <span class="nav-link-text ms-1">Dashboard</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link text-white" href="/pages/mailbox.html">
+            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
+              <i class="material-icons-round opacity-10">email</i>
+            </div>
+            <span class="nav-link-text ms-1">Mailbox</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link text-white" href="/pages/daily-inbox-digest.html">
+            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
+              <i class="material-icons-round opacity-10">summarize</i>
+            </div>
+            <span class="nav-link-text ms-1">Daily Inbox Digest</span>
+          </a>
+        </li>
+        <li class="nav-item mt-3">
+          <h6 class="ps-4 ms-2 text-uppercase text-xs text-white font-weight-bolder opacity-8">AI Teams</h6>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link text-white" href="/pages/agentic-teams.html?team=credit_risk">
+            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
+              <i class="material-icons-round opacity-10">account_balance</i>
+            </div>
+            <span class="nav-link-text ms-1">🏦 Credit Risk</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link text-white" href="/pages/agentic-teams.html?team=fraud">
+            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
+              <i class="material-icons-round opacity-10">security</i>
+            </div>
+            <span class="nav-link-text ms-1">🔍 Fraud Unit</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link text-white" href="/pages/agentic-teams.html?team=compliance">
+            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
+              <i class="material-icons-round opacity-10">gavel</i>
+            </div>
+            <span class="nav-link-text ms-1">⚖️ Compliance</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link text-white" href="/pages/agentic-teams.html?team=wealth">
+            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
+              <i class="material-icons-round opacity-10">trending_up</i>
+            </div>
+            <span class="nav-link-text ms-1">💼 Wealth Mgmt</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link text-white" href="/pages/agentic-teams.html?team=corporate">
+            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
+              <i class="material-icons-round opacity-10">business</i>
+            </div>
+            <span class="nav-link-text ms-1">🏢 Corporate</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link text-white" href="/pages/agentic-teams.html?team=operations">
+            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
+              <i class="material-icons-round opacity-10">settings</i>
+            </div>
+            <span class="nav-link-text ms-1">⚙️ Operations</span>
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link text-white active bg-gradient-primary" href="/pages/agentic-teams.html">
+            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
+              <i class="material-icons-round opacity-10">groups</i>
+            </div>
+            <span class="nav-link-text ms-1">🤖 All Teams</span>
+          </a>
+        </li>
+      </ul>
+    </div>
+  </aside>
+
+  <main class="main-content position-relative max-height-vh-100 h-100 border-radius-lg">
+    <!-- Navbar -->
+    <nav class="navbar navbar-main navbar-expand-lg px-0 mx-4 shadow-none border-radius-xl" id="navbarBlur">
+      <div class="container-fluid py-1 px-3">
+        <nav aria-label="breadcrumb">
+          <h6 class="font-weight-bolder mb-0">AI Bank Teams - Virtual Collaboration</h6>
+        </nav>
+      </div>
+    </nav>
+
+    <div class="container-fluid py-4">
+      <div class="dashboard-grid">
+      <!-- Left Panel: Email Queue -->
+      <div class="email-queue">
+        <div class="email-queue-header">
+          📧 Email Queue
+          <span style="float: right; font-size: 14px; color: #666;">
+            <span id="queue-count">0</span> emails
+          </span>
+        </div>
+        <div id="email-queue-container">
+          <!-- Email cards will be dynamically inserted here -->
+        </div>
+      </div>
+
+      <!-- Right Panel: Team Discussion -->
+      <div class="discussion-panel">
+        <div class="discussion-header">
+          <div style="flex: 1;">
+            <div class="discussion-title" id="discussion-team">
+              Select an email to view team discussion
+            </div>
+            <div class="discussion-subtitle" id="discussion-subject">
+              <!-- Email subject will appear here -->
+            </div>
+            <div class="progress-bar">
+              <div class="progress-fill" id="discussion-progress" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="chat-container" id="chat-container">
+          <div class="empty-state">
+            <div class="empty-state-icon">💬</div>
+            <h3>No Discussion Selected</h3>
+            <p>Select an email from the queue to watch the virtual team discuss and decide</p>
+          </div>
+        </div>
+
+        <div class="team-members" id="team-members-panel" style="display: none;">
+          <div class="team-members-header">Team Members</div>
+          <div class="member-grid" id="team-members-grid">
+            <!-- Team member cards will be inserted here -->
+          </div>
+        </div>
+      </div>
+    </div>
+    </div>
+  </main>
+
+  <!-- Bootstrap Bundle with Popper -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../assets/js/material-dashboard.min.js?v=3.0.0"></script>
+
+  <script>
+    const API_BASE_URL = '/api';
+
+    // Sample team definitions
+    const TEAMS = {
+      'credit_risk': {
+        name: '🏦 Credit Risk Committee',
+        badge: 'team-credit',
+        members: [
+          { role: 'Senior Credit Analyst', icon: '👔', avatar: 'avatar-analyst' },
+          { role: 'Risk Manager', icon: '🛡️', avatar: 'avatar-risk' },
+          { role: 'Relationship Manager', icon: '💼', avatar: 'avatar-relationship' },
+          { role: 'Chief Risk Officer', icon: '👨‍💼', avatar: 'avatar-cro' }
+        ]
+      },
+      'fraud': {
+        name: '🔍 Fraud Investigation Unit',
+        badge: 'team-fraud',
+        members: [
+          { role: 'Fraud Detection Specialist', icon: '🔍', avatar: 'avatar-fraud' },
+          { role: 'Forensic Analyst', icon: '🧪', avatar: 'avatar-analyst' },
+          { role: 'Legal Advisor', icon: '⚖️', avatar: 'avatar-compliance' },
+          { role: 'Security Director', icon: '🛡️', avatar: 'avatar-cro' }
+        ]
+      },
+      'compliance': {
+        name: '⚖️ Compliance & Regulatory Affairs',
+        badge: 'team-compliance',
+        members: [
+          { role: 'Compliance Officer', icon: '📋', avatar: 'avatar-compliance' },
+          { role: 'Legal Counsel', icon: '⚖️', avatar: 'avatar-analyst' },
+          { role: 'Auditor', icon: '📊', avatar: 'avatar-risk' },
+          { role: 'Regulatory Liaison', icon: '🏛️', avatar: 'avatar-cro' }
+        ]
+      },
+      'wealth': {
+        name: '💼 Wealth Management Advisory',
+        badge: 'team-wealth',
+        members: [
+          { role: 'Senior Wealth Advisor', icon: '💼', avatar: 'avatar-relationship' },
+          { role: 'Investment Specialist', icon: '📈', avatar: 'avatar-analyst' },
+          { role: 'Tax Consultant', icon: '💰', avatar: 'avatar-compliance' },
+          { role: 'Estate Planning Expert', icon: '🏛️', avatar: 'avatar-cro' }
+        ]
+      },
+      'corporate': {
+        name: '🏢 Corporate Banking Team',
+        badge: 'team-corporate',
+        members: [
+          { role: 'Corporate Relationship Manager', icon: '🤝', avatar: 'avatar-relationship' },
+          { role: 'Trade Finance Specialist', icon: '🌍', avatar: 'avatar-analyst' },
+          { role: 'Treasury Expert', icon: '💵', avatar: 'avatar-risk' },
+          { role: 'Syndication Lead', icon: '📊', avatar: 'avatar-cro' }
+        ]
+      },
+      'operations': {
+        name: '⚙️ Operations & Quality',
+        badge: 'team-operations',
+        members: [
+          { role: 'Operations Manager', icon: '⚙️', avatar: 'avatar-analyst' },
+          { role: 'Quality Assurance Lead', icon: '✓', avatar: 'avatar-risk' },
+          { role: 'Technology Liaison', icon: '💻', avatar: 'avatar-compliance' },
+          { role: 'Customer Service Lead', icon: '👥', avatar: 'avatar-relationship' }
+        ]
+      }
+    };
+
+    // Detect team based on email content
+    function detectTeam(email) {
+      const subject = email.subject.toLowerCase();
+      const body = email.body_text.toLowerCase();
+      const combined = subject + ' ' + body;
+
+      if (combined.includes('credit') || combined.includes('loan') || combined.includes('financing')) {
+        return 'credit_risk';
+      } else if (combined.includes('fraud') || combined.includes('suspicious') || combined.includes('wire transfer')) {
+        return 'fraud';
+      } else if (combined.includes('compliance') || combined.includes('regulatory') || combined.includes('fatca')) {
+        return 'compliance';
+      } else if (combined.includes('wealth') || combined.includes('investment') || combined.includes('portfolio') || combined.includes('inheritance')) {
+        return 'wealth';
+      } else if (combined.includes('corporate') || combined.includes('trade finance') || combined.includes('letter of credit')) {
+        return 'corporate';
+      } else if (combined.includes('complaint') || combined.includes('customer service') || combined.includes('quality')) {
+        return 'operations';
+      }
+      return 'credit_risk'; // default
+    }
+
+    // Get selected team from URL parameter
+    function getSelectedTeam() {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get('team') || null; // null means "All Teams"
+    }
+
+    // Load emails
+    async function loadEmails() {
+      try {
+        const response = await fetch(`${API_BASE_URL}/emails?limit=50`);
+        const emails = await response.json();
+
+        // Get selected team from URL
+        const selectedTeam = getSelectedTeam();
+
+        // Filter emails based on team
+        let filteredEmails = emails;
+        if (selectedTeam) {
+          // Filter emails that match the selected team
+          filteredEmails = emails.filter(email => {
+            const teamKey = detectTeam(email);
+            return teamKey === selectedTeam;
+          });
+        }
+
+        // Take first 10 emails (or all if less than 10)
+        const agenticEmails = filteredEmails.slice(0, 10);
+
+        displayEmailQueue(agenticEmails, selectedTeam);
+      } catch (error) {
+        console.error('Error loading emails:', error);
+      }
+    }
+
+    // Display email queue
+    function displayEmailQueue(emails, selectedTeam) {
+      const container = document.getElementById('email-queue-container');
+      document.getElementById('queue-count').textContent = emails.length;
+
+      // Update header if viewing a specific team
+      const queueHeader = document.querySelector('.email-queue-header');
+      if (selectedTeam && TEAMS[selectedTeam]) {
+        queueHeader.innerHTML = `
+          ${TEAMS[selectedTeam].name}
+          <span style="float: right; font-size: 14px; color: #666;">
+            <span id="queue-count">${emails.length}</span> emails
+          </span>
+        `;
+      }
+
+      if (emails.length === 0) {
+        container.innerHTML = `
+          <div style="text-align: center; padding: 40px 20px; color: #999;">
+            <div style="font-size: 48px; margin-bottom: 15px;">📭</div>
+            <p>No emails for this team</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = emails.map((email, index) => {
+        const teamKey = detectTeam(email);
+        const team = TEAMS[teamKey];
+        const status = index === 0 ? 'pending' : 'pending';
+
+        return `
+          <div class="email-card ${status}" onclick="viewDiscussion(${email.id}, '${teamKey}', '${email.subject.replace(/'/g, "\\'")}')">
+            <div class="email-meta">
+              <span>
+                <span class="status-indicator status-${status}"></span>
+                ${status.charAt(0).toUpperCase() + status.slice(1)}
+              </span>
+              <span style="font-size: 11px;">#${email.id}</span>
+            </div>
+            <div class="email-subject">${email.subject}</div>
+            <div style="font-size: 11px; color: #999; margin-bottom: 8px;">
+              From: ${email.sender}
+            </div>
+            <span class="team-badge ${team.badge}">${team.name}</span>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // View team discussion for selected email
+    function viewDiscussion(emailId, teamKey, subject) {
+      const team = TEAMS[teamKey];
+
+      // Update header
+      document.getElementById('discussion-team').textContent = team.name;
+      document.getElementById('discussion-subject').textContent = subject;
+
+      // Show team members
+      const membersPanel = document.getElementById('team-members-panel');
+      const membersGrid = document.getElementById('team-members-grid');
+      membersPanel.style.display = 'block';
+
+      membersGrid.innerHTML = team.members.map((member, index) => `
+        <div class="member-card">
+          <div class="agent-avatar ${member.avatar}">${member.icon}</div>
+          <div style="flex: 1;">
+            <div style="font-size: 13px; font-weight: 600;">${member.role}</div>
+            <div class="member-status">
+              ${index === 0 ? '💬 Speaking' : (index === 1 ? '👂 Listening' : (index === 2 ? '⏸️ Waiting' : '🤔 Analyzing'))}
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+      // Simulate team discussion
+      simulateDiscussion(team, emailId);
+    }
+
+    // Run real team discussion using LangGraph backend
+    async function simulateDiscussion(team, emailId) {
+      const chatContainer = document.getElementById('chat-container');
+      chatContainer.innerHTML = '';
+
+      // Show loading indicator
+      chatContainer.innerHTML = `
+        <div style="text-align: center; padding: 60px 20px; color: #999;">
+          <div style="font-size: 48px; margin-bottom: 20px;">🤖</div>
+          <h3>Assembling Virtual Team...</h3>
+          <p>The ${TEAMS[team].name} is analyzing this email</p>
+          <div class="thinking-indicator">
+            <span>Processing</span>
+            <div class="thinking-dots">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
+        </div>
+      `;
+
+      try {
+        // Call the real API endpoint
+        const response = await fetch(`${API_BASE_URL}/agentic/emails/${emailId}/process?team=${team}`, {
+          method: 'POST'
+        });
+
+        if (!response.ok) {
+          throw new Error(`API returned ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        // Clear loading
+        chatContainer.innerHTML = '';
+
+        // Display each message from the discussion
+        const messages = result.discussion.messages;
+
+        for (let i = 0; i < messages.length; i++) {
+          await new Promise(resolve => setTimeout(resolve, 800)); // Delay for visual effect
+
+          const message = messages[i];
+
+          // Find the agent avatar info
+          const agent = TEAMS[team].members.find(m => m.role === message.role) || TEAMS[team].members[0];
+
+          const messageHTML = `
+            <div class="chat-message">
+              <div class="message-header">
+                <div class="agent-avatar ${agent.avatar}">${message.icon}</div>
+                <div class="agent-info">
+                  <div class="agent-name">${message.role}</div>
+                </div>
+                <span class="message-time">${new Date(message.timestamp).toLocaleTimeString()}</span>
+              </div>
+              <div class="message-content">
+                <div class="message-text">${message.text}</div>
+              </div>
+            </div>
+          `;
+
+          chatContainer.insertAdjacentHTML('beforeend', messageHTML);
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+
+          // Update progress
+          const progress = ((i + 1) / messages.length) * 100;
+          document.getElementById('discussion-progress').style.width = progress + '%';
+        }
+
+        // Add decision panel if there's a decision
+        if (result.discussion.decision && !messages[messages.length - 1].is_decision) {
+          const decisionHTML = `
+            <div class="decision-panel">
+              <div class="decision-title">Final Decision Reached</div>
+              <div class="decision-details">
+                <strong>${result.discussion.decision.decision_maker}:</strong>
+                <div style="margin-top: 10px; white-space: pre-wrap;">${result.discussion.decision.decision_text}</div>
+              </div>
+            </div>
+          `;
+          chatContainer.insertAdjacentHTML('beforeend', decisionHTML);
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+      } catch (error) {
+        console.error('Error running team discussion:', error);
+        chatContainer.innerHTML = `
+          <div style="text-align: center; padding: 60px 20px; color: #e53935;">
+            <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
+            <h3>Error Running Team Discussion</h3>
+            <p>${error.message}</p>
+            <p style="font-size: 12px; margin-top: 20px;">Make sure the backend is fully loaded and Ollama is running</p>
+          </div>
+        `;
+      }
+    }
+
+    // Highlight active team in sidebar
+    function highlightActiveTeam() {
+      const selectedTeam = getSelectedTeam();
+
+      // Remove all active classes
+      document.querySelectorAll('.nav-link').forEach(link => {
+        link.classList.remove('active', 'bg-gradient-primary');
+      });
+
+      // Add active class to the selected team link
+      if (selectedTeam) {
+        const activeLink = document.querySelector(`a[href*="team=${selectedTeam}"]`);
+        if (activeLink) {
+          activeLink.classList.add('active', 'bg-gradient-primary');
+        }
+      } else {
+        // "All Teams" is active
+        const allTeamsLink = document.querySelector('a[href="/pages/agentic-teams.html"]:not([href*="team="])');
+        if (allTeamsLink) {
+          allTeamsLink.classList.add('active', 'bg-gradient-primary');
+        }
+      }
+    }
+
+    // Initialize on page load
+    highlightActiveTeam();
+    loadEmails();
+  </script>
+</body>
+</html>

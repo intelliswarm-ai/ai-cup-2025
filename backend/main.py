@@ -17,6 +17,7 @@ from wiki_enrichment import email_enricher
 from pydantic import BaseModel
 from events import broadcaster
 from email_fetcher import email_fetcher
+from agentic_teams import orchestrator, detect_team_for_email, TEAMS
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -1128,6 +1129,165 @@ async def get_inbox_digest(
     except Exception as e:
         logger.error(f"Error generating inbox digest: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# ============================================================================
+# AGENTIC TEAMS ENDPOINTS
+# ============================================================================
+
+@app.get("/api/agentic/teams")
+async def get_available_teams():
+    """Get list of all available virtual bank teams"""
+    teams_list = []
+    for team_key, team_data in TEAMS.items():
+        teams_list.append({
+            "key": team_key,
+            "name": team_data["name"],
+            "agent_count": len(team_data["agents"]),
+            "agents": [
+                {
+                    "role": agent["role"],
+                    "icon": agent["icon"],
+                    "responsibilities": agent["responsibilities"]
+                }
+                for agent in team_data["agents"]
+            ]
+        })
+    return {"teams": teams_list}
+
+
+@app.post("/api/agentic/emails/{email_id}/process")
+async def process_email_with_agentic_team(
+    email_id: int,
+    team: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Process an email with a virtual bank team.
+    If team is not specified, it will be auto-detected based on content.
+    """
+    try:
+        # Get email from database
+        email = db.query(Email).filter(Email.id == email_id).first()
+        if not email:
+            raise HTTPException(status_code=404, detail=f"Email {email_id} not found")
+
+        # Auto-detect team if not specified
+        if not team:
+            team = detect_team_for_email(email.subject, email.body_text or email.body_html)
+            logger.info(f"Auto-detected team '{team}' for email {email_id}")
+
+        # Validate team
+        if team not in TEAMS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid team '{team}'. Valid teams: {list(TEAMS.keys())}"
+            )
+
+        logger.info(f"Processing email {email_id} with team '{team}'")
+
+        # Run the team discussion
+        result = await orchestrator.run_team_discussion(
+            email_id=email.id,
+            email_subject=email.subject,
+            email_body=email.body_text or email.body_html,
+            email_sender=email.sender,
+            team=team,
+            max_rounds=2  # 2 rounds of discussion
+        )
+
+        logger.info(f"Team discussion completed for email {email_id}: {result['status']}")
+
+        return {
+            "status": "success",
+            "email_id": email_id,
+            "team": team,
+            "team_name": result["team_name"],
+            "discussion": result
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error processing email {email_id} with agentic team: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/agentic/emails/{email_id}/team")
+async def detect_team_for_email_endpoint(
+    email_id: int,
+    db: Session = Depends(get_db)
+):
+    """Detect which team should handle a specific email"""
+    try:
+        email = db.query(Email).filter(Email.id == email_id).first()
+        if not email:
+            raise HTTPException(status_code=404, detail=f"Email {email_id} not found")
+
+        team = detect_team_for_email(email.subject, email.body_text or email.body_html)
+        team_info = TEAMS[team]
+
+        return {
+            "email_id": email_id,
+            "detected_team": team,
+            "team_name": team_info["name"],
+            "agent_count": len(team_info["agents"])
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error detecting team for email {email_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/agentic/simulate-discussion")
+async def simulate_team_discussion(
+    team: str = "credit_risk",
+    subject: str = "Credit Line Increase Request"
+):
+    """
+    Simulate a team discussion for testing purposes.
+    This endpoint creates a mock email scenario for demonstration.
+    """
+    try:
+        if team not in TEAMS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid team '{team}'. Valid teams: {list(TEAMS.keys())}"
+            )
+
+        # Create a mock email body based on the team
+        mock_bodies = {
+            "credit_risk": "We are requesting a credit line increase from CHF 2M to CHF 5M to support our expansion plans. Our revenue has grown 40% YoY and we have strong cash flows.",
+            "fraud": "We received a suspicious wire transfer request for CHF 500K to an unknown account. The email appears to be from our CEO but the sending domain is slightly different.",
+            "compliance": "We need clarification on FATCA reporting requirements for our new US client accounts. What are the thresholds and documentation needed?",
+            "wealth": "Our client inherited CHF 12M and wants to invest conservatively while minimizing tax exposure. They are 55 years old and planning retirement in 10 years.",
+            "corporate": "We need a letter of credit for CHF 3M to support an import transaction from Asia. The goods are electronics with 90-day payment terms.",
+            "operations": "Multiple customers have complained about the new account opening process taking too long. We need to streamline the workflow and improve response times."
+        }
+
+        result = await orchestrator.run_team_discussion(
+            email_id=0,  # Mock ID
+            email_subject=subject,
+            email_body=mock_bodies.get(team, "Sample email body for team discussion."),
+            email_sender="client@example.com",
+            team=team,
+            max_rounds=2
+        )
+
+        return {
+            "status": "success",
+            "simulation": True,
+            "team": team,
+            "discussion": result
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error simulating team discussion: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/events")
 async def events():
