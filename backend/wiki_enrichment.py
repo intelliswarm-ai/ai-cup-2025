@@ -54,22 +54,54 @@ class WikiKnowledgeBase:
 
     async def fetch_wiki_pages(self) -> Dict[str, Dict]:
         """Fetch all wiki pages and build knowledge base"""
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
-                # Try to get the wiki index/home page
-                response = await client.get(f"{self.wiki_url}/")
+        import os
+        import glob
 
-                if response.status_code != 200:
-                    logger.warning(f"Wiki not accessible: {response.status_code}")
-                    return self._get_fallback_knowledge_base()
+        # Try to read from OtterWiki repository directory (if mounted)
+        wiki_repo_path = "/app/otterwiki_data/repository"
 
-                # For now, return fallback knowledge base
-                # In production, would parse wiki pages
-                return self._get_fallback_knowledge_base()
+        if os.path.exists(wiki_repo_path):
+            logger.info(f"Reading wiki pages from {wiki_repo_path}")
+            knowledge_base = {}
 
-        except Exception as e:
-            logger.error(f"Error fetching wiki pages: {e}")
-            return self._get_fallback_knowledge_base()
+            # Find all markdown files
+            md_files = glob.glob(f"{wiki_repo_path}/*.md")
+            logger.info(f"Found {len(md_files)} wiki pages")
+
+            for md_file in md_files:
+                try:
+                    # Get page title from filename
+                    page_title = os.path.basename(md_file).replace('.md', '').replace('-', ' ')
+
+                    # Read content
+                    with open(md_file, 'r', encoding='utf-8') as f:
+                        content = f.read()
+
+                    # Extract first paragraph as summary
+                    lines = content.split('\n')
+                    summary_lines = []
+                    for line in lines[1:]:  # Skip title
+                        if line.strip() and not line.startswith('#'):
+                            summary_lines.append(line.strip())
+                            if len(summary_lines) >= 2:
+                                break
+                    summary = ' '.join(summary_lines)[:200]
+
+                    knowledge_base[page_title] = {
+                        "content": content,
+                        "summary": summary,
+                        "keywords": []  # Could extract from content
+                    }
+                except Exception as e:
+                    logger.warning(f"Error reading {md_file}: {e}")
+
+            if len(knowledge_base) > 0:
+                logger.info(f"Loaded {len(knowledge_base)} wiki pages from filesystem")
+                return knowledge_base
+
+        # Fallback if no files found
+        logger.warning("No wiki files found, using fallback knowledge base")
+        return self._get_fallback_knowledge_base()
 
     def _get_fallback_knowledge_base(self) -> Dict[str, Dict]:
         """

@@ -61,6 +61,8 @@ services:
         condition: service_started
     volumes:
       - ./backend:/app
+      - otterwiki_data:/app/otterwiki_data:ro
+      - chroma_data:/app/chroma_db
     networks:
       - mailbox-network
     healthcheck:
@@ -293,4 +295,5 @@ volumes:
   ollama_data:
   otterwiki_data:
   employee_directory_data:
+  chroma_data:
 
