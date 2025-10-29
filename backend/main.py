@@ -177,6 +177,11 @@ async def root():
     """Health check endpoint"""
     return {"status": "healthy", "service": "Mailbox Analysis API"}
 
+@app.get("/health")
+async def health():
+    """Dedicated health check endpoint for Docker"""
+    return {"status": "healthy", "service": "Mailbox Analysis API"}
+
 @app.get("/api/mailpit/stats")
 async def get_mailpit_stats():
     """Get MailPit statistics"""

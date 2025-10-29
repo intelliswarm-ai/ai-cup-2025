@@ -7,6 +7,7 @@ RUN apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
     wget \
+    curl \
     openjdk-21-jre-headless \
     && rm -rf /var/lib/apt/lists/*
 
@@ -32,12 +33,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Copy startup script
+# Copy startup script and ensure it's executable
 COPY start.sh /app/start.sh
 RUN chmod +x /app/start.sh
 
 # Expose port
 EXPOSE 8000
 
-# Run the application
-CMD ["/app/start.sh"]
+# Run the application using bash (doesn't rely on execute bit from volume mount)
+CMD ["bash", "/app/start.sh"]

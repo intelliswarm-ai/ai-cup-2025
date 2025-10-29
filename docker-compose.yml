@@ -59,6 +59,12 @@ services:
       - ./backend:/app
     networks:
       - mailbox-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   # Material Dashboard Frontend
   frontend:
@@ -68,8 +74,10 @@ services:
     container_name: mailbox-frontend
     ports:
       - "80:80"
+      - "443:443"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - mailbox-network
 

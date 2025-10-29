@@ -28,7 +28,11 @@ RUN mkdir -p /usr/share/nginx/html && \
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Expose port 80
-EXPOSE 80
+# Copy entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-CMD ["nginx", "-g", "daemon off;"]
+# Expose ports 80 (HTTP) and 443 (HTTPS)
+EXPOSE 80 443
+
+ENTRYPOINT ["/entrypoint.sh"]
