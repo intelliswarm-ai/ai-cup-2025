@@ -257,7 +257,7 @@ class AgenticTeamOrchestrator:
             response = await self.client.post(
                 f"{self.ollama_url}/api/generate",
                 json={
-                    "model": "llama3.2:latest",
+                    "model": "phi3:latest",
                     "prompt": full_prompt,
                     "stream": False,
                     "options": {
