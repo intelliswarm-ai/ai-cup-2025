@@ -178,7 +178,7 @@ services:
       BATCH_SIZE: 100          # Number of emails to process per batch
       PROCESS_DELAY: 2         # Delay between emails (seconds)
       CONTINUOUS_MODE: "true"  # Set to "true" for continuous processing
-      LOOP_DELAY: 300          # Delay between batches in continuous mode (seconds)
+      LOOP_DELAY: 120          # Delay between batches in continuous mode (seconds)
     depends_on:
       - backend
       - postgres

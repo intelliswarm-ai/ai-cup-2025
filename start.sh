@@ -136,10 +136,10 @@ stop_existing_containers() {
     fi
 }
 
-# Build images if needed
+# Build images fresh (no cache)
 build_images() {
-    print_msg "$BLUE" "🔨 Building Docker images..."
-    docker compose build --parallel
+    print_msg "$BLUE" "🔨 Building Docker images (fresh build, no cache)..."
+    docker compose build --no-cache --parallel
     print_msg "$GREEN" "✅ Images built successfully"
 }
 
