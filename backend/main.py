@@ -126,10 +126,10 @@ async def startup_event():
     asyncio.create_task(email_fetcher.start_fetching())
     logger.info("Email fetcher started")
 
-    # Initialize wiki enrichment knowledge base
-    logger.info("Initializing wiki enrichment knowledge base...")
-    await email_enricher.initialize()
-    logger.info("Wiki enrichment ready")
+    # Initialize wiki enrichment knowledge base in background
+    logger.info("Starting wiki enrichment initialization in background...")
+    asyncio.create_task(email_enricher.initialize())
+    logger.info("Wiki enrichment initialization started (loading in background)")
 
 def detect_ui_badges(email: Email) -> List[str]:
     """Detect UI state badges for an email
