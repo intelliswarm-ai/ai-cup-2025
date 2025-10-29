@@ -659,7 +659,7 @@
                 <p class="text-sm mb-2"><strong>📚 Relevant Wiki Pages (${email.enriched_data.relevant_pages.length}):</strong></p>
                 <div class="mb-2">
                   ${email.enriched_data.relevant_pages.map(page => {
-                    const wikiSlug = page.replace(/\s+/g, '-');
+                    const wikiSlug = page.replace(/\s+/g, '-').toLowerCase();
                     const wikiUrl = `http://localhost:9000/${wikiSlug}`;
                     return `<a href="${wikiUrl}" target="_blank" class="badge bg-success me-1 mb-1" style="text-decoration: none; cursor: pointer;">${escapeHtml(page)} 📖</a>`;
                   }).join('')}
@@ -671,7 +671,7 @@
                 ${email.enriched_data.enriched_keywords.length > 0 ? `
                   <div style="background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #4caf50;">
                     ${email.enriched_data.enriched_keywords.map((kw, idx) => {
-                      const wikiSlug = kw.wiki_page.replace(/\s+/g, '-');
+                      const wikiSlug = kw.wiki_page.replace(/\s+/g, '-').toLowerCase();
                       const wikiUrl = `http://localhost:9000/${wikiSlug}`;
                       return `
                       <div class="mb-2 pb-2 ${idx < email.enriched_data.enriched_keywords.length - 1 ? 'border-bottom' : ''}">
@@ -1316,8 +1316,8 @@
         const wikiPage = escapeHtml(item.wiki_page);
         const confidence = item.confidence;
 
-        // Convert wiki page name to URL slug (e.g., "Security Policy" -> "Security-Policy")
-        const wikiSlug = item.wiki_page.replace(/\s+/g, '-');
+        // Convert wiki page name to URL slug (lowercase for OtterWiki compatibility)
+        const wikiSlug = item.wiki_page.replace(/\s+/g, '-').toLowerCase();
         const wikiUrl = `http://localhost:9000/${wikiSlug}`;
 
         // Create regex to find whole word matches (case insensitive) - use raw keyword, not escaped

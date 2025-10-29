@@ -598,8 +598,8 @@
         const wikiPage = escapeHtml(item.wiki_page);
         const confidence = item.confidence;
 
-        // Convert wiki page name to URL slug
-        const wikiSlug = item.wiki_page.replace(/\s+/g, '-');
+        // Convert wiki page name to URL slug (lowercase for OtterWiki)
+        const wikiSlug = item.wiki_page.replace(/\s+/g, '-').toLowerCase();
         const wikiUrl = `http://localhost:9000/${wikiSlug}`;
 
         // Create regex to find whole word matches (case insensitive)
@@ -678,7 +678,7 @@
                 <p class="text-sm mb-2"><strong>📚 Relevant Wiki Pages (${email.enriched_data.relevant_pages.length}):</strong></p>
                 <div class="mb-2">
                   ${email.enriched_data.relevant_pages.map(page => {
-                    const wikiSlug = page.replace(/\s+/g, '-');
+                    const wikiSlug = page.replace(/\s+/g, '-').toLowerCase();
                     const wikiUrl = `http://localhost:9000/${wikiSlug}`;
                     return `<a href="${wikiUrl}" target="_blank" class="badge" style="background: #4caf50; color: white; text-decoration: none; margin-right: 4px; margin-bottom: 4px;">${escapeHtml(page)} 📖</a>`;
                   }).join('')}
@@ -690,7 +690,7 @@
                 ${email.enriched_data.enriched_keywords.length > 0 ? `
                   <div style="background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #4caf50;">
                     ${email.enriched_data.enriched_keywords.map((kw, idx) => {
-                      const wikiSlug = kw.wiki_page.replace(/\s+/g, '-');
+                      const wikiSlug = kw.wiki_page.replace(/\s+/g, '-').toLowerCase();
                       const wikiUrl = `http://localhost:9000/${wikiSlug}`;
                       return `
                       <div class="mb-2 pb-2 ${idx < email.enriched_data.enriched_keywords.length - 1 ? 'border-bottom' : ''}">
