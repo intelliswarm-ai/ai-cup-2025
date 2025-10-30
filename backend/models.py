@@ -47,6 +47,12 @@ class Email(Base):
     wiki_enriched_at = Column(DateTime)  # When wiki enrichment was performed
     phone_enriched_at = Column(DateTime)  # When phone enrichment was performed
 
+    # Agentic workflow team assignment
+    suggested_team = Column(String)  # LLM-suggested team for this email
+    assigned_team = Column(String)  # Team manually assigned by operator
+    agentic_task_id = Column(String)  # Task ID from agentic workflow for tracking
+    team_assigned_at = Column(DateTime)  # When team was assigned by operator
+
     # Relationships
     workflow_results = relationship("WorkflowResult", back_populates="email", cascade="all, delete-orphan")
 
@@ -74,3 +80,35 @@ class WorkflowConfig(Base):
     enabled = Column(Boolean, default=True)
     config = Column(JSON)  # Workflow-specific configuration
     created_at = Column(DateTime, default=datetime.utcnow)
+
+class Team(Base):
+    __tablename__ = "teams"
+
+    id = Column(Integer, primary_key=True, index=True)
+    key = Column(String(50), unique=True, nullable=False)
+    name = Column(String(255), nullable=False)
+    description = Column(Text)
+    icon = Column(String(10))
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # Relationships
+    agents = relationship("TeamAgent", back_populates="team", cascade="all, delete-orphan", order_by="TeamAgent.position_order")
+
+class TeamAgent(Base):
+    __tablename__ = "team_agents"
+
+    id = Column(Integer, primary_key=True, index=True)
+    team_id = Column(Integer, ForeignKey("teams.id", ondelete="CASCADE"), nullable=False)
+    role = Column(String(255), nullable=False)
+    icon = Column(String(10), nullable=False)
+    personality = Column(Text)
+    responsibilities = Column(Text)
+    style = Column(Text)
+    position_order = Column(Integer, default=0, nullable=False)
+    is_decision_maker = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    team = relationship("Team", back_populates="agents")

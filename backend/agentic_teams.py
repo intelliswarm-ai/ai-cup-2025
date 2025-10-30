@@ -242,11 +242,63 @@ class AgentState(TypedDict):
 class AgenticTeamOrchestrator:
     """Orchestrates multi-agent team discussions using LangGraph"""
 
-    def __init__(self, ollama_url: str = "http://ollama:11434"):
+    def __init__(self, openai_api_key: str = None, openai_model: str = "gpt-4o-mini", ollama_url: str = "http://ollama:11434"):
+        self.openai_api_key = openai_api_key
+        self.openai_model = openai_model
         self.ollama_url = ollama_url
         self.client = httpx.AsyncClient(timeout=120.0)
 
+        # Determine which LLM to use
+        self.use_openai = bool(openai_api_key and openai_api_key != "your_openai_api_key_here")
+
+        if self.use_openai:
+            print(f"[AgenticTeamOrchestrator] Using OpenAI API with model: {self.openai_model}")
+        else:
+            print(f"[AgenticTeamOrchestrator] Using Ollama at {self.ollama_url}")
+
     async def call_llm(self, prompt: str, system_message: str = None) -> str:
+        """Call LLM (OpenAI or Ollama) based on configuration"""
+        try:
+            if self.use_openai:
+                return await self._call_openai(prompt, system_message)
+            else:
+                return await self._call_ollama(prompt, system_message)
+        except Exception as e:
+            return f"Error: {str(e)}"
+
+    async def _call_openai(self, prompt: str, system_message: str = None) -> str:
+        """Call OpenAI API"""
+        try:
+            messages = []
+            if system_message:
+                messages.append({"role": "system", "content": system_message})
+            messages.append({"role": "user", "content": prompt})
+
+            response = await self.client.post(
+                "https://api.openai.com/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.openai_api_key}",
+                    "Content-Type": "application/json"
+                },
+                json={
+                    "model": self.openai_model,
+                    "messages": messages,
+                    "temperature": 0.7,
+                    "max_tokens": 350
+                }
+            )
+
+            if response.status_code == 200:
+                result = response.json()
+                return result["choices"][0]["message"]["content"]
+            else:
+                error_text = response.text
+                return f"Error calling OpenAI API: {response.status_code} - {error_text}"
+
+        except Exception as e:
+            return f"Error calling OpenAI: {str(e)}"
+
+    async def _call_ollama(self, prompt: str, system_message: str = None) -> str:
         """Call Ollama LLM using /api/generate endpoint"""
         try:
             # Combine system message and prompt for generate endpoint
@@ -257,12 +309,13 @@ class AgenticTeamOrchestrator:
             response = await self.client.post(
                 f"{self.ollama_url}/api/generate",
                 json={
-                    "model": "phi3:latest",
+                    "model": "tinyllama:latest",
                     "prompt": full_prompt,
                     "stream": False,
                     "options": {
                         "temperature": 0.7,
                         "top_p": 0.9,
+                        "num_predict": 100  # Limit response length for speed
                     }
                 }
             )
@@ -271,19 +324,20 @@ class AgenticTeamOrchestrator:
                 result = response.json()
                 return result["response"]
             else:
-                return f"Error calling LLM: {response.status_code}"
+                return f"Error calling Ollama: {response.status_code}"
 
         except Exception as e:
-            return f"Error: {str(e)}"
+            return f"Error calling Ollama: {str(e)}"
 
     async def agent_speaks(self, state: AgentState, agent: Dict[str, Any]) -> Dict[str, Any]:
         """Generate a response from a specific agent"""
         team_info = TEAMS[state["team"]]
+        current_round = state.get("round", 0)
 
         # Build context from previous messages
         conversation_context = "\n".join([
             f"{msg['role']}: {msg['text']}"
-            for msg in state["messages"][-6:]  # Last 6 messages for context
+            for msg in state["messages"][-8:]  # Last 8 messages for context
         ])
 
         # Create agent-specific prompt
@@ -293,18 +347,51 @@ Your personality: {agent['personality']}
 Your responsibilities: {agent['responsibilities']}
 Your communication style: {agent['style']}
 
-You are analyzing an email and discussing it with your team. Provide your professional perspective in 2-3 sentences.
-Stay in character and use your characteristic phrases. Be concise but insightful."""
+You are in a professional debate with your team about an email. This is an interactive discussion where you should:
+- Challenge ideas you disagree with (respectfully but firmly)
+- Build on good points made by colleagues
+- Offer alternative perspectives
+- Defend your position with evidence and reasoning
 
-        user_prompt = f"""EMAIL DETAILS:
+Stay in character and be concise (2-3 sentences) but bold in your opinions."""
+
+        # Different prompts based on round - get progressively more challenging
+        if current_round == 0:
+            # Round 1: Initial assessment
+            user_prompt = f"""EMAIL DETAILS:
 Subject: {state['email_subject']}
 From: {state['email_sender']}
-Body: {state['email_body'][:500]}...
+Body: {state['email_body'][:500]}
 
 PREVIOUS DISCUSSION:
 {conversation_context if conversation_context else "This is the start of the discussion."}
 
-As {agent['role']}, provide your analysis and perspective on this email. What do you think about this situation?"""
+As {agent['role']}, provide your initial assessment of THIS SPECIFIC EMAIL. Reference the actual subject, sender, and content details in your analysis. What's your take? Be direct and clear about your concerns or recommendations."""
+        elif current_round == 1:
+            # Round 2: Challenge and debate
+            user_prompt = f"""EMAIL DETAILS:
+Subject: {state['email_subject']}
+From: {state['email_sender']}
+Body: {state['email_body'][:500]}
+
+DEBATE SO FAR:
+{conversation_context}
+
+As {agent['role']}, CHALLENGE your colleagues' views. What flaws do you see in their arguments about THIS SPECIFIC EMAIL? What details from the subject, sender, or body are they overlooking? If you disagree, say so directly and explain why. Push back on weak points and propose better alternatives."""
+        else:
+            # Round 3+: Intense debate and synthesis
+            user_prompt = f"""EMAIL DETAILS:
+Subject: {state['email_subject']}
+From: {state['email_sender']}
+Body: {state['email_body'][:500]}
+
+HEATED DEBATE:
+{conversation_context}
+
+As {agent['role']}, this is the final round. Based on the SPECIFIC details of this email (subject, sender, body), either:
+1) STRONGLY defend your position if you're right, citing the specific email details that support your view
+2) Or CONCEDE if someone made a better argument and build on it
+Be decisive - what's the BEST course of action for THIS SPECIFIC EMAIL and why? No more hedging."""
 
         # Call LLM
         response = await self.call_llm(user_prompt, system_prompt)
@@ -337,17 +424,30 @@ As {agent['role']}, provide your analysis and perspective on this email. What do
 Your personality: {decision_maker['personality']}
 Your responsibilities: {decision_maker['responsibilities']}
 
-Based on the team discussion, you must make a final decision and provide clear recommendations."""
+Your team just had a heated debate with different perspectives. You must now close the discussion with your final verdict."""
 
-        user_prompt = f"""TEAM DISCUSSION SUMMARY:
+        user_prompt = f"""EMAIL BEING DISCUSSED:
+Subject: {state['email_subject']}
+From: {state['email_sender']}
+Body: {state['email_body'][:300]}
+
+TEAM DEBATE TRANSCRIPT:
 {conversation_summary}
 
-As {decision_maker['role']}, synthesize the team's input and provide:
-1. Your final decision/recommendation (in 1-2 sentences)
-2. Key action items (2-3 bullet points)
-3. Any conditions or caveats
+As {decision_maker['role']}, you've heard the debate about THIS SPECIFIC EMAIL. Now give your FINAL VERDICT with this structure:
 
-Be decisive and clear. This is the final word from {team_info['name']}."""
+**Opening (1-2 sentences):** Acknowledge the key debate points and reference the specific email details (subject, sender, or content). State which approach won and why.
+
+**Decision:** State the decisive conclusion - what action we're taking about THIS EMAIL specifically.
+
+**Action Items:**
+• [First concrete action related to this email]
+• [Second concrete action]
+• [Third concrete action]
+
+**Risk Note:** One sentence about key risks related to this specific type of email.
+
+Keep the tone natural and authoritative, like a real team leader closing a meeting."""
 
         response = await self.call_llm(user_prompt, system_prompt)
 
@@ -367,9 +467,10 @@ Be decisive and clear. This is the final word from {team_info['name']}."""
         email_body: str,
         email_sender: str,
         team: str,
-        max_rounds: int = 1
+        max_rounds: int = 3,
+        on_message_callback = None
     ) -> Dict[str, Any]:
-        """Run a full team discussion on an email"""
+        """Run a full team discussion on an email with optional real-time callbacks"""
 
         if team not in TEAMS:
             raise ValueError(f"Unknown team: {team}")
@@ -393,16 +494,21 @@ Be decisive and clear. This is the final word from {team_info['name']}."""
 
         all_messages = []
 
-        # Each agent speaks in order (1 round)
+        # Each agent speaks in multiple rounds for debate
         for round_num in range(max_rounds):
             for agent in team_info["agents"][:-1]:  # All except decision maker
                 message = await self.agent_speaks(state, agent)
                 state["messages"].append(message)
                 all_messages.append(message)
 
+                # Call callback if provided (for real-time updates)
+                if on_message_callback:
+                    await on_message_callback(message, all_messages)
+
                 # Small delay for realistic pacing
                 await asyncio.sleep(0.5)
 
+            # Update round counter after all agents speak
             state["round"] += 1
 
         # Final decision
@@ -420,6 +526,10 @@ Be decisive and clear. This is the final word from {team_info['name']}."""
         }
         all_messages.append(decision_message)
 
+        # Call callback for final decision
+        if on_message_callback:
+            await on_message_callback(decision_message, all_messages)
+
         return {
             "status": "completed",
             "team": team,
@@ -436,7 +546,7 @@ Be decisive and clear. This is the final word from {team_info['name']}."""
 # ============================================================================
 
 def detect_team_for_email(email_subject: str, email_body: str) -> str:
-    """Detect which team should handle an email based on content"""
+    """Detect which team should handle an email based on content (keyword-based fallback)"""
     combined = (email_subject + " " + email_body).lower()
 
     if any(word in combined for word in ['credit', 'loan', 'financing', 'credit line', 'credit increase']):
@@ -455,8 +565,68 @@ def detect_team_for_email(email_subject: str, email_body: str) -> str:
     return 'credit_risk'  # default
 
 
+async def suggest_team_for_email_llm(email_subject: str, email_body: str, email_sender: str = "") -> str:
+    """
+    Use LLM to intelligently suggest which team should handle an email.
+    Analyzes email content and matches with team expertise.
+    """
+    # Build team descriptions for LLM
+    team_descriptions = []
+    for team_key, team_data in TEAMS.items():
+        agents_summary = ", ".join([agent["role"] for agent in team_data["agents"]])
+        team_descriptions.append(f"- {team_key}: {team_data['name']} (Specialists: {agents_summary})")
+
+    teams_text = "\n".join(team_descriptions)
+
+    system_prompt = """You are an intelligent email routing system for a Swiss bank. Your task is to analyze incoming emails and suggest which specialized team should handle them.
+
+Available teams:
+- credit_risk: 🏦 Credit Risk Committee (handles loan requests, credit analysis, financing decisions)
+- fraud: 🔍 Fraud Investigation Unit (handles suspicious activities, wire transfer issues, phishing, scams)
+- compliance: ⚖️ Compliance & Regulatory Affairs (handles regulatory matters, legal questions, audit issues)
+- wealth: 💼 Wealth Management Advisory (handles investment queries, portfolio management, estate planning)
+- corporate: 🏢 Corporate Banking Team (handles corporate clients, trade finance, treasury services)
+- operations: ⚙️ Operations & Quality (handles customer complaints, process issues, service quality)
+
+Analyze the email and respond with ONLY the team key (e.g., 'fraud' or 'credit_risk'). No explanation, just the team key."""
+
+    user_prompt = f"""EMAIL TO ANALYZE:
+Subject: {email_subject}
+From: {email_sender}
+Body: {email_body[:800]}
+
+Which team should handle this email? Respond with only the team key."""
+
+    try:
+        # Call LLM for suggestion
+        response = await orchestrator.call_llm(user_prompt, system_prompt)
+
+        # Clean and validate response
+        suggested_team = response.strip().lower()
+
+        # Extract team key if LLM included extra text
+        for team_key in TEAMS.keys():
+            if team_key in suggested_team:
+                return team_key
+
+        # Fallback to keyword-based detection if LLM response is unclear
+        return detect_team_for_email(email_subject, email_body)
+
+    except Exception as e:
+        print(f"Error in LLM team suggestion: {e}")
+        # Fallback to keyword-based detection
+        return detect_team_for_email(email_subject, email_body)
+
+
 # ============================================================================
 # GLOBAL ORCHESTRATOR INSTANCE
 # ============================================================================
 
-orchestrator = AgenticTeamOrchestrator()
+# Load OpenAI configuration from environment
+openai_api_key = os.getenv("OPENAI_API_KEY")
+openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+
+orchestrator = AgenticTeamOrchestrator(
+    openai_api_key=openai_api_key,
+    openai_model=openai_model
+)

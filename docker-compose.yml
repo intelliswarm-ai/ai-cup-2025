@@ -52,6 +52,8 @@ services:
       OLLAMA_HOST: ollama
       OLLAMA_PORT: 11434
       OLLAMA_MODEL: phi3
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
     depends_on:
       postgres:
         condition: service_healthy

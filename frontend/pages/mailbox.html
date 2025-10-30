@@ -110,6 +110,79 @@
       border-left: 4px solid #4caf50;
       margin-top: 15px;
     }
+
+    /* Team Assignment Styles */
+    .team-badge {
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 12px;
+      display: inline-block;
+      margin-right: 5px;
+      font-weight: 600;
+    }
+    .team-badge-credit_risk {
+      background: linear-gradient(195deg, #1E3A5F 0%, #2E5A8F 100%);
+      color: white;
+    }
+    .team-badge-fraud {
+      background: linear-gradient(195deg, #8B1538 0%, #B82255 100%);
+      color: white;
+    }
+    .team-badge-compliance {
+      background: linear-gradient(195deg, #4A5568 0%, #6B7280 100%);
+      color: white;
+    }
+    .team-badge-wealth {
+      background: linear-gradient(195deg, #B8751B 0%, #D6951F 100%);
+      color: white;
+    }
+    .team-badge-corporate {
+      background: linear-gradient(195deg, #2C5234 0%, #3A6B45 100%);
+      color: white;
+    }
+    .team-badge-operations {
+      background: linear-gradient(195deg, #6B5B4C 0%, #8B7355 100%);
+      color: white;
+    }
+    .team-assign-btn {
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      margin: 2px;
+    }
+    .workflow-link-badge {
+      background: linear-gradient(195deg, #1e5389 0%, #2980b9 100%);
+      color: white;
+      padding: 6px 12px;
+      border-radius: 6px;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 0.85rem;
+      margin-top: 8px;
+    }
+    .workflow-link-badge:hover {
+      color: white;
+      opacity: 0.9;
+    }
+
+    /* Drag and Drop Styles */
+    .email-card {
+      cursor: grab;
+    }
+    .email-card:active {
+      cursor: grabbing;
+    }
+    .email-card.dragging {
+      opacity: 0.5;
+      transform: scale(0.95);
+    }
+    .team-drop-zone {
+      transition: all 0.3s ease;
+    }
+    .team-drop-zone.drag-over {
+      background: rgba(233, 30, 99, 0.1) !important;
+      border-left: 4px solid #e91e63;
+      transform: translateX(5px);
+    }
   </style>
 </head>
 
@@ -151,9 +224,9 @@
           </a>
         </li>
         <li class="nav-item mt-3">
-          <h6 class="ps-4 ms-2 text-uppercase text-xs text-white font-weight-bolder opacity-8">AI Teams</h6>
+          <h6 class="ps-4 ms-2 text-uppercase text-xs text-white font-weight-bolder opacity-8">Virtual Teams</h6>
         </li>
-        <li class="nav-item">
+        <li class="nav-item team-drop-zone" data-team="credit_risk" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragleave="handleDragLeave(event)">
           <a class="nav-link text-white" href="/pages/agentic-teams.html?team=credit_risk">
             <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
               <i class="material-icons-round opacity-10">account_balance</i>
@@ -161,7 +234,7 @@
             <span class="nav-link-text ms-1">Credit Risk</span>
           </a>
         </li>
-        <li class="nav-item">
+        <li class="nav-item team-drop-zone" data-team="fraud" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragleave="handleDragLeave(event)">
           <a class="nav-link text-white" href="/pages/agentic-teams.html?team=fraud">
             <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
               <i class="material-icons-round opacity-10">security</i>
@@ -169,7 +242,7 @@
             <span class="nav-link-text ms-1">Fraud Unit</span>
           </a>
         </li>
-        <li class="nav-item">
+        <li class="nav-item team-drop-zone" data-team="compliance" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragleave="handleDragLeave(event)">
           <a class="nav-link text-white" href="/pages/agentic-teams.html?team=compliance">
             <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
               <i class="material-icons-round opacity-10">gavel</i>
@@ -177,7 +250,7 @@
             <span class="nav-link-text ms-1">Compliance</span>
           </a>
         </li>
-        <li class="nav-item">
+        <li class="nav-item team-drop-zone" data-team="wealth" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragleave="handleDragLeave(event)">
           <a class="nav-link text-white" href="/pages/agentic-teams.html?team=wealth">
             <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
               <i class="material-icons-round opacity-10">trending_up</i>
@@ -185,7 +258,7 @@
             <span class="nav-link-text ms-1">Wealth Mgmt</span>
           </a>
         </li>
-        <li class="nav-item">
+        <li class="nav-item team-drop-zone" data-team="corporate" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragleave="handleDragLeave(event)">
           <a class="nav-link text-white" href="/pages/agentic-teams.html?team=corporate">
             <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
               <i class="material-icons-round opacity-10">business</i>
@@ -193,7 +266,7 @@
             <span class="nav-link-text ms-1">Corporate</span>
           </a>
         </li>
-        <li class="nav-item">
+        <li class="nav-item team-drop-zone" data-team="operations" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragleave="handleDragLeave(event)">
           <a class="nav-link text-white" href="/pages/agentic-teams.html?team=operations">
             <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
               <i class="material-icons-round opacity-10">settings</i>
@@ -492,13 +565,28 @@
         currentOffset = offset + emails.length;
 
         const emailHTML = emails.map(email => `
-          <div class="card email-card mb-3">
+          <div class="card email-card mb-3" draggable="true" data-email-id="${email.id}" ondragstart="handleDragStart(event)" ondragend="handleDragEnd(event)">
             <div class="card-body" onclick="viewEmail(${email.id})">
               <div class="row">
                 <div class="col-8">
                   <h6 class="mb-1">${escapeHtml(email.subject)}</h6>
                   <p class="text-sm text-muted mb-1">From: ${escapeHtml(email.sender)}</p>
                   <p class="text-xs text-muted mb-0">${new Date(email.received_at).toLocaleString()}</p>
+                  ${email.suggested_team || email.assigned_team ? `
+                    <div class="mt-2">
+                      ${email.assigned_team ? `
+                        <span class="team-badge team-badge-${email.assigned_team}" title="Assigned Team">
+                          <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">groups</i>
+                          ${getTeamDisplayName(email.assigned_team)}
+                        </span>
+                      ` : email.suggested_team ? `
+                        <span class="team-badge team-badge-${email.suggested_team}" title="AI Suggested Team" style="opacity: 0.85;">
+                          <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">psychology</i>
+                          ${getTeamDisplayName(email.suggested_team)} (Suggested)
+                        </span>
+                      ` : ''}
+                    </div>
+                  ` : ''}
                   ${(email.badges && email.badges.length > 0) || (email.ui_badges && email.ui_badges.length > 0) || email.wiki_enriched || email.phone_enriched ? `
                     <div class="mt-2">
                       ${renderEmailBadges(email.badges || [])}
@@ -573,6 +661,47 @@
       return email.is_phishing ?
         '<span class="badge phishing-badge text-white">Phishing</span>' :
         '<span class="badge safe-badge text-white">Safe</span>';
+    }
+
+    function getTeamDisplayName(teamKey) {
+      const teamNames = {
+        'credit_risk': 'Credit Risk',
+        'fraud': 'Fraud Investigation',
+        'compliance': 'Compliance',
+        'wealth': 'Wealth Management',
+        'corporate': 'Corporate Banking',
+        'operations': 'Operations'
+      };
+      return teamNames[teamKey] || teamKey;
+    }
+
+    async function assignTeamToEmail(emailId, teamKey) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/emails/${emailId}/assign-team?team=${teamKey}`, {
+          method: 'POST'
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to assign team');
+        }
+
+        const result = await response.json();
+
+        // Show success message
+        alert(`Email assigned to ${getTeamDisplayName(teamKey)} team!\nAgentic workflow started.\nTask ID: ${result.task_id}`);
+
+        // Reload email list to show updated status
+        resetEmailList();
+
+        // Optionally open the workflow page
+        if (confirm('Would you like to view the agentic workflow discussion?')) {
+          window.open(result.workflow_url, '_blank');
+        }
+
+      } catch (error) {
+        console.error('Error assigning team:', error);
+        alert('Failed to assign team to email. Please try again.');
+      }
     }
 
     function getBadgeIcon(badgeType) {
@@ -709,6 +838,77 @@
             </button>
             ${email.processed ? '<small class="text-muted ms-2">Run phishing detection again</small>' : ''}
           </div>
+
+          ${email.suggested_team || email.assigned_team || email.agentic_task_id ? `
+            <div class="mb-3 p-3" style="background: #f0f8ff; border-left: 4px solid #2980b9; border-radius: 4px;">
+              <h6><i class="material-icons-round" style="font-size: 20px; vertical-align: middle;">groups</i> Agentic Team Assignment</h6>
+
+              ${email.assigned_team ? `
+                <div class="mt-2">
+                  <strong>Assigned Team:</strong>
+                  <span class="team-badge team-badge-${email.assigned_team}">
+                    <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">groups</i>
+                    ${getTeamDisplayName(email.assigned_team)}
+                  </span>
+                  ${email.team_assigned_at ? `<br><small class="text-muted">Assigned: ${new Date(email.team_assigned_at).toLocaleString()}</small>` : ''}
+                </div>
+              ` : email.suggested_team ? `
+                <div class="mt-2 mb-3">
+                  <strong>AI Suggested Team:</strong>
+                  <span class="team-badge team-badge-${email.suggested_team}" style="opacity: 0.85;">
+                    <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">psychology</i>
+                    ${getTeamDisplayName(email.suggested_team)}
+                  </span>
+                </div>
+                <div class="mt-2">
+                  <p class="text-sm mb-2"><strong>Assign to Team:</strong></p>
+                  <button class="btn btn-sm btn-outline-primary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, '${email.suggested_team}')">
+                    ✓ Accept Suggestion
+                  </button>
+                  <button class="btn btn-sm btn-outline-secondary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'credit_risk')">Credit Risk</button>
+                  <button class="btn btn-sm btn-outline-secondary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'fraud')">Fraud</button>
+                  <button class="btn btn-sm btn-outline-secondary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'compliance')">Compliance</button>
+                  <button class="btn btn-sm btn-outline-secondary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'wealth')">Wealth</button>
+                  <button class="btn btn-sm btn-outline-secondary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'corporate')">Corporate</button>
+                  <button class="btn btn-sm btn-outline-secondary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'operations')">Operations</button>
+                </div>
+              ` : ''}
+
+              ${email.agentic_task_id ? `
+                <div class="mt-3">
+                  <strong>Agentic Workflow:</strong><br>
+                  <a href="/pages/agentic-teams.html?email_id=${email.id}&task_id=${email.agentic_task_id}" target="_blank" class="workflow-link-badge">
+                    <i class="material-icons-round" style="font-size: 16px; vertical-align: middle;">forum</i>
+                    View Team Discussion
+                  </a>
+                  <br><small class="text-muted">Task ID: ${email.agentic_task_id}</small>
+                </div>
+              ` : ''}
+            </div>
+          ` : `
+            <div class="mb-3 p-3" style="background: #fff9f0; border-left: 4px solid #f39c12; border-radius: 4px;">
+              <h6><i class="material-icons-round" style="font-size: 20px; vertical-align: middle;">psychology</i> Assign to Agentic Team</h6>
+              <p class="text-sm mb-2">This email can be analyzed by our virtual bank teams. Select a team to start the agentic workflow:</p>
+              <button class="btn btn-sm btn-outline-primary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'credit_risk')">
+                <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">account_balance</i> Credit Risk
+              </button>
+              <button class="btn btn-sm btn-outline-primary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'fraud')">
+                <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">search</i> Fraud
+              </button>
+              <button class="btn btn-sm btn-outline-primary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'compliance')">
+                <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">gavel</i> Compliance
+              </button>
+              <button class="btn btn-sm btn-outline-primary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'wealth')">
+                <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">trending_up</i> Wealth
+              </button>
+              <button class="btn btn-sm btn-outline-primary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'corporate')">
+                <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">business</i> Corporate
+              </button>
+              <button class="btn btn-sm btn-outline-primary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'operations')">
+                <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">settings</i> Operations
+              </button>
+            </div>
+          `}
 
           ${email.enriched && email.enriched_data && email.enriched_data.enriched_keywords && email.enriched_data.enriched_keywords.length > 0 ? `
             <div class="wiki-enrichment-section mb-3">
@@ -1404,6 +1604,116 @@
       `;
       document.body.appendChild(alert);
       setTimeout(() => alert.remove(), 5000);
+    }
+
+    // ============================================
+    // Drag and Drop Email Assignment to Teams
+    // ============================================
+
+    let draggedEmailId = null;
+
+    function handleDragStart(event) {
+      const emailCard = event.currentTarget;
+      draggedEmailId = emailCard.getAttribute('data-email-id');
+
+      // Add visual feedback
+      emailCard.classList.add('dragging');
+
+      // Set drag data
+      event.dataTransfer.effectAllowed = 'move';
+      event.dataTransfer.setData('text/plain', draggedEmailId);
+
+      // Create a ghost image (optional)
+      const dragImage = emailCard.cloneNode(true);
+      dragImage.style.position = 'absolute';
+      dragImage.style.top = '-1000px';
+      document.body.appendChild(dragImage);
+      event.dataTransfer.setDragImage(dragImage, 0, 0);
+      setTimeout(() => dragImage.remove(), 0);
+    }
+
+    function handleDragEnd(event) {
+      // Remove visual feedback
+      event.currentTarget.classList.remove('dragging');
+
+      // Remove all drag-over classes from drop zones
+      document.querySelectorAll('.team-drop-zone.drag-over').forEach(zone => {
+        zone.classList.remove('drag-over');
+      });
+    }
+
+    function handleDragOver(event) {
+      event.preventDefault(); // Necessary to allow drop
+      event.dataTransfer.dropEffect = 'move';
+
+      // Add visual feedback to drop zone
+      const dropZone = event.currentTarget;
+      if (!dropZone.classList.contains('drag-over')) {
+        dropZone.classList.add('drag-over');
+      }
+    }
+
+    function handleDragLeave(event) {
+      // Remove visual feedback when leaving drop zone
+      const dropZone = event.currentTarget;
+
+      // Only remove if we're actually leaving the element
+      // Check if the related target is not a child of the drop zone
+      if (!dropZone.contains(event.relatedTarget)) {
+        dropZone.classList.remove('drag-over');
+      }
+    }
+
+    async function handleDrop(event) {
+      event.preventDefault();
+      event.stopPropagation();
+
+      const dropZone = event.currentTarget;
+      dropZone.classList.remove('drag-over');
+
+      const team = dropZone.getAttribute('data-team');
+      const emailId = draggedEmailId || event.dataTransfer.getData('text/plain');
+
+      if (!emailId || !team) {
+        console.error('Missing email ID or team');
+        return;
+      }
+
+      console.log(`Assigning email ${emailId} to team ${team}`);
+
+      try {
+        // Show loading state
+        const teamName = getTeamDisplayName(team);
+        showNotification('success', `Assigning email to ${teamName}...`);
+
+        // Call the API to assign the email to the team
+        const response = await fetch(`${API_BASE_URL}/emails/${emailId}/assign-team?team=${team}`, {
+          method: 'POST'
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to assign team');
+        }
+
+        const result = await response.json();
+
+        // Show success message
+        showNotification('success', `✓ Email assigned to ${teamName} team! Task ID: ${result.task_id}`);
+
+        // Reload email list to show updated status
+        await resetEmailList();
+
+        // Ask if user wants to view the workflow
+        setTimeout(() => {
+          if (confirm('Email assigned successfully! Would you like to view the agentic workflow discussion?')) {
+            window.open(result.workflow_url, '_blank');
+          }
+        }, 500);
+
+      } catch (error) {
+        console.error('Error assigning team:', error);
+        showNotification('danger', '✗ Failed to assign team to email. Please try again.');
+      }
     }
   </script>
 </body>
