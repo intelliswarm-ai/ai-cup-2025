@@ -785,7 +785,7 @@
           <h3>Assembling Virtual Team...</h3>
           <p>The ${TEAMS[team].name} is analyzing this email</p>
           <div class="thinking-indicator">
-            <span>Processing</span>
+            <span id="status-text">Starting workflow...</span>
             <div class="thinking-dots">
               <span></span>
               <span></span>
@@ -796,7 +796,7 @@
       `;
 
       try {
-        // Call the real API endpoint
+        // Start the workflow (returns immediately with task_id)
         const response = await fetch(`${API_BASE_URL}/agentic/emails/${emailId}/process?team=${team}`, {
           method: 'POST'
         });
@@ -805,62 +805,122 @@
           throw new Error(`API returned ${response.status}`);
         }
 
-        const result = await response.json();
+        const startResult = await response.json();
+        const taskId = startResult.task_id;
 
-        // Clear loading
-        chatContainer.innerHTML = '';
+        console.log(`Started agentic workflow, task_id: ${taskId}`);
 
-        // Display each message from the discussion
-        const messages = result.discussion.messages;
+        // Update status
+        document.getElementById('status-text').textContent = 'Processing with virtual team...';
 
-        for (let i = 0; i < messages.length; i++) {
-          await new Promise(resolve => setTimeout(resolve, 800)); // Delay for visual effect
+        // Poll for results
+        let pollCount = 0;
+        const maxPolls = 180; // 180 * 2 seconds = 6 minutes max
+        const pollInterval = 2000; // 2 seconds
 
-          const message = messages[i];
+        const poll = async () => {
+          try {
+            const statusResponse = await fetch(`${API_BASE_URL}/agentic/tasks/${taskId}`);
+            if (!statusResponse.ok) {
+              throw new Error(`Status check failed: ${statusResponse.status}`);
+            }
 
-          // Find the agent avatar info
-          const agent = TEAMS[team].members.find(m => m.role === message.role) || TEAMS[team].members[0];
+            const status = await statusResponse.json();
+            console.log(`Task status: ${status.status}`, status);
 
-          const messageHTML = `
-            <div class="chat-message">
-              <div class="message-header">
-                <div class="agent-avatar ${agent.avatar}">${message.icon}</div>
-                <div class="agent-info">
-                  <div class="agent-name">${message.role}</div>
-                </div>
-                <span class="message-time">${new Date(message.timestamp).toLocaleTimeString()}</span>
+            if (status.status === 'completed') {
+              // Display the results
+              const result = status.result;
+              chatContainer.innerHTML = '';
+
+              const messages = result.discussion.messages;
+
+              for (let i = 0; i < messages.length; i++) {
+                await new Promise(resolve => setTimeout(resolve, 800));
+
+                const message = messages[i];
+                const agent = TEAMS[team].members.find(m => m.role === message.role) || TEAMS[team].members[0];
+
+                const messageHTML = `
+                  <div class="chat-message">
+                    <div class="message-header">
+                      <div class="agent-avatar ${agent.avatar}">${message.icon}</div>
+                      <div class="agent-info">
+                        <div class="agent-name">${message.role}</div>
+                      </div>
+                      <span class="message-time">${new Date(message.timestamp).toLocaleTimeString()}</span>
+                    </div>
+                    <div class="message-content">
+                      <div class="message-text">${message.text}</div>
+                    </div>
+                  </div>
+                `;
+
+                chatContainer.insertAdjacentHTML('beforeend', messageHTML);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+
+                const progress = ((i + 1) / messages.length) * 100;
+                document.getElementById('discussion-progress').style.width = progress + '%';
+              }
+
+              // Decision panel
+              if (result.discussion.decision && !messages[messages.length - 1].is_decision) {
+                const decisionHTML = `
+                  <div class="decision-panel">
+                    <div class="decision-title">Final Decision Reached</div>
+                    <div class="decision-details">
+                      <strong>${result.discussion.decision.decision_maker}:</strong>
+                      <div style="margin-top: 10px; white-space: pre-wrap;">${result.discussion.decision.decision_text}</div>
+                    </div>
+                  </div>
+                `;
+                chatContainer.insertAdjacentHTML('beforeend', decisionHTML);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+              }
+
+            } else if (status.status === 'failed') {
+              throw new Error(status.error || 'Workflow failed');
+
+            } else if (status.status === 'processing') {
+              // Update UI with processing status
+              document.getElementById('status-text').textContent = 'Virtual team is deliberating...';
+              pollCount++;
+
+              if (pollCount < maxPolls) {
+                setTimeout(poll, pollInterval);
+              } else {
+                throw new Error('Workflow timeout - taking too long');
+              }
+
+            } else if (status.status === 'pending') {
+              // Still pending
+              document.getElementById('status-text').textContent = 'Waiting for team to assemble...';
+              pollCount++;
+
+              if (pollCount < maxPolls) {
+                setTimeout(poll, pollInterval);
+              } else {
+                throw new Error('Workflow timeout - never started');
+              }
+            }
+
+          } catch (pollError) {
+            console.error('Polling error:', pollError);
+            chatContainer.innerHTML = `
+              <div style="text-align: center; padding: 60px 20px; color: #e53935;">
+                <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
+                <h3>Error During Processing</h3>
+                <p>${pollError.message}</p>
               </div>
-              <div class="message-content">
-                <div class="message-text">${message.text}</div>
-              </div>
-            </div>
-          `;
+            `;
+          }
+        };
 
-          chatContainer.insertAdjacentHTML('beforeend', messageHTML);
-          chatContainer.scrollTop = chatContainer.scrollHeight;
-
-          // Update progress
-          const progress = ((i + 1) / messages.length) * 100;
-          document.getElementById('discussion-progress').style.width = progress + '%';
-        }
-
-        // Add decision panel if there's a decision
-        if (result.discussion.decision && !messages[messages.length - 1].is_decision) {
-          const decisionHTML = `
-            <div class="decision-panel">
-              <div class="decision-title">Final Decision Reached</div>
-              <div class="decision-details">
-                <strong>${result.discussion.decision.decision_maker}:</strong>
-                <div style="margin-top: 10px; white-space: pre-wrap;">${result.discussion.decision.decision_text}</div>
-              </div>
-            </div>
-          `;
-          chatContainer.insertAdjacentHTML('beforeend', decisionHTML);
-          chatContainer.scrollTop = chatContainer.scrollHeight;
-        }
+        // Start polling
+        setTimeout(poll, pollInterval);
 
       } catch (error) {
-        console.error('Error running team discussion:', error);
+        console.error('Error starting team discussion:', error);
         chatContainer.innerHTML = `
           <div style="text-align: center; padding: 60px 20px; color: #e53935;">
             <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>

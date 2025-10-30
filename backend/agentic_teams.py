@@ -367,7 +367,7 @@ Be decisive and clear. This is the final word from {team_info['name']}."""
         email_body: str,
         email_sender: str,
         team: str,
-        max_rounds: int = 2
+        max_rounds: int = 1
     ) -> Dict[str, Any]:
         """Run a full team discussion on an email"""
 

@@ -7,6 +7,8 @@ from datetime import datetime, timedelta
 import logging
 import httpx
 import os
+import uuid
+import asyncio
 
 from database import get_db, init_db
 from models import Email, WorkflowResult, WorkflowConfig
@@ -24,6 +26,9 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Mailbox Analysis API", version="1.0.0")
+
+# Global storage for async agentic team tasks
+agentic_tasks = {}
 
 # CORS middleware
 app.add_middleware(
@@ -1155,15 +1160,53 @@ async def get_available_teams():
     return {"teams": teams_list}
 
 
+async def run_agentic_workflow_background(task_id: str, email_id: int, team: str, email_subject: str, email_body: str, email_sender: str):
+    """Background task to run agentic team discussion"""
+    try:
+        logger.info(f"[Task {task_id}] Starting agentic workflow for email {email_id} with team '{team}'")
+
+        # Update status to processing
+        agentic_tasks[task_id]["status"] = "processing"
+        agentic_tasks[task_id]["team"] = team
+
+        # Run the team discussion
+        result = await orchestrator.run_team_discussion(
+            email_id=email_id,
+            email_subject=email_subject,
+            email_body=email_body,
+            email_sender=email_sender,
+            team=team,
+            max_rounds=1
+        )
+
+        # Store the result
+        agentic_tasks[task_id]["status"] = "completed"
+        agentic_tasks[task_id]["result"] = {
+            "status": "success",
+            "email_id": email_id,
+            "team": team,
+            "team_name": result["team_name"],
+            "discussion": result
+        }
+
+        logger.info(f"[Task {task_id}] Completed agentic workflow for email {email_id}")
+
+    except Exception as e:
+        logger.error(f"[Task {task_id}] Error in agentic workflow: {e}")
+        agentic_tasks[task_id]["status"] = "failed"
+        agentic_tasks[task_id]["error"] = str(e)
+
+
 @app.post("/api/agentic/emails/{email_id}/process")
 async def process_email_with_agentic_team(
     email_id: int,
     team: Optional[str] = None,
+    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db)
 ):
     """
-    Process an email with a virtual bank team.
-    If team is not specified, it will be auto-detected based on content.
+    Start processing an email with a virtual bank team (async).
+    Returns immediately with a task_id for polling.
     """
     try:
         # Get email from database
@@ -1183,33 +1226,65 @@ async def process_email_with_agentic_team(
                 detail=f"Invalid team '{team}'. Valid teams: {list(TEAMS.keys())}"
             )
 
-        logger.info(f"Processing email {email_id} with team '{team}'")
+        # Create task ID
+        task_id = str(uuid.uuid4())
 
-        # Run the team discussion
-        result = await orchestrator.run_team_discussion(
-            email_id=email.id,
-            email_subject=email.subject,
-            email_body=email.body_text or email.body_html,
-            email_sender=email.sender,
-            team=team,
-            max_rounds=2  # 2 rounds of discussion
-        )
-
-        logger.info(f"Team discussion completed for email {email_id}: {result['status']}")
-
-        return {
-            "status": "success",
+        # Initialize task status
+        agentic_tasks[task_id] = {
+            "status": "pending",
             "email_id": email_id,
             "team": team,
-            "team_name": result["team_name"],
-            "discussion": result
+            "created_at": datetime.now().isoformat()
+        }
+
+        # Start background task
+        asyncio.create_task(run_agentic_workflow_background(
+            task_id=task_id,
+            email_id=email.id,
+            team=team,
+            email_subject=email.subject,
+            email_body=email.body_text or email.body_html,
+            email_sender=email.sender
+        ))
+
+        logger.info(f"Started agentic workflow task {task_id} for email {email_id}")
+
+        return {
+            "status": "started",
+            "task_id": task_id,
+            "email_id": email_id,
+            "team": team
         }
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error processing email {email_id} with agentic team: {e}")
+        logger.error(f"Error starting agentic workflow for email {email_id}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/agentic/tasks/{task_id}")
+async def get_agentic_task_status(task_id: str):
+    """Poll for agentic task status and results"""
+    if task_id not in agentic_tasks:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+
+    task = agentic_tasks[task_id]
+
+    response = {
+        "task_id": task_id,
+        "status": task["status"],
+        "email_id": task["email_id"],
+        "team": task.get("team"),
+        "created_at": task["created_at"]
+    }
+
+    if task["status"] == "completed":
+        response["result"] = task["result"]
+    elif task["status"] == "failed":
+        response["error"] = task.get("error", "Unknown error")
+
+    return response
 
 
 @app.get("/api/agentic/emails/{email_id}/team")
@@ -1272,7 +1347,7 @@ async def simulate_team_discussion(
             email_body=mock_bodies.get(team, "Sample email body for team discussion."),
             email_sender="client@example.com",
             team=team,
-            max_rounds=2
+            max_rounds=1
         )
 
         return {
