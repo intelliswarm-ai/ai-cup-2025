@@ -90,7 +90,7 @@ def run_analysis(email_id):
         log(f"  → Running analysis workflows...")
         response = requests.post(
             f"{BACKEND_URL}/api/emails/{email_id}/process",
-            timeout=120  # 2 minutes timeout for analysis
+            timeout=600  # 10 minutes timeout for analysis (includes slow Ollama LLM processing)
         )
 
         if response.status_code == 200:

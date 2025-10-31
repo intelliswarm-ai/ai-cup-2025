@@ -13,5 +13,7 @@
     <include file="db/changelog/changes/004-add-wiki-enrichment-columns.xml"/>
     <include file="db/changelog/changes/005-add-enrichment-tags.xml"/>
     <include file="db/changelog/changes/006-add-enrichment-timestamps.xml"/>
+    <include file="db/changelog/changes/007-add-team-configurations.xml"/>
+    <include file="db/changelog/changes/008-add-team-columns-to-emails.xml"/>
 
 </databaseChangeLog>

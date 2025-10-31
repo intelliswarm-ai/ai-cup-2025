@@ -1,11 +1,12 @@
 -- Initialize database schema
 -- This script is run once when the PostgreSQL container is first created
+-- NOTE: This only runs when the volume is empty (fresh installation)
 
 -- Enable required extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- Create tables (these will also be created by SQLAlchemy, but we set up the schema here for clarity)
--- The actual tables are managed by SQLAlchemy ORM in the backend
+-- NOTE: Tables are managed by Liquibase migrations in backend/db/changelog/
+-- This init.sql only sets up extensions, permissions, and helper functions
 
 -- Grant necessary permissions
 GRANT ALL PRIVILEGES ON DATABASE mailbox_db TO mailbox_user;

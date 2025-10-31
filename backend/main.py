@@ -7,9 +7,15 @@ from datetime import datetime, timedelta
 import logging
 import httpx
 import os
+import uuid
+import asyncio
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 from database import get_db, init_db
-from models import Email, WorkflowResult, WorkflowConfig
+from models import Email, WorkflowResult, WorkflowConfig, Team, TeamAgent
 from mailpit_client import MailPitClient
 from workflows import WorkflowEngine
 from llm_service import ollama_service
@@ -17,12 +23,16 @@ from wiki_enrichment import email_enricher
 from pydantic import BaseModel
 from events import broadcaster
 from email_fetcher import email_fetcher
+from agentic_teams import orchestrator, detect_team_for_email, suggest_team_for_email_llm, TEAMS
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Mailbox Analysis API", version="1.0.0")
+
+# Global storage for async agentic team tasks
+agentic_tasks = {}
 
 # CORS middleware
 app.add_middleware(
@@ -92,6 +102,10 @@ class EmailResponse(BaseModel):
     phone_enriched: Optional[bool] = False
     wiki_enriched_at: Optional[datetime] = None
     phone_enriched_at: Optional[datetime] = None
+    suggested_team: Optional[str] = None
+    assigned_team: Optional[str] = None
+    agentic_task_id: Optional[str] = None
+    team_assigned_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True
@@ -111,6 +125,54 @@ class WorkflowResultResponse(BaseModel):
 class ProcessEmailRequest(BaseModel):
     email_id: int
     workflows: Optional[List[str]] = None
+
+class TeamAgentRequest(BaseModel):
+    role: str
+    icon: str
+    personality: Optional[str] = None
+    responsibilities: Optional[str] = None
+    style: Optional[str] = None
+    position_order: int = 0
+    is_decision_maker: bool = False
+
+class TeamAgentResponse(BaseModel):
+    id: int
+    team_id: int
+    role: str
+    icon: str
+    personality: Optional[str] = None
+    responsibilities: Optional[str] = None
+    style: Optional[str] = None
+    position_order: int
+    is_decision_maker: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class TeamRequest(BaseModel):
+    key: str
+    name: str
+    description: Optional[str] = None
+    icon: Optional[str] = None
+    is_active: bool = True
+
+class TeamResponse(BaseModel):
+    id: int
+    key: str
+    name: str
+    description: Optional[str] = None
+    icon: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+    agents: List[TeamAgentResponse] = []
+
+    class Config:
+        from_attributes = True
+
+class TeamConfigRequest(BaseModel):
+    agents: List[TeamAgentRequest]
 
 @app.on_event("startup")
 async def startup_event():
@@ -192,6 +254,42 @@ async def get_mailpit_stats():
         logger.error(f"Error fetching MailPit stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+async def auto_suggest_teams_for_emails(db: Session):
+    """
+    Background task to automatically suggest teams for emails that don't have one.
+    Uses LLM to intelligently route emails to appropriate teams.
+    """
+    try:
+        # Get emails without suggested team
+        emails = db.query(Email).filter(Email.suggested_team == None).limit(50).all()
+
+        logger.info(f"Auto-suggesting teams for {len(emails)} emails")
+
+        for email in emails:
+            try:
+                # Use LLM to suggest team
+                suggested_team = await suggest_team_for_email_llm(
+                    email.subject,
+                    email.body_text or email.body_html or "",
+                    email.sender
+                )
+
+                email.suggested_team = suggested_team
+                logger.info(f"Suggested team '{suggested_team}' for email {email.id}")
+
+            except Exception as e:
+                logger.error(f"Error suggesting team for email {email.id}: {e}")
+                continue
+
+        db.commit()
+        logger.info(f"Completed team suggestion for {len(emails)} emails")
+
+    except Exception as e:
+        logger.error(f"Error in auto_suggest_teams_for_emails: {e}")
+        db.rollback()
+
+
 @app.post("/api/emails/fetch")
 async def fetch_emails_from_mailpit(
     background_tasks: BackgroundTasks,
@@ -251,6 +349,10 @@ async def fetch_emails_from_mailpit(
             fetched_count += 1
 
         db.commit()
+
+        # Auto-suggest teams for newly fetched emails in background (DISABLED - user preference)
+        # if fetched_count > 0:
+        #     background_tasks.add_task(auto_suggest_teams_for_emails, db)
 
         return {
             "status": "success",
@@ -376,7 +478,11 @@ async def get_emails(
             "enriched_data": email.enriched_data,
             "enriched_at": email.enriched_at,
             "wiki_enriched": email.wiki_enriched,
-            "phone_enriched": email.phone_enriched
+            "phone_enriched": email.phone_enriched,
+            "suggested_team": email.suggested_team,
+            "assigned_team": email.assigned_team,
+            "agentic_task_id": email.agentic_task_id,
+            "team_assigned_at": email.team_assigned_at
         }
         result.append(email_dict)
 
@@ -412,6 +518,10 @@ async def get_email(email_id: int, db: Session = Depends(get_db)):
         "enriched_at": email.enriched_at,
         "wiki_enriched": email.wiki_enriched,
         "phone_enriched": email.phone_enriched,
+        "suggested_team": email.suggested_team,
+        "assigned_team": email.assigned_team,
+        "agentic_task_id": email.agentic_task_id,
+        "team_assigned_at": email.team_assigned_at,
         "workflow_results": [
             {
                 "id": wr.id,
@@ -753,17 +863,27 @@ async def get_fetcher_status():
     """Get the status of the email fetcher"""
     return email_fetcher.get_status()
 
+@app.on_event("startup")
+async def startup_llm():
+    """Initialize LLM on startup - non-blocking"""
+    async def init_ollama():
+        try:
+            logger.info("Initializing Ollama service...")
+            model_loaded = await ollama_service.ensure_model_loaded()
+            if model_loaded:
+                logger.info(f"Ollama model '{ollama_service.model}' is ready")
+            else:
+                logger.warning(f"Ollama model '{ollama_service.model}' could not be loaded. LLM features may not work properly.")
+        except Exception as e:
+            logger.error(f"Error initializing Ollama on startup: {e}")
+            logger.warning("LLM features may not work properly. Check Ollama service status.")
+
+    # Run in background to avoid blocking startup
+    asyncio.create_task(init_ollama())
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-# Commented out to prevent blocking startup - model should be pre-pulled
-# @app.on_event("startup")
-# async def startup_llm():
-#     """Initialize LLM on startup"""
-#     logger.info("Loading Ollama model...")
-#     await ollama_service.ensure_model_loaded()
-#     logger.info("Ollama model ready")
 
 @app.post("/api/emails/{email_id}/process-llm")
 async def process_email_with_llm(
@@ -909,7 +1029,7 @@ async def enrich_email_with_wiki(
             "relevant_pages": enrichment_data.get("relevant_pages", []),
             "sender_employee": sender_employee_data,
             "recipient_employee": recipient_employee_data,
-            "wiki_enriched": has_wiki_data,
+            "wiki_enriched": has_wiki_keywords,
             "phone_enriched": has_phone_data
         }
 
@@ -1128,6 +1248,578 @@ async def get_inbox_digest(
     except Exception as e:
         logger.error(f"Error generating inbox digest: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+# ============================================================================
+# AGENTIC TEAMS ENDPOINTS
+# ============================================================================
+
+@app.get("/api/agentic/teams")
+async def get_available_teams(db: Session = Depends(get_db)):
+    """Get list of all available virtual bank teams from database"""
+    teams = db.query(Team).filter(Team.is_active == True).all()
+
+    # If no teams in database, return hardcoded TEAMS as fallback
+    if not teams:
+        teams_list = []
+        for team_key, team_data in TEAMS.items():
+            teams_list.append({
+                "key": team_key,
+                "name": team_data["name"],
+                "agent_count": len(team_data["agents"]),
+                "agents": [
+                    {
+                        "role": agent["role"],
+                        "icon": agent["icon"],
+                        "personality": agent.get("personality", ""),
+                        "responsibilities": agent["responsibilities"],
+                        "style": agent.get("style", "")
+                    }
+                    for agent in team_data["agents"]
+                ]
+            })
+        return {"teams": teams_list}
+
+    # Return teams from database
+    teams_list = []
+    for team in teams:
+        teams_list.append({
+            "id": team.id,
+            "key": team.key,
+            "name": team.name,
+            "description": team.description,
+            "icon": team.icon,
+            "agent_count": len(team.agents),
+            "agents": [
+                {
+                    "id": agent.id,
+                    "role": agent.role,
+                    "icon": agent.icon,
+                    "personality": agent.personality,
+                    "responsibilities": agent.responsibilities,
+                    "style": agent.style,
+                    "position_order": agent.position_order,
+                    "is_decision_maker": agent.is_decision_maker
+                }
+                for agent in team.agents
+            ]
+        })
+    return {"teams": teams_list}
+
+@app.get("/api/agentic/teams/{team_key}/config")
+async def get_team_config(team_key: str, db: Session = Depends(get_db)):
+    """Get detailed configuration for a specific team"""
+    team = db.query(Team).filter(Team.key == team_key, Team.is_active == True).first()
+
+    if not team:
+        # Fallback to hardcoded TEAMS
+        if team_key in TEAMS:
+            team_data = TEAMS[team_key]
+            return {
+                "key": team_key,
+                "name": team_data["name"],
+                "agents": [
+                    {
+                        "role": agent["role"],
+                        "icon": agent["icon"],
+                        "personality": agent.get("personality", ""),
+                        "responsibilities": agent["responsibilities"],
+                        "style": agent.get("style", "")
+                    }
+                    for agent in team_data["agents"]
+                ]
+            }
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    return TeamResponse.from_orm(team)
+
+@app.post("/api/agentic/teams/{team_key}/config")
+async def save_team_config(team_key: str, config: TeamConfigRequest, db: Session = Depends(get_db)):
+    """Save team configuration"""
+    team = db.query(Team).filter(Team.key == team_key).first()
+
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    # Delete existing agents
+    db.query(TeamAgent).filter(TeamAgent.team_id == team.id).delete()
+
+    # Add new agents
+    for agent_data in config.agents:
+        agent = TeamAgent(
+            team_id=team.id,
+            role=agent_data.role,
+            icon=agent_data.icon,
+            personality=agent_data.personality,
+            responsibilities=agent_data.responsibilities,
+            style=agent_data.style,
+            position_order=agent_data.position_order,
+            is_decision_maker=agent_data.is_decision_maker
+        )
+        db.add(agent)
+
+    team.updated_at = datetime.utcnow()
+    db.commit()
+    db.refresh(team)
+
+    return {"status": "success", "message": "Team configuration saved successfully"}
+
+@app.post("/api/agentic/teams")
+async def create_team(team: TeamRequest, db: Session = Depends(get_db)):
+    """Create a new team"""
+    # Check if team key already exists
+    existing_team = db.query(Team).filter(Team.key == team.key).first()
+    if existing_team:
+        raise HTTPException(status_code=400, detail="Team with this key already exists")
+
+    new_team = Team(
+        key=team.key,
+        name=team.name,
+        description=team.description,
+        icon=team.icon,
+        is_active=team.is_active
+    )
+    db.add(new_team)
+    db.commit()
+    db.refresh(new_team)
+
+    return TeamResponse.from_orm(new_team)
+
+@app.put("/api/agentic/teams/{team_key}")
+async def update_team(team_key: str, team: TeamRequest, db: Session = Depends(get_db)):
+    """Update team metadata"""
+    existing_team = db.query(Team).filter(Team.key == team_key).first()
+
+    if not existing_team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    existing_team.name = team.name
+    existing_team.description = team.description
+    existing_team.icon = team.icon
+    existing_team.is_active = team.is_active
+    existing_team.updated_at = datetime.utcnow()
+
+    db.commit()
+    db.refresh(existing_team)
+
+    return TeamResponse.from_orm(existing_team)
+
+@app.delete("/api/agentic/teams/{team_key}")
+async def delete_team(team_key: str, db: Session = Depends(get_db)):
+    """Delete a team (soft delete by setting is_active to false)"""
+    team = db.query(Team).filter(Team.key == team_key).first()
+
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+
+    team.is_active = False
+    team.updated_at = datetime.utcnow()
+    db.commit()
+
+    return {"status": "success", "message": "Team deleted successfully"}
+
+
+async def run_agentic_workflow_background(task_id: str, email_id: int, team: str, email_subject: str, email_body: str, email_sender: str):
+    """Background task to run agentic team discussion with real-time updates"""
+    try:
+        logger.info(f"[Task {task_id}] Starting agentic workflow for email {email_id} with team '{team}'")
+
+        # Update status to processing
+        agentic_tasks[task_id]["status"] = "processing"
+        agentic_tasks[task_id]["team"] = team
+
+        # Initialize result structure for real-time updates
+        agentic_tasks[task_id]["result"] = {
+            "status": "processing",
+            "email_id": email_id,
+            "team": team,
+            "team_name": TEAMS[team]["name"],
+            "discussion": {
+                "messages": [],
+                "status": "processing",
+                "team": team,
+                "team_name": TEAMS[team]["name"],
+                "email_id": email_id
+            }
+        }
+
+        # Callback to update task with new messages in real-time
+        async def on_message(message, all_messages):
+            """Update task status as each agent speaks"""
+            logger.info(f"[Task {task_id}] Agent spoke: {message['role']}")
+            agentic_tasks[task_id]["result"]["discussion"]["messages"] = all_messages.copy()
+
+        # Run the team discussion with real-time callback (3 rounds for extended debate)
+        result = await orchestrator.run_team_discussion(
+            email_id=email_id,
+            email_subject=email_subject,
+            email_body=email_body,
+            email_sender=email_sender,
+            team=team,
+            max_rounds=3,
+            on_message_callback=on_message
+        )
+
+        # Store the final result
+        agentic_tasks[task_id]["status"] = "completed"
+        agentic_tasks[task_id]["result"] = {
+            "status": "success",
+            "email_id": email_id,
+            "team": team,
+            "team_name": result["team_name"],
+            "discussion": result
+        }
+
+        logger.info(f"[Task {task_id}] Completed agentic workflow for email {email_id}")
+
+    except Exception as e:
+        logger.error(f"[Task {task_id}] Error in agentic workflow: {e}")
+        agentic_tasks[task_id]["status"] = "failed"
+        agentic_tasks[task_id]["error"] = str(e)
+
+
+@app.post("/api/agentic/emails/{email_id}/process")
+async def process_email_with_agentic_team(
+    email_id: int,
+    team: Optional[str] = None,
+    background_tasks: BackgroundTasks = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Start processing an email with a virtual bank team (async).
+    Returns immediately with a task_id for polling.
+    """
+    try:
+        # Get email from database
+        email = db.query(Email).filter(Email.id == email_id).first()
+        if not email:
+            raise HTTPException(status_code=404, detail=f"Email {email_id} not found")
+
+        # Auto-detect team if not specified
+        if not team:
+            team = detect_team_for_email(email.subject, email.body_text or email.body_html)
+            logger.info(f"Auto-detected team '{team}' for email {email_id}")
+
+        # Validate team
+        if team not in TEAMS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid team '{team}'. Valid teams: {list(TEAMS.keys())}"
+            )
+
+        # Create task ID
+        task_id = str(uuid.uuid4())
+
+        # Initialize task status
+        agentic_tasks[task_id] = {
+            "status": "pending",
+            "email_id": email_id,
+            "team": team,
+            "created_at": datetime.now().isoformat()
+        }
+
+        # Update email record with task_id and assigned_team
+        email.assigned_team = team
+        email.agentic_task_id = task_id
+        email.team_assigned_at = datetime.now()
+        db.commit()
+
+        # Start background task
+        asyncio.create_task(run_agentic_workflow_background(
+            task_id=task_id,
+            email_id=email.id,
+            team=team,
+            email_subject=email.subject,
+            email_body=email.body_text or email.body_html,
+            email_sender=email.sender
+        ))
+
+        logger.info(f"Started agentic workflow task {task_id} for email {email_id}")
+
+        return {
+            "status": "started",
+            "task_id": task_id,
+            "email_id": email_id,
+            "team": team
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error starting agentic workflow for email {email_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/agentic/tasks/{task_id}")
+async def get_agentic_task_status(task_id: str):
+    """Poll for agentic task status and results"""
+    if task_id not in agentic_tasks:
+        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+
+    task = agentic_tasks[task_id]
+
+    response = {
+        "task_id": task_id,
+        "status": task["status"],
+        "email_id": task["email_id"],
+        "team": task.get("team"),
+        "created_at": task["created_at"]
+    }
+
+    if task["status"] == "completed":
+        response["result"] = task["result"]
+    elif task["status"] == "failed":
+        response["error"] = task.get("error", "Unknown error")
+
+    return response
+
+
+@app.get("/api/agentic/emails/{email_id}/team")
+async def detect_team_for_email_endpoint(
+    email_id: int,
+    db: Session = Depends(get_db)
+):
+    """Detect which team should handle a specific email"""
+    try:
+        email = db.query(Email).filter(Email.id == email_id).first()
+        if not email:
+            raise HTTPException(status_code=404, detail=f"Email {email_id} not found")
+
+        team = detect_team_for_email(email.subject, email.body_text or email.body_html)
+        team_info = TEAMS[team]
+
+        return {
+            "email_id": email_id,
+            "detected_team": team,
+            "team_name": team_info["name"],
+            "agent_count": len(team_info["agents"])
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error detecting team for email {email_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/agentic/simulate-discussion")
+async def simulate_team_discussion(
+    team: str = "credit_risk",
+    subject: str = "Credit Line Increase Request"
+):
+    """
+    Simulate a team discussion for testing purposes.
+    This endpoint creates a mock email scenario for demonstration.
+    """
+    try:
+        if team not in TEAMS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid team '{team}'. Valid teams: {list(TEAMS.keys())}"
+            )
+
+        # Create a mock email body based on the team
+        mock_bodies = {
+            "credit_risk": "We are requesting a credit line increase from CHF 2M to CHF 5M to support our expansion plans. Our revenue has grown 40% YoY and we have strong cash flows.",
+            "fraud": "We received a suspicious wire transfer request for CHF 500K to an unknown account. The email appears to be from our CEO but the sending domain is slightly different.",
+            "compliance": "We need clarification on FATCA reporting requirements for our new US client accounts. What are the thresholds and documentation needed?",
+            "wealth": "Our client inherited CHF 12M and wants to invest conservatively while minimizing tax exposure. They are 55 years old and planning retirement in 10 years.",
+            "corporate": "We need a letter of credit for CHF 3M to support an import transaction from Asia. The goods are electronics with 90-day payment terms.",
+            "operations": "Multiple customers have complained about the new account opening process taking too long. We need to streamline the workflow and improve response times."
+        }
+
+        result = await orchestrator.run_team_discussion(
+            email_id=0,  # Mock ID
+            email_subject=subject,
+            email_body=mock_bodies.get(team, "Sample email body for team discussion."),
+            email_sender="client@example.com",
+            team=team,
+            max_rounds=1
+        )
+
+        return {
+            "status": "success",
+            "simulation": True,
+            "team": team,
+            "discussion": result
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error simulating team discussion: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/emails/{email_id}/suggest-team")
+async def suggest_team_for_email_endpoint(
+    email_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Use LLM to suggest which team should handle an email.
+    Stores the suggestion in the email record.
+    """
+    try:
+        email = db.query(Email).filter(Email.id == email_id).first()
+        if not email:
+            raise HTTPException(status_code=404, detail=f"Email {email_id} not found")
+
+        # Use LLM to suggest team
+        suggested_team = await suggest_team_for_email_llm(
+            email.subject,
+            email.body_text or email.body_html,
+            email.sender
+        )
+
+        # Store suggestion in database
+        email.suggested_team = suggested_team
+        db.commit()
+
+        team_info = TEAMS[suggested_team]
+
+        logger.info(f"Suggested team '{suggested_team}' for email {email_id}")
+
+        return {
+            "email_id": email_id,
+            "suggested_team": suggested_team,
+            "team_name": team_info["name"],
+            "agent_count": len(team_info["agents"]),
+            "agents": [agent["role"] for agent in team_info["agents"]]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error suggesting team for email {email_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/emails/{email_id}/assign-team")
+async def assign_team_to_email(
+    email_id: int,
+    team: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Manually assign a team to an email and trigger the agentic workflow.
+    This is called when the operator drags an email to a team or confirms assignment.
+    """
+    try:
+        # Get email from database
+        email = db.query(Email).filter(Email.id == email_id).first()
+        if not email:
+            raise HTTPException(status_code=404, detail=f"Email {email_id} not found")
+
+        # Validate team
+        if team not in TEAMS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid team '{team}'. Valid teams: {list(TEAMS.keys())}"
+            )
+
+        # Create task ID for agentic workflow
+        task_id = str(uuid.uuid4())
+
+        # Update email record with assigned team and task_id
+        email.assigned_team = team
+        email.agentic_task_id = task_id
+        email.team_assigned_at = datetime.now()
+        db.commit()
+
+        # Initialize task status
+        agentic_tasks[task_id] = {
+            "status": "pending",
+            "email_id": email_id,
+            "team": team,
+            "created_at": datetime.now().isoformat()
+        }
+
+        # Start background task for agentic workflow
+        asyncio.create_task(run_agentic_workflow_background(
+            task_id=task_id,
+            email_id=email.id,
+            team=team,
+            email_subject=email.subject,
+            email_body=email.body_text or email.body_html,
+            email_sender=email.sender
+        ))
+
+        logger.info(f"Assigned team '{team}' to email {email_id} and started workflow task {task_id}")
+
+        return {
+            "status": "assigned",
+            "email_id": email_id,
+            "assigned_team": team,
+            "task_id": task_id,
+            "workflow_url": f"/agentic-teams.html?email_id={email_id}&task_id={task_id}"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error assigning team to email {email_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/emails/{email_id}/workflow-status")
+async def get_email_workflow_status(
+    email_id: int,
+    db: Session = Depends(get_db)
+):
+    """
+    Get the agentic workflow status for an email.
+    Returns workflow link if available.
+    """
+    try:
+        email = db.query(Email).filter(Email.id == email_id).first()
+        if not email:
+            raise HTTPException(status_code=404, detail=f"Email {email_id} not found")
+
+        if not email.agentic_task_id:
+            return {
+                "email_id": email_id,
+                "has_workflow": False,
+                "suggested_team": email.suggested_team,
+                "assigned_team": email.assigned_team
+            }
+
+        # Get task status
+        task_id = email.agentic_task_id
+        task = agentic_tasks.get(task_id)
+
+        if not task:
+            return {
+                "email_id": email_id,
+                "has_workflow": True,
+                "task_id": task_id,
+                "status": "unknown",
+                "assigned_team": email.assigned_team,
+                "workflow_url": f"/agentic-teams.html?email_id={email_id}&task_id={task_id}"
+            }
+
+        response = {
+            "email_id": email_id,
+            "has_workflow": True,
+            "task_id": task_id,
+            "status": task["status"],
+            "assigned_team": email.assigned_team,
+            "team_assigned_at": email.team_assigned_at.isoformat() if email.team_assigned_at else None,
+            "workflow_url": f"/agentic-teams.html?email_id={email_id}&task_id={task_id}"
+        }
+
+        if task["status"] == "completed":
+            response["result"] = task.get("result")
+        elif task["status"] == "failed":
+            response["error"] = task.get("error")
+
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting workflow status for email {email_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/events")
 async def events():
