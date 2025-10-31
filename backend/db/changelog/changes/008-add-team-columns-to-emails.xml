@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+    xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <!-- Add team-related columns to emails table -->
+    <changeSet id="008-add-suggested-team-column" author="claude">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="emails" columnName="suggested_team"/>
+            </not>
+        </preConditions>
+
+        <addColumn tableName="emails">
+            <column name="suggested_team" type="varchar(50)">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="008-add-assigned-team-column" author="claude">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="emails" columnName="assigned_team"/>
+            </not>
+        </preConditions>
+
+        <addColumn tableName="emails">
+            <column name="assigned_team" type="varchar(50)">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="008-add-agentic-task-id-column" author="claude">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="emails" columnName="agentic_task_id"/>
+            </not>
+        </preConditions>
+
+        <addColumn tableName="emails">
+            <column name="agentic_task_id" type="varchar(255)">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="008-add-team-assigned-at-column" author="claude">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <columnExists tableName="emails" columnName="team_assigned_at"/>
+            </not>
+        </preConditions>
+
+        <addColumn tableName="emails">
+            <column name="team_assigned_at" type="timestamp without time zone">
+                <constraints nullable="true"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <!-- Add index for team queries -->
+    <changeSet id="008-add-assigned-team-index" author="claude">
+        <preConditions onFail="MARK_RAN">
+            <not>
+                <indexExists tableName="emails" indexName="idx_emails_assigned_team"/>
+            </not>
+        </preConditions>
+
+        <createIndex indexName="idx_emails_assigned_team" tableName="emails">
+            <column name="assigned_team"/>
+        </createIndex>
+    </changeSet>
+
+</databaseChangeLog>
