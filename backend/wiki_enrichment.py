@@ -10,6 +10,7 @@ Modern RAG implementation with:
 
 import httpx
 import logging
+import os
 import re
 from typing import Dict, List, Tuple, Optional
 import chromadb
@@ -39,9 +40,10 @@ class WikiKnowledgeBase:
 
         # Initialize ChromaDB
         logger.info(f"Initializing ChromaDB at {chroma_persist_directory}")
+        # Disable telemetry via environment variable to avoid version compatibility issues
+        os.environ["CHROMA_TELEMETRY_DISABLED"] = "True"
         self.chroma_client = chromadb.Client(Settings(
-            persist_directory=chroma_persist_directory,
-            anonymized_telemetry=False
+            persist_directory=chroma_persist_directory
         ))
 
         # Create or get collection
@@ -618,10 +620,17 @@ Best practices for managing schedules and calendar coordination:
         # Generate embedding for email content
         email_embedding = self.embedding_model.encode([email_content])[0]
 
-        # Query ChromaDB
+        # Get collection size and cap n_results to avoid warnings
+        collection_size = self.collection.count()
+        n_results = min(top_k, collection_size) if collection_size > 0 else 0
+
+        # Query ChromaDB only if collection has documents
+        if n_results == 0:
+            return []
+
         results = self.collection.query(
             query_embeddings=[email_embedding.tolist()],
-            n_results=top_k,
+            n_results=n_results,
             include=["documents", "metadatas", "distances"]
         )
 

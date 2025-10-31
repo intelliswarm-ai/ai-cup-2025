@@ -30,7 +30,7 @@ services:
       OLLAMA_MODEL: phi3  # Model to auto-pull on startup
     volumes:
       - ollama_data:/root/.ollama
-      - ./ollama-entrypoint.sh:/entrypoint.sh:ro
+      - ./scripts/ollama-entrypoint.sh:/entrypoint.sh:ro
     entrypoint: ["/bin/bash", "/entrypoint.sh"]
     networks:
       - mailbox-network
@@ -118,7 +118,7 @@ services:
     volumes:
       - otterwiki_data:/app-data
       - ./generate_wiki_pages.py:/docker-entrypoint-initdb.d/generate_wiki_pages.py:ro
-      - ./wiki-init.sh:/docker-entrypoint-initdb.d/wiki-init.sh:ro
+      - ./scripts/wiki-init.sh:/docker-entrypoint-initdb.d/wiki-init.sh:ro
     networks:
       - mailbox-network
     restart: unless-stopped

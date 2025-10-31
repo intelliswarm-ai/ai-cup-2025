@@ -863,17 +863,27 @@ async def get_fetcher_status():
     """Get the status of the email fetcher"""
     return email_fetcher.get_status()
 
+@app.on_event("startup")
+async def startup_llm():
+    """Initialize LLM on startup - non-blocking"""
+    async def init_ollama():
+        try:
+            logger.info("Initializing Ollama service...")
+            model_loaded = await ollama_service.ensure_model_loaded()
+            if model_loaded:
+                logger.info(f"Ollama model '{ollama_service.model}' is ready")
+            else:
+                logger.warning(f"Ollama model '{ollama_service.model}' could not be loaded. LLM features may not work properly.")
+        except Exception as e:
+            logger.error(f"Error initializing Ollama on startup: {e}")
+            logger.warning("LLM features may not work properly. Check Ollama service status.")
+
+    # Run in background to avoid blocking startup
+    asyncio.create_task(init_ollama())
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-# Commented out to prevent blocking startup - model should be pre-pulled
-# @app.on_event("startup")
-# async def startup_llm():
-#     """Initialize LLM on startup"""
-#     logger.info("Loading Ollama model...")
-#     await ollama_service.ensure_model_loaded()
-#     logger.info("Ollama model ready")
 
 @app.post("/api/emails/{email_id}/process-llm")
 async def process_email_with_llm(
@@ -1019,7 +1029,7 @@ async def enrich_email_with_wiki(
             "relevant_pages": enrichment_data.get("relevant_pages", []),
             "sender_employee": sender_employee_data,
             "recipient_employee": recipient_employee_data,
-            "wiki_enriched": has_wiki_data,
+            "wiki_enriched": has_wiki_keywords,
             "phone_enriched": has_phone_data
         }
 

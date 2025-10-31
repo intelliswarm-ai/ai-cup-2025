@@ -14,10 +14,37 @@ class OllamaService:
         self.port = os.getenv("OLLAMA_PORT", "11434")
         self.model = os.getenv("OLLAMA_MODEL", "phi3")
         self.base_url = f"http://{self.host}:{self.port}"
+        self.model_loaded = False
+        self.max_retries = 2
+
+    async def check_ollama_available(self) -> bool:
+        """Check if Ollama service is available"""
+        try:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(f"{self.base_url}/api/tags")
+                response.raise_for_status()
+                return True
+        except httpx.ConnectError:
+            logger.error(f"Cannot connect to Ollama at {self.base_url}. Is the service running?")
+            return False
+        except httpx.TimeoutException:
+            logger.error(f"Ollama service at {self.base_url} timed out")
+            return False
+        except Exception as e:
+            logger.error(f"Error checking Ollama availability: {e}")
+            return False
 
     async def ensure_model_loaded(self):
         """Pull the model if it's not already available"""
+        if self.model_loaded:
+            return True
+
         try:
+            # First check if Ollama is available
+            if not await self.check_ollama_available():
+                logger.error(f"Ollama service not available at {self.base_url}")
+                return False
+
             async with httpx.AsyncClient(timeout=300.0) as client:
                 response = await client.post(
                     f"{self.base_url}/api/pull",
@@ -25,13 +52,26 @@ class OllamaService:
                 )
                 response.raise_for_status()
                 logger.info(f"Model {self.model} is ready")
+                self.model_loaded = True
                 return True
+        except httpx.ConnectError:
+            logger.error(f"Cannot connect to Ollama at {self.base_url}. Is the service running?")
+            return False
+        except httpx.TimeoutException:
+            logger.error(f"Model pull timed out for {self.model}")
+            return False
         except Exception as e:
             logger.error(f"Error loading model: {e}")
             return False
 
-    async def generate(self, prompt: str, system_prompt: Optional[str] = None) -> str:
-        """Generate text using Ollama"""
+    async def generate(self, prompt: str, system_prompt: Optional[str] = None, retry_count: int = 0) -> str:
+        """Generate text using Ollama with automatic retry logic"""
+        # Ensure model is loaded before attempting to generate
+        if not self.model_loaded:
+            model_ready = await self.ensure_model_loaded()
+            if not model_ready:
+                raise ConnectionError(f"Ollama service not available at {self.base_url}")
+
         try:
             payload = {
                 "model": self.model,
@@ -50,6 +90,20 @@ class OllamaService:
                 response.raise_for_status()
                 result = response.json()
                 return result.get("response", "")
+        except httpx.ConnectError as e:
+            logger.error(f"Connection error to Ollama: {e}")
+            if retry_count < self.max_retries:
+                logger.info(f"Retrying... (attempt {retry_count + 1}/{self.max_retries})")
+                # Reset model loaded flag to force recheck
+                self.model_loaded = False
+                return await self.generate(prompt, system_prompt, retry_count + 1)
+            raise ConnectionError(f"Cannot connect to Ollama at {self.base_url}")
+        except httpx.TimeoutException as e:
+            logger.error(f"Timeout error from Ollama: {e}")
+            raise TimeoutError(f"Ollama request timed out after 120 seconds")
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error from Ollama: {e.response.status_code} - {e.response.text}")
+            raise RuntimeError(f"Ollama returned error: {e.response.status_code}")
         except Exception as e:
             logger.error(f"Error generating text: {e}")
             raise
@@ -68,9 +122,15 @@ Summary:"""
         try:
             summary = await self.generate(prompt, system_prompt)
             return summary.strip()
+        except ConnectionError as e:
+            logger.error(f"Connection error summarizing email: {e}")
+            return "AI service unavailable - please check if Ollama is running"
+        except TimeoutError as e:
+            logger.error(f"Timeout error summarizing email: {e}")
+            return "AI summary timed out - try again later"
         except Exception as e:
             logger.error(f"Error summarizing email: {e}")
-            return "Error generating summary"
+            return f"Error generating summary: {type(e).__name__}"
 
     async def extract_call_to_actions(self, subject: str, body: str) -> List[str]:
         """Extract call-to-actions from an email"""
@@ -119,6 +179,13 @@ JSON array:"""
     async def process_email(self, subject: str, body: str) -> Dict:
         """Process an email: generate summary and extract CTAs"""
         try:
+            # Check Ollama availability once before processing
+            if not self.model_loaded and not await self.ensure_model_loaded():
+                return {
+                    "summary": "AI service unavailable - please check if Ollama is running",
+                    "call_to_actions": []
+                }
+
             summary = await self.summarize_email(subject, body)
             ctas = await self.extract_call_to_actions(subject, body)
 
@@ -126,10 +193,16 @@ JSON array:"""
                 "summary": summary,
                 "call_to_actions": ctas
             }
+        except ConnectionError as e:
+            logger.error(f"Connection error processing email: {e}")
+            return {
+                "summary": "AI service unavailable - please check if Ollama is running",
+                "call_to_actions": []
+            }
         except Exception as e:
             logger.error(f"Error processing email: {e}")
             return {
-                "summary": "Error processing email",
+                "summary": f"Error processing email: {type(e).__name__}",
                 "call_to_actions": []
             }
 
