@@ -248,22 +248,61 @@ class AgenticTeamOrchestrator:
         self.ollama_url = ollama_url
         self.client = httpx.AsyncClient(timeout=120.0)
 
-        # Determine which LLM to use
-        self.use_openai = bool(openai_api_key and openai_api_key != "your_openai_api_key_here")
+        # Determine which LLM to use - automatically fallback to Ollama if OpenAI key is not valid
+        # Fallback cases: no .env file, missing key, empty key, placeholder value, or whitespace
+        self.use_openai = self._is_valid_openai_key(openai_api_key)
 
         if self.use_openai:
             print(f"[AgenticTeamOrchestrator] Using OpenAI API with model: {self.openai_model}")
         else:
-            print(f"[AgenticTeamOrchestrator] Using Ollama at {self.ollama_url}")
+            print(f"[AgenticTeamOrchestrator] OpenAI API key not configured - using Ollama at {self.ollama_url}")
+
+    def _is_valid_openai_key(self, api_key: str) -> bool:
+        """
+        Check if the OpenAI API key is valid and configured.
+        Returns False (triggers Ollama fallback) if:
+        - API key is None (not set in .env or no .env file exists)
+        - API key is empty string
+        - API key is only whitespace
+        - API key is the example placeholder
+        """
+        if not api_key:
+            return False
+
+        api_key_stripped = api_key.strip()
+        if not api_key_stripped:
+            return False
+
+        # Check for common placeholder values
+        placeholder_values = ["your_openai_api_key_here", "your-api-key-here", "REPLACE_ME"]
+        if api_key_stripped in placeholder_values:
+            return False
+
+        return True
 
     async def call_llm(self, prompt: str, system_message: str = None) -> str:
-        """Call LLM (OpenAI or Ollama) based on configuration"""
+        """
+        Call LLM (OpenAI or Ollama) based on configuration.
+        Automatically falls back to Ollama if OpenAI fails.
+        """
         try:
             if self.use_openai:
-                return await self._call_openai(prompt, system_message)
+                result = await self._call_openai(prompt, system_message)
+                # If OpenAI returns an error, fallback to Ollama
+                if result.startswith("Error"):
+                    print(f"[AgenticTeamOrchestrator] OpenAI failed, falling back to Ollama: {result}")
+                    return await self._call_ollama(prompt, system_message)
+                return result
             else:
                 return await self._call_ollama(prompt, system_message)
         except Exception as e:
+            # Last resort: try Ollama if we haven't already
+            if self.use_openai:
+                print(f"[AgenticTeamOrchestrator] Exception with OpenAI, attempting Ollama fallback: {str(e)}")
+                try:
+                    return await self._call_ollama(prompt, system_message)
+                except Exception as ollama_e:
+                    return f"Error: OpenAI failed ({str(e)}), Ollama fallback also failed ({str(ollama_e)})"
             return f"Error: {str(e)}"
 
     async def _call_openai(self, prompt: str, system_message: str = None) -> str:

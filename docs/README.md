@@ -162,6 +162,62 @@ PostgreSQL database with tables:
 - Automatic model download on first startup
 - Used for email summarization, CTA extraction, badge detection, and quick reply generation
 
+### Agentic Team Discussions
+
+The application includes an advanced multi-agent collaboration system for complex email analysis:
+
+**Available Teams:**
+- **Credit Risk Committee** - Credit analysts, risk managers, relationship managers
+- **Fraud Investigation Unit** - Fraud detection, forensic analysis, legal advisors
+- **Compliance & Regulatory Affairs** - Compliance officers, legal counsel, auditors
+- **Wealth Management Advisory** - Wealth advisors, investment specialists, tax consultants
+- **Corporate Banking Team** - Corporate managers, trade finance specialists
+- **Operations & Quality** - Operations managers, QA leads, technology liaisons
+
+**How It Works:**
+1. Select an email and assign it to a specialized team
+2. The team conducts a 3-round debate where agents:
+   - Round 1: Initial assessment from each perspective
+   - Round 2: Challenge and debate each other's views
+   - Round 3: Final synthesis and decision-making
+3. Receive comprehensive analysis with actionable recommendations
+
+**LLM Configuration - Automatic Fallback:**
+
+The agentic teams can use either OpenAI's GPT models or local Ollama models with automatic fallback:
+
+**Using OpenAI (Recommended for Production):**
+1. Create a `.env` file in the project root (copy from `.env.example`)
+2. Add your OpenAI API key:
+   ```bash
+   OPENAI_API_KEY=sk-proj-your-actual-key-here
+   OPENAI_MODEL=gpt-4o-mini  # Optional, defaults to gpt-4o-mini
+   ```
+3. Restart the backend service: `docker compose restart backend`
+
+**Automatic Fallback to Ollama:**
+
+The system automatically uses the local Ollama model when:
+- No `.env` file exists
+- `OPENAI_API_KEY` is not set or empty
+- `OPENAI_API_KEY` contains a placeholder value (e.g., "your_openai_api_key_here")
+- OpenAI API fails at runtime (network error, rate limit, etc.)
+
+This ensures the agentic team discussions work seamlessly in both cloud and offline environments without any code changes.
+
+**Runtime Behavior:**
+```
+✓ With valid OpenAI key → Uses OpenAI GPT-4o-mini (faster, higher quality)
+✓ Without OpenAI key    → Automatically falls back to Ollama TinyLlama (works offline)
+✓ OpenAI fails          → Gracefully falls back to Ollama (resilient)
+```
+
+**API Endpoints:**
+- `POST /api/agentic/emails/{id}/process?team=fraud` - Start team discussion
+- `GET /api/agentic/tasks/{task_id}` - Poll discussion progress
+- `GET /api/agentic/teams` - List available teams
+- `POST /api/emails/{id}/suggest-team` - AI-powered team suggestion
+
 ## Email Dataset
 
 The application uses a real-world phishing dataset for training and testing:
