@@ -1448,14 +1448,14 @@ async def run_agentic_workflow_background(task_id: str, email_id: int, team: str
             logger.info(f"[Task {task_id}] Agent spoke: {message['role']}")
             agentic_tasks[task_id]["result"]["discussion"]["messages"] = all_messages.copy()
 
-        # Run the team discussion with real-time callback (3 rounds for extended debate)
+        # Run the team discussion with real-time callback (2 rounds for faster CPU processing)
         result = await orchestrator.run_team_discussion(
             email_id=email_id,
             email_subject=email_subject,
             email_body=email_body,
             email_sender=email_sender,
             team=team,
-            max_rounds=3,
+            max_rounds=2,
             on_message_callback=on_message
         )
 
@@ -1565,8 +1565,10 @@ async def get_agentic_task_status(task_id: str):
         "created_at": task["created_at"]
     }
 
-    if task["status"] == "completed":
-        response["result"] = task["result"]
+    # Return result for both processing and completed states (for real-time updates)
+    if task["status"] == "completed" or task["status"] == "processing":
+        if "result" in task:
+            response["result"] = task["result"]
     elif task["status"] == "failed":
         response["error"] = task.get("error", "Unknown error")
 

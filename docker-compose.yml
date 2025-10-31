@@ -27,7 +27,7 @@ services:
     ports:
       - "11434:11434"
     environment:
-      OLLAMA_MODEL: phi3  # Model to auto-pull on startup
+      OLLAMA_MODEL: tinyllama  # Model to auto-pull on startup (faster than phi3)
     volumes:
       - ollama_data:/root/.ollama
       - ./scripts/ollama-entrypoint.sh:/entrypoint.sh:ro
@@ -51,7 +51,7 @@ services:
       MAILPIT_SMTP_PORT: 1025
       OLLAMA_HOST: ollama
       OLLAMA_PORT: 11434
-      OLLAMA_MODEL: phi3
+      OLLAMA_MODEL: tinyllama
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
     depends_on:

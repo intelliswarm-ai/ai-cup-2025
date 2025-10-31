@@ -246,7 +246,8 @@ class AgenticTeamOrchestrator:
         self.openai_api_key = openai_api_key
         self.openai_model = openai_model
         self.ollama_url = ollama_url
-        self.client = httpx.AsyncClient(timeout=120.0)
+        self.ollama_model = os.getenv("OLLAMA_MODEL", "phi3")
+        self.client = httpx.AsyncClient(timeout=300.0)  # 5 minutes timeout for CPU-only Ollama
 
         # Determine which LLM to use - automatically fallback to Ollama if OpenAI key is not valid
         # Fallback cases: no .env file, missing key, empty key, placeholder value, or whitespace
@@ -255,7 +256,7 @@ class AgenticTeamOrchestrator:
         if self.use_openai:
             print(f"[AgenticTeamOrchestrator] Using OpenAI API with model: {self.openai_model}")
         else:
-            print(f"[AgenticTeamOrchestrator] OpenAI API key not configured - using Ollama at {self.ollama_url}")
+            print(f"[AgenticTeamOrchestrator] OpenAI API key not configured - using Ollama at {self.ollama_url} with model: {self.ollama_model}")
 
     def _is_valid_openai_key(self, api_key: str) -> bool:
         """
@@ -348,13 +349,13 @@ class AgenticTeamOrchestrator:
             response = await self.client.post(
                 f"{self.ollama_url}/api/generate",
                 json={
-                    "model": "tinyllama:latest",
+                    "model": self.ollama_model,
                     "prompt": full_prompt,
                     "stream": False,
                     "options": {
                         "temperature": 0.7,
                         "top_p": 0.9,
-                        "num_predict": 100  # Limit response length for speed
+                        "num_predict": 500  # Increased for better team discussions
                     }
                 }
             )
@@ -544,8 +545,8 @@ Keep the tone natural and authoritative, like a real team leader closing a meeti
                 if on_message_callback:
                     await on_message_callback(message, all_messages)
 
-                # Small delay for realistic pacing
-                await asyncio.sleep(0.5)
+                # Small delay for realistic pacing (reduced for CPU performance)
+                await asyncio.sleep(0.1)
 
             # Update round counter after all agents speak
             state["round"] += 1
