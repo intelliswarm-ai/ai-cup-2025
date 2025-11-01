@@ -5,8 +5,10 @@ Based on crewAI stock_analysis pattern
 """
 
 import asyncio
+import os
 from typing import Dict, Any, List, Optional
 from datetime import datetime
+from openai import AsyncOpenAI
 
 from tools import BrowserTools, SearchTools, CalculatorTools, SECTools
 
@@ -21,6 +23,10 @@ class InvestmentResearchWorkflow:
         self.search_tools = SearchTools()
         self.calculator_tools = CalculatorTools()
         self.sec_tools = SECTools()
+
+        # Initialize OpenAI for data analysis
+        self.openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
     async def analyze_stock(
         self,
@@ -125,12 +131,53 @@ class InvestmentResearchWorkflow:
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        return {
+        # Store raw data
+        raw_data = {
             "financial_search": str(results[0]) if not isinstance(results[0], Exception) else "N/A",
             "10k_filing": str(results[1]) if not isinstance(results[1], Exception) else "N/A",
             "10q_filing": str(results[2]) if not isinstance(results[2], Exception) else "N/A",
             "company_website": str(results[3]) if not isinstance(results[3], Exception) else "N/A",
-            "summary": f"Completed research data collection for {company}"
+        }
+
+        # Use LLM to analyze and summarize the collected data
+        prompt = f"""You are a Research Analyst analyzing data for {company}.
+
+Review the following data collected from multiple sources:
+
+FINANCIAL SEARCH RESULTS:
+{raw_data['financial_search'][:1500]}
+
+SEC 10-K FILING:
+{raw_data['10k_filing'][:1500]}
+
+SEC 10-Q FILING:
+{raw_data['10q_filing'][:1500]}
+
+COMPANY WEBSITE:
+{raw_data['company_website'][:1000]}
+
+Based on this data, provide a concise research summary covering:
+1. Company overview and business model
+2. Key financial metrics found
+3. Recent developments or filings
+4. Data quality and availability
+
+Focus on extracting concrete facts and numbers. Keep your response under 500 words."""
+
+        try:
+            response = await self.openai_client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3,
+                max_tokens=800
+            )
+            summary = response.choices[0].message.content
+        except Exception as e:
+            summary = f"Research data collected for {company}. Analysis unavailable: {str(e)}"
+
+        return {
+            **raw_data,
+            "summary": summary
         }
 
     async def _financial_analysis_stage(
@@ -140,40 +187,51 @@ class InvestmentResearchWorkflow:
     ) -> Dict[str, Any]:
         """Stage 2: Financial analysis and valuation"""
 
-        # Extract key metrics from research data
-        # In a real implementation, this would parse the SEC filings
-        # For now, we'll provide a structured analysis framework
+        # Use LLM to analyze financial data from research
+        prompt = f"""You are a Financial Analyst conducting a detailed financial analysis for {company}.
 
-        analysis = {
-            "valuation_metrics": {
-                "note": "Valuation analysis based on latest available data",
-                "metrics_to_review": [
-                    "P/E Ratio (Price-to-Earnings)",
-                    "P/B Ratio (Price-to-Book)",
-                    "EV/EBITDA",
-                    "Dividend Yield",
-                    "PEG Ratio"
-                ]
-            },
-            "financial_health": {
-                "profitability": "Review ROE, ROA, profit margins",
-                "liquidity": "Check current ratio, quick ratio",
-                "leverage": "Analyze debt-to-equity ratio",
-                "efficiency": "Examine asset turnover ratios"
-            },
-            "growth_metrics": {
-                "revenue_growth": "Historical and projected revenue growth",
-                "earnings_growth": "EPS growth trends",
-                "margin_trends": "Operating and net margin evolution"
-            },
-            "calculation_examples": {
-                "sample_pe": self.calculator_tools.pe_ratio(150.0, 6.5),
-                "sample_growth": self.calculator_tools.growth_rate(100.0, 125.0),
-                "sample_roe": self.calculator_tools.return_on_equity(5000, 25000)
+Using the research data collected:
+
+RESEARCH SUMMARY:
+{research_data.get('summary', 'N/A')}
+
+FINANCIAL DATA:
+{research_data.get('financial_search', 'N/A')[:1500]}
+
+SEC FILINGS:
+{research_data.get('10k_filing', 'N/A')[:1000]}
+{research_data.get('10q_filing', 'N/A')[:1000]}
+
+Provide a comprehensive financial analysis covering:
+
+1. **Valuation Metrics**: Analyze P/E ratio, P/B ratio, EV/EBITDA, and other valuation multiples if available
+2. **Financial Health**: Assess profitability (ROE, ROA, margins), liquidity ratios, and leverage
+3. **Growth Analysis**: Evaluate revenue growth, earnings trends, and margin evolution
+4. **Competitive Position**: How does the company's financial profile compare to peers?
+5. **Key Financial Risks**: Identify any concerning trends in the numbers
+
+Extract actual numbers where available. If specific metrics aren't found, note their absence.
+Keep your analysis under 600 words and be specific with numbers."""
+
+        try:
+            response = await self.openai_client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3,
+                max_tokens=1000
+            )
+            analysis_text = response.choices[0].message.content
+        except Exception as e:
+            analysis_text = f"Financial analysis unavailable: {str(e)}"
+
+        return {
+            "analysis": analysis_text,
+            "data_sources": {
+                "research_summary": len(research_data.get('summary', '')),
+                "financial_search": len(research_data.get('financial_search', '')),
+                "sec_filings": "10-K and 10-Q reviewed"
             }
         }
-
-        return analysis
 
     async def _market_analysis_stage(self, company: str) -> Dict[str, Any]:
         """Stage 3: Market and competitive analysis"""
@@ -181,26 +239,39 @@ class InvestmentResearchWorkflow:
         # Search for recent news and market context
         news_results = await self.search_tools.search_news(company, days=30)
 
-        analysis = {
-            "recent_news": news_results,
-            "market_context": {
-                "considerations": [
-                    "Overall market conditions and sentiment",
-                    "Sector-specific trends and dynamics",
-                    "Competitive positioning",
-                    "Regulatory environment",
-                    "Macroeconomic factors"
-                ]
-            },
-            "risk_factors": {
-                "market_risk": "General market volatility",
-                "company_specific": "Operational and business risks",
-                "sector_risk": "Industry-specific challenges",
-                "economic_risk": "Macro-economic headwinds"
-            }
-        }
+        # Use LLM to analyze market conditions
+        prompt = f"""You are a Market Strategist analyzing the market environment for {company}.
 
-        return analysis
+Recent news and market information:
+{news_results[:2000]}
+
+Provide a market and competitive analysis covering:
+
+1. **Market Sentiment**: What is the current sentiment around this company based on recent news?
+2. **Industry Trends**: What sector-specific trends are affecting this company?
+3. **Competitive Position**: How is the company positioned relative to competitors?
+4. **Market Catalysts**: What upcoming events or factors could drive price movement?
+5. **Risk Factors**: What market, sector, or company-specific risks should investors watch?
+
+Be specific and cite information from the news when available.
+Keep your analysis under 500 words."""
+
+        try:
+            response = await self.openai_client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.3,
+                max_tokens=800
+            )
+            analysis_text = response.choices[0].message.content
+        except Exception as e:
+            analysis_text = f"Market analysis unavailable: {str(e)}"
+
+        return {
+            "analysis": analysis_text,
+            "recent_news": news_results[:500],  # Store sample of news data
+            "news_sources_count": news_results.count("http") if isinstance(news_results, str) else 0
+        }
 
     async def _recommendation_stage(
         self,
@@ -211,50 +282,62 @@ class InvestmentResearchWorkflow:
     ) -> Dict[str, Any]:
         """Stage 4: Final investment recommendation"""
 
-        recommendation = {
+        # Generate comprehensive executive summary using all collected data
+        prompt = f"""You are the Chief Investment Officer providing a final investment recommendation for {company}.
+
+RESEARCH SUMMARY:
+{research.get('summary', 'N/A')[:1000]}
+
+FINANCIAL ANALYSIS:
+{financials.get('analysis', 'N/A')[:1500]}
+
+MARKET ANALYSIS:
+{market.get('analysis', 'N/A')[:1000]}
+
+Based on all the research, financial analysis, and market context, provide an **Executive Investment Recommendation** with:
+
+1. **Investment Rating**: Choose one: STRONG BUY, BUY, HOLD, SELL, STRONG SELL
+2. **Confidence Level**: HIGH, MEDIUM, or LOW (based on data quality and consistency)
+3. **Investment Thesis** (3-5 key points):
+   - Main strengths/bull case
+   - Primary concerns/bear case
+   - Key catalysts to watch
+
+4. **Target Price & Valuation**: If sufficient data is available, provide a fair value estimate
+5. **Risk Assessment**: Major risks investors should consider
+6. **Action Items**: Specific next steps for investors
+
+Be decisive but balanced. Support your recommendation with specific evidence from the analysis.
+If data is insufficient for a strong opinion, acknowledge it clearly.
+Keep your response under 700 words."""
+
+        try:
+            response = await self.openai_client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.4,  # Slightly higher for more nuanced recommendations
+                max_tokens=1200
+            )
+            recommendation_text = response.choices[0].message.content
+        except Exception as e:
+            recommendation_text = f"Investment recommendation unavailable: {str(e)}"
+
+        return {
             "company": company,
             "analysis_date": datetime.now().isoformat(),
-            "recommendation": "ANALYZE FURTHER",  # Conservative default
-            "confidence_level": "MEDIUM",
-            "key_findings": [
-                "Comprehensive data collection completed",
-                "Financial metrics framework established",
-                "Market context evaluated",
-                "Multiple data sources consulted"
-            ],
-            "investment_thesis": {
-                "strengths": [
-                    "Review fundamental data from SEC filings",
-                    "Consider market positioning",
-                    "Evaluate growth trajectory"
-                ],
-                "concerns": [
-                    "Validate current valuation levels",
-                    "Assess competitive dynamics",
-                    "Monitor market conditions"
-                ],
-                "catalysts": [
-                    "Upcoming earnings reports",
-                    "Product launches or innovations",
-                    "Market expansion opportunities"
+            "executive_summary": recommendation_text,
+            "data_quality": {
+                "research_data_available": bool(research.get('summary')),
+                "financial_analysis_available": bool(financials.get('analysis')),
+                "market_analysis_available": bool(market.get('analysis')),
+                "sources_consulted": [
+                    "SEC Filings (10-K, 10-Q)",
+                    "Financial News & Market Data",
+                    "Company Website & Investor Relations",
+                    "Industry Analysis"
                 ]
-            },
-            "action_items": [
-                f"Deep dive into {company} 10-K filing for detailed financials",
-                "Compare valuation to peer group",
-                "Monitor next earnings call",
-                "Review analyst consensus estimates",
-                "Assess risk-adjusted return potential"
-            ],
-            "data_sources": {
-                "sec_filings": "10-K and 10-Q reports reviewed",
-                "market_data": "Recent news and market trends analyzed",
-                "company_info": "Corporate website and investor relations",
-                "financial_metrics": "Calculated key ratios and growth rates"
             }
         }
-
-        return recommendation
 
     async def _update_progress(
         self,

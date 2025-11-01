@@ -649,67 +649,47 @@ Keep the tone natural and authoritative, like a real team leader closing a meeti
     def _format_investment_stage_message(self, stage: str, data: Dict[str, Any]) -> str:
         """Format investment analysis stage data into a readable message"""
         if stage == "research":
-            return f"""Research & Data Collection Complete
+            summary = data.get('summary', 'Data collection completed')
+            has_10k = 'Available' if '10-K' in str(data.get('10k_filing', '')) and 'N/A' not in str(data.get('10k_filing', '')) else 'Not Available'
+            has_10q = 'Available' if '10-Q' in str(data.get('10q_filing', '')) and 'N/A' not in str(data.get('10q_filing', '')) else 'Not Available'
 
-**Financial Data Search:**
-{data.get('financial_search', 'N/A')[:500]}...
+            return f"""📊 **Research & Data Collection Complete**
 
-**SEC Filings:**
-- 10-K: {'Available' if '10-K' in str(data.get('10k_filing', '')) else 'Pending'}
-- 10-Q: {'Available' if '10-Q' in str(data.get('10q_filing', '')) else 'Pending'}
+**Data Sources Accessed:**
+✓ Financial news and market data
+✓ SEC 10-K Filing: {has_10k}
+✓ SEC 10-Q Filing: {has_10q}
+✓ Company website and investor relations
 
-**Summary:** {data.get('summary', 'Data collection completed')}"""
+**Research Summary:**
+{summary}"""
 
         elif stage == "financial_analysis":
-            metrics = data.get('valuation_metrics', {})
-            return f"""Financial Analysis & Valuation
+            analysis = data.get('analysis', 'Financial analysis in progress...')
+            return f"""💰 **Financial Analysis & Valuation**
 
-**Key Valuation Metrics to Review:**
-{chr(10).join(['• ' + m for m in metrics.get('metrics_to_review', [])])}
-
-**Financial Health Assessment:**
-- Profitability: {data.get('financial_health', {}).get('profitability', 'Under review')}
-- Liquidity: {data.get('financial_health', {}).get('liquidity', 'Analyzing')}
-- Leverage: {data.get('financial_health', {}).get('leverage', 'Evaluating')}
-
-**Calculation Examples:**
-{chr(10).join([f'• {k}: {v}' for k, v in data.get('calculation_examples', {}).items()])}"""
+{analysis}"""
 
         elif stage == "market_analysis":
-            return f"""Market Context & Competitive Analysis
+            analysis = data.get('analysis', 'Market analysis in progress...')
+            news_count = data.get('news_sources_count', 0)
 
-**Recent Market News:**
-{data.get('recent_news', 'Analyzing market trends...')[:400]}...
+            return f"""🌐 **Market Context & Competitive Analysis**
 
-**Key Considerations:**
-{chr(10).join(['• ' + c for c in data.get('market_context', {}).get('considerations', [])])}
+{analysis}
 
-**Risk Assessment:**
-- Market Risk: {data.get('risk_factors', {}).get('market_risk', 'Evaluating')}
-- Company Specific: {data.get('risk_factors', {}).get('company_specific', 'Analyzing')}"""
+*Analysis based on {news_count} recent news sources*"""
 
         elif stage == "recommendation":
-            rec = data.get('recommendation', 'ANALYZE FURTHER')
-            confidence = data.get('confidence_level', 'MEDIUM')
+            executive_summary = data.get('executive_summary', 'Generating final recommendation...')
+            company = data.get('company', 'the company')
 
-            thesis = data.get('investment_thesis', {})
-            action_items = data.get('action_items', [])
+            return f"""📋 **Executive Investment Recommendation for {company}**
 
-            return f"""**Final Investment Recommendation**
+{executive_summary}
 
-**Rating:** {rec} (Confidence: {confidence})
-
-**Investment Thesis:**
-Strengths:
-{chr(10).join(['• ' + s for s in thesis.get('strengths', [])])}
-
-Concerns:
-{chr(10).join(['• ' + c for c in thesis.get('concerns', [])])}
-
-**Action Items:**
-{chr(10).join(['• ' + item for item in action_items])}
-
-**Conclusion:** Based on comprehensive analysis including SEC filings, market data, and financial metrics, this recommendation reflects current market conditions and available data."""
+---
+*This recommendation is based on comprehensive analysis of SEC filings, market data, financial metrics, and industry trends available as of {data.get('analysis_date', 'today')}.*"""
 
         return str(data)
 

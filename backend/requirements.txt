@@ -25,3 +25,4 @@ langchain-core>=0.3.0
 
 # Investment research tools dependencies
 beautifulsoup4==4.12.3
+openai==1.12.0

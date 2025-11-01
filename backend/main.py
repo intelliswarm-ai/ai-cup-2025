@@ -77,7 +77,7 @@ async def lookup_employee_by_email(email: str) -> Optional[dict]:
 # Pydantic models for API
 class EmailResponse(BaseModel):
     id: int
-    mailpit_id: str
+    mailpit_id: Optional[str] = None
     subject: str
     sender: str
     recipient: str
@@ -535,6 +535,29 @@ async def get_email(email_id: int, db: Session = Depends(get_db)):
             for wr in email.workflow_results
         ]
     }
+
+@app.delete("/api/emails/{email_id}")
+async def delete_email(email_id: int, db: Session = Depends(get_db)):
+    """Delete an email and its associated workflow results"""
+    email = db.query(Email).filter(Email.id == email_id).first()
+
+    if not email:
+        raise HTTPException(status_code=404, detail="Email not found")
+
+    try:
+        # Delete associated workflow results first (due to foreign key constraints)
+        db.query(WorkflowResult).filter(WorkflowResult.email_id == email_id).delete()
+
+        # Delete the email
+        db.delete(email)
+        db.commit()
+
+        logger.info(f"Deleted email {email_id} and associated workflow results")
+        return {"status": "success", "message": f"Email {email_id} deleted"}
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error deleting email {email_id}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to delete email: {str(e)}")
 
 @app.post("/api/emails/{email_id}/process")
 async def process_email(
@@ -1448,6 +1471,14 @@ async def run_agentic_workflow_background(task_id: str, email_id: int, team: str
             logger.info(f"[Task {task_id}] Agent spoke: {message['role']}")
             agentic_tasks[task_id]["result"]["discussion"]["messages"] = all_messages.copy()
 
+            # Broadcast message via SSE for real-time updates
+            await broadcaster.broadcast("agentic_message", {
+                "task_id": task_id,
+                "message": message,
+                "total_messages": len(all_messages),
+                "status": "processing"
+            })
+
         # Run the team discussion with real-time callback (2 rounds for faster CPU processing)
         result = await orchestrator.run_team_discussion(
             email_id=email_id,
@@ -1468,6 +1499,35 @@ async def run_agentic_workflow_background(task_id: str, email_id: int, team: str
             "team_name": result["team_name"],
             "discussion": result
         }
+
+        # Save result to database for persistence across restarts
+        from database import SessionLocal
+        db = SessionLocal()
+        try:
+            workflow_result = WorkflowResult(
+                email_id=email_id,
+                workflow_name=f"agentic_{team}_{task_id}",
+                result=agentic_tasks[task_id]["result"],
+                is_phishing_detected=False,
+                confidence_score=100,
+                risk_indicators=[],
+                executed_at=datetime.now()
+            )
+            db.add(workflow_result)
+            db.commit()
+            logger.info(f"[Task {task_id}] Saved result to database")
+        except Exception as db_error:
+            logger.error(f"[Task {task_id}] Failed to save to database: {db_error}")
+            db.rollback()
+        finally:
+            db.close()
+
+        # Broadcast completion via SSE
+        await broadcaster.broadcast("agentic_complete", {
+            "task_id": task_id,
+            "status": "completed",
+            "result": agentic_tasks[task_id]["result"]
+        })
 
         logger.info(f"[Task {task_id}] Completed agentic workflow for email {email_id}")
 
@@ -1550,33 +1610,64 @@ async def process_email_with_agentic_team(
 
 
 @app.get("/api/agentic/tasks/{task_id}")
-async def get_agentic_task_status(task_id: str):
+async def get_agentic_task_status(task_id: str, db: Session = Depends(get_db)):
     """Poll for agentic task status and results"""
-    if task_id not in agentic_tasks:
-        raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+    # First check in-memory cache
+    if task_id in agentic_tasks:
+        task = agentic_tasks[task_id]
+        response = {
+            "task_id": task_id,
+            "status": task["status"],
+            "email_id": task["email_id"],
+            "team": task.get("team"),
+            "created_at": task["created_at"]
+        }
+    else:
+        # Task not in memory, check database for completed results
+        logger.info(f"Task {task_id} not in memory, checking database...")
+        email = db.query(Email).filter(Email.agentic_task_id == task_id).first()
 
-    task = agentic_tasks[task_id]
+        if not email:
+            raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
 
-    response = {
-        "task_id": task_id,
-        "status": task["status"],
-        "email_id": task["email_id"],
-        "team": task.get("team"),
-        "created_at": task["created_at"]
-    }
+        # Get workflow result from database
+        workflow_result = db.query(WorkflowResult).filter(
+            WorkflowResult.email_id == email.id,
+            WorkflowResult.workflow_name.like(f"%{task_id}%")
+        ).order_by(WorkflowResult.executed_at.desc()).first()
 
-    # Return result for both processing and completed states (for real-time updates)
-    if task["status"] == "completed" or task["status"] == "processing":
-        if "result" in task:
-            response["result"] = task["result"]
-    elif task["status"] == "failed":
-        response["error"] = task.get("error", "Unknown error")
+        if workflow_result and workflow_result.result:
+            # Return stored result
+            response = {
+                "task_id": task_id,
+                "status": "completed",
+                "email_id": email.id,
+                "team": email.assigned_team,
+                "created_at": workflow_result.executed_at.isoformat(),
+                "result": workflow_result.result
+            }
+            logger.info(f"Loaded task {task_id} from database")
+        else:
+            # Email exists but no workflow result stored
+            raise HTTPException(
+                status_code=404,
+                detail=f"Task {task_id} result not available. Please run analysis again."
+            )
+
+    # Add result if task is in memory and has result data
+    if task_id in agentic_tasks:
+        task = agentic_tasks[task_id]
+        if task["status"] == "completed" or task["status"] == "processing":
+            if "result" in task:
+                response["result"] = task["result"]
+        elif task["status"] == "failed":
+            response["error"] = task.get("error", "Unknown error")
 
     return response
 
 
 @app.post("/api/agentic/direct-query")
-async def create_direct_query_task(request: dict):
+async def create_direct_query_task(request: dict, db: Session = Depends(get_db)):
     """
     Create a direct query task without an email
     Request body: {"team": "investments", "query": "I want a complete analysis for stock Apple"}
@@ -1595,13 +1686,36 @@ async def create_direct_query_task(request: dict):
                 detail=f"Invalid team '{team}'. Valid teams: {list(TEAMS.keys())}"
             )
 
+        # Create Email record in database for persistence
+        email = Email(
+            mailpit_id=None,  # No MailPit ID for direct queries
+            subject=f"📊 Direct Query: {query[:100]}",
+            sender="Direct User Query",
+            recipient=TEAMS[team]["name"],
+            body_text=query,
+            body_html="",
+            received_at=datetime.now(),
+            assigned_team=team,  # Assign to team immediately
+            team_assigned_at=datetime.now(),
+            is_phishing=False,
+            processed=False,
+            llm_processed=False
+        )
+        db.add(email)
+        db.commit()
+        db.refresh(email)
+
         # Create task ID
         task_id = str(uuid.uuid4())
+
+        # Update email with task_id
+        email.agentic_task_id = task_id
+        db.commit()
 
         # Initialize task status
         agentic_tasks[task_id] = {
             "status": "pending",
-            "email_id": None,  # No email for direct queries
+            "email_id": email.id,  # Link to database record
             "team": team,
             "query": query,
             "created_at": datetime.now().isoformat(),
@@ -1611,18 +1725,19 @@ async def create_direct_query_task(request: dict):
         # Start background task for agentic workflow
         asyncio.create_task(run_agentic_workflow_background(
             task_id=task_id,
-            email_id=None,
+            email_id=email.id,  # Pass database ID
             team=team,
-            email_subject=f"Direct Query: {query[:50]}...",
+            email_subject=email.subject,
             email_body=query,
             email_sender="Direct User Query"
         ))
 
-        logger.info(f"Created direct query task {task_id} for team '{team}'")
+        logger.info(f"Created direct query task {task_id} for team '{team}' with email_id {email.id}")
 
         return {
             "status": "created",
             "task_id": task_id,
+            "email_id": email.id,  # Return email ID
             "team": team,
             "query": query
         }

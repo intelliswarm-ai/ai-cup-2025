@@ -1263,13 +1263,16 @@
       const membersGrid = document.getElementById('presentation-members-grid');
       const titleElement = document.getElementById('presentation-team-title');
 
-      titleElement.textContent = teamData.name;
-      membersGrid.innerHTML = '';
-
-      teamData.agents.forEach((agent, index) => {
-        const card = createPresentationCard(agent, index);
-        membersGrid.appendChild(card);
-      });
+      if (titleElement) {
+        titleElement.textContent = teamData.name;
+      }
+      if (membersGrid) {
+        membersGrid.innerHTML = '';
+        teamData.agents.forEach((agent, index) => {
+          const card = createPresentationCard(agent, index);
+          membersGrid.appendChild(card);
+        });
+      }
 
       presentationPanel.style.display = 'block';
       document.getElementById('team-config-panel').style.display = 'none';
@@ -1329,13 +1332,16 @@
       const membersContainer = document.getElementById('team-members-config');
       const titleElement = document.getElementById('team-config-title');
 
-      titleElement.textContent = `${teamData.name} Configuration`;
-      membersContainer.innerHTML = '';
-
-      teamData.agents.forEach((agent, index) => {
-        const card = createMemberCard(agent, index);
-        membersContainer.appendChild(card);
-      });
+      if (titleElement) {
+        titleElement.textContent = `${teamData.name} Configuration`;
+      }
+      if (membersContainer) {
+        membersContainer.innerHTML = '';
+        teamData.agents.forEach((agent, index) => {
+          const card = createMemberCard(agent, index);
+          membersContainer.appendChild(card);
+        });
+      }
     }
 
     function createMemberCard(agent, index) {
@@ -1579,7 +1585,10 @@
     // Display email queue
     function displayEmailQueue(emails, selectedTeam) {
       const container = document.getElementById('email-queue-container');
-      document.getElementById('queue-count').textContent = emails.length;
+      const queueCountEl = document.getElementById('queue-count');
+      if (queueCountEl) {
+        queueCountEl.textContent = emails.length;
+      }
 
       // Update header if viewing a specific team
       const queueHeader = document.querySelector('.email-queue-header');
@@ -1606,24 +1615,60 @@
         const team = TEAMS[teamKey];
         // Determine status based on agentic_task_id
         const status = email.agentic_task_id ? 'completed' : 'pending';
+        // Check if this is a direct query (no mailpit_id)
+        const isDirectQuery = !email.mailpit_id;
 
         return `
-          <div class="email-card ${status}" onclick="viewDiscussion(${email.id}, '${teamKey}', '${email.subject.replace(/'/g, "\\'")}')">
-            <div class="email-meta">
-              <span>
-                <span class="status-indicator status-${status}"></span>
-                ${status.charAt(0).toUpperCase() + status.slice(1)}
-              </span>
-              <span style="font-size: 11px;">#${email.id}</span>
+          <div class="email-card ${status}" style="position: relative;">
+            <div onclick="viewDiscussion(${email.id}, '${teamKey}', '${email.subject.replace(/'/g, "\\'")}')" style="cursor: pointer; flex: 1;">
+              <div class="email-meta">
+                <span>
+                  <span class="status-indicator status-${status}"></span>
+                  ${status.charAt(0).toUpperCase() + status.slice(1)}
+                </span>
+                <span style="font-size: 11px;">#${email.id}</span>
+              </div>
+              <div class="email-subject">${email.subject}</div>
+              <div style="font-size: 11px; color: #999; margin-bottom: 8px;">
+                From: ${email.sender}${isDirectQuery ? ' <span style="background: #4CAF50; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-left: 6px;">DIRECT</span>' : ''}
+              </div>
+              <span class="team-badge ${team.badge}">${team.name}</span>
             </div>
-            <div class="email-subject">${email.subject}</div>
-            <div style="font-size: 11px; color: #999; margin-bottom: 8px;">
-              From: ${email.sender}
-            </div>
-            <span class="team-badge ${team.badge}">${team.name}</span>
+            <button onclick="event.stopPropagation(); deleteEmail(${email.id})"
+                    style="position: absolute; top: 8px; right: 8px; background: #f44336; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 11px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;"
+                    onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'"
+                    title="Delete this query">×</button>
           </div>
         `;
       }).join('');
+    }
+
+    // Delete email/query
+    async function deleteEmail(emailId) {
+      if (!confirm('Delete this analysis? This cannot be undone.')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/emails/${emailId}`, {
+          method: 'DELETE'
+        });
+
+        if (response.ok) {
+          console.log('[deleteEmail] Deleted email:', emailId);
+          // Reload the email list
+          await loadEmails();
+          // Clear the discussion panel
+          document.getElementById('chat-container').innerHTML = '';
+          document.getElementById('team-presentation-panel').style.display = 'block';
+          document.getElementById('empty-state').style.display = 'none';
+        } else {
+          alert('Failed to delete. Please try again.');
+        }
+      } catch (error) {
+        console.error('[deleteEmail] Error:', error);
+        alert('Error deleting. Please try again.');
+      }
     }
 
     // View team discussion for selected email
@@ -1636,9 +1681,15 @@
       document.getElementById('team-config-panel').style.display = 'none';
       document.getElementById('empty-state').style.display = 'none';
 
+      // IMPORTANT: Clear chat container immediately to show we're loading new content
+      const chatContainer = document.getElementById('chat-container');
+      chatContainer.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">Loading analysis...</div>';
+
       // Update header
-      document.getElementById('discussion-team').textContent = team.name;
-      document.getElementById('discussion-subject').textContent = subject;
+      const teamEl = document.getElementById('discussion-team');
+      const subjectEl = document.getElementById('discussion-subject');
+      if (teamEl) teamEl.textContent = team.name;
+      if (subjectEl) subjectEl.textContent = subject;
 
       // Show team members
       const membersPanel = document.getElementById('team-members-panel');
@@ -1782,14 +1833,16 @@
 
         console.log(`Started agentic workflow, task_id: ${taskId}`);
 
-        // Update status
-        document.getElementById('status-text').textContent = 'Processing with virtual team...';
+        // Update status (only if element exists)
+        const statusTextEl = document.getElementById('status-text');
+        if (statusTextEl) {
+          statusTextEl.textContent = 'Processing with virtual team...';
+        }
 
-        // Poll for results with real-time display
-        let pollCount = 0;
+        // Real-time update variables
         let displayedMessageCount = 0;
-        const maxPolls = 180; // 180 * 2 seconds = 6 minutes max
-        const pollInterval = 1000; // 1 second for faster updates
+        let eventSource = null;
+        let sseActive = false;
 
         const displayMessage = (message, team, isLast = false) => {
           const agent = TEAMS[team].members.find(m => m.role === message.role) || TEAMS[team].members[0];
@@ -1822,7 +1875,109 @@
           chatContainer.scrollTop = chatContainer.scrollHeight;
         };
 
+        // Try to use SSE for real-time updates first
+        try {
+          console.log('[SSE] Attempting to connect to event stream...');
+          eventSource = new EventSource(`${API_BASE_URL}/events`);
+
+          eventSource.onopen = () => {
+            console.log('[SSE] Connection established');
+            sseActive = true;
+          };
+
+          eventSource.addEventListener('message', (event) => {
+            try {
+              const data = JSON.parse(event.data);
+              console.log('[SSE] Received event:', data);
+
+              // Handle agentic_message events for this task
+              if (data.type === 'agentic_message' && data.task_id === taskId) {
+                const message = data.message;
+
+                // Clear loading state on first message
+                if (displayedMessageCount === 0) {
+                  chatContainer.innerHTML = '';
+                }
+
+                displayMessage(message, team);
+                displayedMessageCount++;
+
+                // Update progress (only if elements still exist)
+                const totalExpected = TEAMS[team].members.length;
+                const progress = (displayedMessageCount / totalExpected) * 100;
+                const progressEl = document.getElementById('discussion-progress');
+                if (progressEl) {
+                  progressEl.style.width = progress + '%';
+                }
+
+                // Update status text (only if element still exists)
+                const statusEl = document.getElementById('status-text');
+                if (statusEl) {
+                  if (displayedMessageCount < totalExpected - 1) {
+                    statusEl.textContent = `Agent ${displayedMessageCount} speaking...`;
+                  } else {
+                    statusEl.textContent = 'Final decision being made...';
+                  }
+                }
+              }
+
+              // Handle agentic_complete events for this task
+              if (data.type === 'agentic_complete' && data.task_id === taskId) {
+                console.log('[SSE] Workflow completed');
+                const progressEl = document.getElementById('discussion-progress');
+                if (progressEl) {
+                  progressEl.style.width = '100%';
+                }
+                const statusEl = document.getElementById('status-text');
+                if (statusEl) {
+                  statusEl.textContent = 'Discussion completed!';
+                }
+
+                // Close SSE connection
+                if (eventSource) {
+                  eventSource.close();
+                  eventSource = null;
+                }
+              }
+            } catch (parseError) {
+              console.error('[SSE] Error parsing event data:', parseError);
+            }
+          });
+
+          eventSource.onerror = (error) => {
+            console.error('[SSE] Connection error:', error);
+            sseActive = false;
+            if (eventSource) {
+              eventSource.close();
+              eventSource = null;
+            }
+
+            // Fallback to polling if SSE fails and we haven't displayed any messages yet
+            if (displayedMessageCount === 0) {
+              console.log('[SSE] Falling back to polling...');
+              setTimeout(poll, 1000);
+            }
+          };
+
+        } catch (sseError) {
+          console.error('[SSE] Failed to initialize:', sseError);
+          sseActive = false;
+          // Fallback to polling
+          setTimeout(poll, 1000);
+        }
+
+        // Polling function as fallback
+        let pollCount = 0;
+        const maxPolls = 180; // 180 * 1 second = 3 minutes max
+        const pollInterval = 1000; // 1 second
+
         const poll = async () => {
+          // Skip polling if SSE is active
+          if (sseActive) {
+            console.log('[Poll] Skipping poll, SSE is active');
+            return;
+          }
+
           try {
             const statusResponse = await fetch(`${API_BASE_URL}/agentic/tasks/${taskId}`);
             if (!statusResponse.ok) {
@@ -1830,7 +1985,7 @@
             }
 
             const status = await statusResponse.json();
-            console.log(`Task status: ${status.status}`, status);
+            console.log(`[Poll] Task status: ${status.status}`, status);
 
             // Display any new messages as they arrive
             if (status.result && status.result.discussion && status.result.discussion.messages) {
@@ -1847,15 +2002,21 @@
                 displayMessage(messages[i], team, i === messages.length - 1);
                 displayedMessageCount++;
 
-                // Update progress
+                // Update progress (only if element still exists)
                 const progress = (displayedMessageCount / totalExpected) * 100;
-                document.getElementById('discussion-progress').style.width = progress + '%';
+                const progressEl = document.getElementById('discussion-progress');
+                if (progressEl) {
+                  progressEl.style.width = progress + '%';
+                }
 
-                // Update status text
-                if (displayedMessageCount < totalExpected - 1) {
-                  document.getElementById('status-text').textContent = `Agent ${displayedMessageCount + 1} of ${totalExpected} speaking...`;
-                } else {
-                  document.getElementById('status-text').textContent = 'Final decision being made...';
+                // Update status text (only if element still exists)
+                const statusEl = document.getElementById('status-text');
+                if (statusEl) {
+                  if (displayedMessageCount < totalExpected - 1) {
+                    statusEl.textContent = `Agent ${displayedMessageCount + 1} of ${totalExpected} speaking...`;
+                  } else {
+                    statusEl.textContent = 'Final decision being made...';
+                  }
                 }
               }
             }
@@ -1891,8 +2052,14 @@
                 }
               }
 
-              document.getElementById('discussion-progress').style.width = '100%';
-              document.getElementById('status-text').textContent = 'Discussion completed!';
+              const progressEl = document.getElementById('discussion-progress');
+              if (progressEl) {
+                progressEl.style.width = '100%';
+              }
+              const statusEl = document.getElementById('status-text');
+              if (statusEl) {
+                statusEl.textContent = 'Discussion completed!';
+              }
 
             } else if (status.status === 'failed') {
               throw new Error(status.error || 'Workflow failed');
@@ -1910,7 +2077,10 @@
             } else if (status.status === 'pending') {
               // Still pending
               if (displayedMessageCount === 0) {
-                document.getElementById('status-text').textContent = 'Assembling virtual team...';
+                const statusEl = document.getElementById('status-text');
+                if (statusEl) {
+                  statusEl.textContent = 'Assembling virtual team...';
+                }
               }
               pollCount++;
 
@@ -1922,7 +2092,7 @@
             }
 
           } catch (pollError) {
-            console.error('Polling error:', pollError);
+            console.error('[Poll] Polling error:', pollError);
             chatContainer.innerHTML = `
               <div style="text-align: center; padding: 60px 20px; color: #e53935;">
                 <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
@@ -1933,8 +2103,11 @@
           }
         };
 
-        // Start polling
-        setTimeout(poll, pollInterval);
+        // Only start polling if SSE failed to initialize
+        if (!sseActive && !eventSource) {
+          console.log('[Poll] SSE not available, starting polling as fallback');
+          setTimeout(poll, pollInterval);
+        }
 
       } catch (error) {
         console.error('Error starting team discussion:', error);
@@ -1996,8 +2169,14 @@
 
       try {
         // Show loading state
-        document.getElementById('interaction-result').style.display = 'block';
-        document.getElementById('interaction-status').textContent = 'Starting analysis...';
+        const resultEl = document.getElementById('interaction-result');
+        if (resultEl) {
+          resultEl.style.display = 'block';
+        }
+        const statusEl = document.getElementById('interaction-status');
+        if (statusEl) {
+          statusEl.textContent = 'Starting analysis...';
+        }
 
         // Call API to create direct query task
         const response = await fetch(`${API_BASE_URL}/agentic/direct-query`, {
@@ -2015,17 +2194,23 @@
 
         const result = await response.json();
         currentTaskId = result.task_id;
+        const emailId = result.email_id;
+
+        // Reload email list to show the new direct query
+        await loadEmails();
 
         // Hide the interaction form and show the discussion
         document.getElementById('direct-interaction-panel').style.display = 'none';
         document.getElementById('empty-state').style.display = 'none';
 
         // Update header
-        document.getElementById('discussion-team').textContent = TEAMS[selectedTeam]?.name || selectedTeam;
-        document.getElementById('discussion-subject').textContent = query;
+        const teamEl = document.getElementById('discussion-team');
+        const subjectEl = document.getElementById('discussion-subject');
+        if (teamEl) teamEl.textContent = TEAMS[selectedTeam]?.name || selectedTeam;
+        if (subjectEl) subjectEl.textContent = query;
 
-        // Start monitoring the task
-        monitorDirectQueryTask(result.task_id);
+        // Start the discussion with real-time SSE streaming
+        simulateDiscussion(selectedTeam, emailId);
 
         // Enable chat input after analysis starts
         setTimeout(() => {
@@ -2034,13 +2219,22 @@
 
       } catch (error) {
         console.error('Error submitting query:', error);
-        document.getElementById('interaction-status').textContent = 'Error: ' + error.message;
+        const statusEl = document.getElementById('interaction-status');
+        if (statusEl) {
+          statusEl.textContent = 'Error: ' + error.message;
+        }
       }
     }
 
     function clearDirectQuery() {
-      document.getElementById('direct-query-input').value = '';
-      document.getElementById('interaction-result').style.display = 'none';
+      const inputEl = document.getElementById('direct-query-input');
+      if (inputEl) {
+        inputEl.value = '';
+      }
+      const resultEl = document.getElementById('interaction-result');
+      if (resultEl) {
+        resultEl.style.display = 'none';
+      }
     }
 
     async function monitorDirectQueryTask(taskId) {
@@ -2058,9 +2252,12 @@
           const response = await fetch(`${API_BASE_URL}/agentic/task/${taskId}`);
           const status = await response.json();
 
-          // Update progress bar
+          // Update progress bar (only if element exists)
           const progress = Math.min((status.messages?.length || 0) * 10, 90);
-          document.getElementById('discussion-progress').style.width = `${progress}%`;
+          const progressEl = document.getElementById('discussion-progress');
+          if (progressEl) {
+            progressEl.style.width = `${progress}%`;
+          }
 
           // Display new messages
           if (status.messages && status.messages.length > displayedMessageCount) {
@@ -2072,7 +2269,10 @@
           }
 
           if (status.status === 'completed') {
-            document.getElementById('discussion-progress').style.width = '100%';
+            const progressEl = document.getElementById('discussion-progress');
+            if (progressEl) {
+              progressEl.style.width = '100%';
+            }
           } else if (status.status === 'processing' || status.status === 'pending') {
             pollCount++;
             if (pollCount < maxPolls) {
@@ -2094,8 +2294,9 @@
 
       if (!message) return;
 
-      if (!currentTaskId) {
-        alert('No active discussion. Please start a query first.');
+      const selectedTeam = getSelectedTeam();
+      if (!selectedTeam) {
+        alert('Please select a team first');
         return;
       }
 
@@ -2104,42 +2305,52 @@
         input.disabled = true;
         document.getElementById('chat-send-btn').disabled = true;
 
-        // Display user message immediately
-        const chatContainer = document.getElementById('chat-container');
-        const userMessage = {
-          role: 'You',
-          icon: '👤',
-          text: message,
-          timestamp: new Date().toISOString()
-        };
-        displayMessage(userMessage, chatContainer);
-
         // Clear input
         input.value = '';
 
-        // Send to backend
-        const response = await fetch(`${API_BASE_URL}/agentic/task/${currentTaskId}/chat`, {
+        // Show loading state
+        const chatContainer = document.getElementById('chat-container');
+        chatContainer.innerHTML += `
+          <div class="thinking-indicator" style="margin: 20px 0;">
+            <span>🤖 Starting new team analysis...</span>
+            <div class="thinking-dots">
+              <span></span>
+              <span></span>
+              <span></span>
+            </div>
+          </div>
+        `;
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+
+        // Create a new direct query (full team discussion)
+        const response = await fetch(`${API_BASE_URL}/agentic/direct-query`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: message })
+          body: JSON.stringify({
+            team: selectedTeam,
+            query: message
+          })
         });
 
         if (!response.ok) {
-          throw new Error('Failed to send message');
+          throw new Error('Failed to submit query');
         }
 
         const result = await response.json();
+        currentTaskId = result.task_id;
+        const emailId = result.email_id;
 
-        // Display agent response
-        if (result.response) {
-          const agentMessage = {
-            role: result.agent || 'Team Expert',
-            icon: result.icon || '💼',
-            text: result.response,
-            timestamp: new Date().toISOString()
-          };
-          displayMessage(agentMessage, chatContainer);
-        }
+        // Reload email list to show the new direct query
+        await loadEmails();
+
+        // Update header
+        const teamEl = document.getElementById('discussion-team');
+        const subjectEl = document.getElementById('discussion-subject');
+        if (teamEl) teamEl.textContent = TEAMS[selectedTeam]?.name || selectedTeam;
+        if (subjectEl) subjectEl.textContent = message;
+
+        // Start the discussion with real-time SSE streaming
+        simulateDiscussion(selectedTeam, emailId);
 
       } catch (error) {
         console.error('Error sending chat message:', error);
@@ -2228,14 +2439,16 @@
 
         // Update hint based on team
         const hint = document.getElementById('query-hint');
-        if (selectedTeam === 'investments') {
-          hint.textContent = 'For Investment Team: Request stock analysis by company name or ticker symbol (e.g., "Analyze Apple stock" or "Complete analysis for TSLA")';
-        } else if (selectedTeam === 'credit_risk') {
-          hint.textContent = 'For Credit Risk Team: Submit credit analysis requests (e.g., "Evaluate credit application for XYZ Corp")';
-        } else if (selectedTeam === 'fraud') {
-          hint.textContent = 'For Fraud Team: Report suspicious activities (e.g., "Investigate unusual transaction pattern")';
-        } else {
-          hint.textContent = `Submit your request to the ${TEAMS[selectedTeam]?.name || selectedTeam} team`;
+        if (hint) {
+          if (selectedTeam === 'investments') {
+            hint.textContent = 'For Investment Team: Request stock analysis by company name or ticker symbol (e.g., "Analyze Apple stock" or "Complete analysis for TSLA")';
+          } else if (selectedTeam === 'credit_risk') {
+            hint.textContent = 'For Credit Risk Team: Submit credit analysis requests (e.g., "Evaluate credit application for XYZ Corp")';
+          } else if (selectedTeam === 'fraud') {
+            hint.textContent = 'For Fraud Team: Report suspicious activities (e.g., "Investigate unusual transaction pattern")';
+          } else {
+            hint.textContent = `Submit your request to the ${TEAMS[selectedTeam]?.name || selectedTeam} team`;
+          }
         }
       } else if (!selectedTeam) {
         directPanel.style.display = 'none';
