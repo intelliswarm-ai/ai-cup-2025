@@ -216,6 +216,39 @@ TEAMS = {
                 "style": "Empathetic, customer-focused, communicative"
             }
         ]
+    },
+    "investments": {
+        "name": "📈 Investment Research Team",
+        "agents": [
+            {
+                "role": "Research Analyst",
+                "icon": "🔍",
+                "personality": "Data-driven and thorough. Dives deep into financial data. Says 'Looking at the fundamentals...' and 'The data shows...'",
+                "responsibilities": "Analyze company financials, SEC filings, industry trends, competitive positioning",
+                "style": "Analytical, detail-oriented, evidence-based"
+            },
+            {
+                "role": "Financial Analyst",
+                "icon": "📊",
+                "personality": "Numbers-focused and valuation-oriented. Calculates everything. Uses phrases like 'The valuation metrics indicate...' and 'Based on DCF analysis...'",
+                "responsibilities": "Perform valuation analysis, financial modeling, ratio analysis, price targets",
+                "style": "Quantitative, methodical, precise"
+            },
+            {
+                "role": "Market Strategist",
+                "icon": "🌐",
+                "personality": "Big-picture thinker and macro-aware. Understands market context. Says 'Given current market conditions...' and 'The macro environment suggests...'",
+                "responsibilities": "Assess market trends, sector dynamics, economic indicators, timing considerations",
+                "style": "Strategic, contextual, forward-looking"
+            },
+            {
+                "role": "Chief Investment Officer",
+                "icon": "💼",
+                "personality": "Decisive and risk-balanced. Synthesizes research into recommendations. Uses phrases like 'Based on our analysis...' and 'My recommendation is...'",
+                "responsibilities": "Make final investment recommendation, assess risk-reward, set conviction level",
+                "style": "Authoritative, balanced, actionable"
+            }
+        ]
     }
 }
 
@@ -500,6 +533,213 @@ Keep the tone natural and authoritative, like a real team leader closing a meeti
 
         return decision
 
+    async def run_investment_analysis(
+        self,
+        email_id: int,
+        email_subject: str,
+        email_body: str,
+        email_sender: str,
+        on_message_callback = None
+    ) -> Dict[str, Any]:
+        """
+        Run investment research workflow for the Investment Team
+        Uses specialized tools for stock analysis
+        """
+        try:
+            # Import the investment workflow
+            from investment_workflow import investment_workflow
+
+            # Extract company/ticker from email
+            # Look for stock analysis request in subject or body
+            combined_text = f"{email_subject} {email_body}".lower()
+
+            # Extract company name or ticker (simple pattern matching)
+            company = self._extract_company_from_text(combined_text)
+
+            if not company:
+                company = "the requested company"
+
+            # Send initial message
+            if on_message_callback:
+                await on_message_callback({
+                    "role": "Investment Research Team",
+                    "icon": "📈",
+                    "text": f"Starting comprehensive stock analysis for {company}...",
+                    "timestamp": datetime.now().isoformat()
+                }, [])
+
+            # Run the investment analysis workflow
+            async def progress_callback(update):
+                if on_message_callback:
+                    await on_message_callback(update, [])
+
+            analysis = await investment_workflow.analyze_stock(
+                company,
+                on_progress_callback=progress_callback
+            )
+
+            # Format the results as messages
+            all_messages = []
+            team_info = TEAMS["investments"]
+
+            # Add messages for each stage
+            for i, stage_data in enumerate(analysis["stages"]):
+                agent_name = stage_data["agent"]
+
+                # Find matching agent icon
+                agent_icon = "💼"
+                for agent in team_info["agents"]:
+                    if agent["role"] == agent_name:
+                        agent_icon = agent["icon"]
+                        break
+
+                # Create message with stage results
+                message_text = self._format_investment_stage_message(
+                    stage_data["stage"],
+                    stage_data["data"]
+                )
+
+                message = {
+                    "role": agent_name,
+                    "icon": agent_icon,
+                    "text": message_text,
+                    "timestamp": datetime.now().isoformat(),
+                    "is_decision": (stage_data["stage"] == "recommendation")
+                }
+
+                all_messages.append(message)
+
+                if on_message_callback:
+                    await on_message_callback(message, all_messages)
+                    await asyncio.sleep(0.5)  # Delay for UX
+
+            return {
+                "status": "completed",
+                "team": "investments",
+                "team_name": team_info["name"],
+                "email_id": email_id,
+                "messages": all_messages,
+                "decision": analysis.get("final_recommendation", {}),
+                "rounds": len(analysis["stages"]),
+                "investment_analysis": analysis
+            }
+
+        except Exception as e:
+            # Fallback to standard team discussion if workflow fails
+            print(f"Investment workflow error: {e}")
+            return await self._run_standard_discussion("investments", email_id, email_subject, email_body, email_sender, on_message_callback)
+
+    def _extract_company_from_text(self, text: str) -> str:
+        """Extract company name or ticker from text"""
+        # Simple extraction - look for common patterns
+        patterns = [
+            r"analysis for (?:stock )?([A-Z]{1,5})\b",  # Ticker symbols
+            r"analyze ([A-Z][a-z]+(?: [A-Z][a-z]+)*)",  # Company names
+            r"stock (Apple|Microsoft|Amazon|Tesla|Google|Meta|Netflix)",  # Common companies
+        ]
+
+        import re
+        for pattern in patterns:
+            match = re.search(pattern, text, re.IGNORECASE)
+            if match:
+                return match.group(1)
+
+        return ""
+
+    def _format_investment_stage_message(self, stage: str, data: Dict[str, Any]) -> str:
+        """Format investment analysis stage data into a readable message"""
+        if stage == "research":
+            return f"""Research & Data Collection Complete
+
+**Financial Data Search:**
+{data.get('financial_search', 'N/A')[:500]}...
+
+**SEC Filings:**
+- 10-K: {'Available' if '10-K' in str(data.get('10k_filing', '')) else 'Pending'}
+- 10-Q: {'Available' if '10-Q' in str(data.get('10q_filing', '')) else 'Pending'}
+
+**Summary:** {data.get('summary', 'Data collection completed')}"""
+
+        elif stage == "financial_analysis":
+            metrics = data.get('valuation_metrics', {})
+            return f"""Financial Analysis & Valuation
+
+**Key Valuation Metrics to Review:**
+{chr(10).join(['• ' + m for m in metrics.get('metrics_to_review', [])])}
+
+**Financial Health Assessment:**
+- Profitability: {data.get('financial_health', {}).get('profitability', 'Under review')}
+- Liquidity: {data.get('financial_health', {}).get('liquidity', 'Analyzing')}
+- Leverage: {data.get('financial_health', {}).get('leverage', 'Evaluating')}
+
+**Calculation Examples:**
+{chr(10).join([f'• {k}: {v}' for k, v in data.get('calculation_examples', {}).items()])}"""
+
+        elif stage == "market_analysis":
+            return f"""Market Context & Competitive Analysis
+
+**Recent Market News:**
+{data.get('recent_news', 'Analyzing market trends...')[:400]}...
+
+**Key Considerations:**
+{chr(10).join(['• ' + c for c in data.get('market_context', {}).get('considerations', [])])}
+
+**Risk Assessment:**
+- Market Risk: {data.get('risk_factors', {}).get('market_risk', 'Evaluating')}
+- Company Specific: {data.get('risk_factors', {}).get('company_specific', 'Analyzing')}"""
+
+        elif stage == "recommendation":
+            rec = data.get('recommendation', 'ANALYZE FURTHER')
+            confidence = data.get('confidence_level', 'MEDIUM')
+
+            thesis = data.get('investment_thesis', {})
+            action_items = data.get('action_items', [])
+
+            return f"""**Final Investment Recommendation**
+
+**Rating:** {rec} (Confidence: {confidence})
+
+**Investment Thesis:**
+Strengths:
+{chr(10).join(['• ' + s for s in thesis.get('strengths', [])])}
+
+Concerns:
+{chr(10).join(['• ' + c for c in thesis.get('concerns', [])])}
+
+**Action Items:**
+{chr(10).join(['• ' + item for item in action_items])}
+
+**Conclusion:** Based on comprehensive analysis including SEC filings, market data, and financial metrics, this recommendation reflects current market conditions and available data."""
+
+        return str(data)
+
+    async def _run_standard_discussion(self, team: str, email_id: int, email_subject: str, email_body: str, email_sender: str, on_message_callback):
+        """Fallback to standard discussion format"""
+        team_info = TEAMS[team]
+        # Simplified discussion for fallback
+        all_messages = []
+
+        for agent in team_info["agents"]:
+            message = {
+                "role": agent["role"],
+                "icon": agent["icon"],
+                "text": f"Analyzing the email regarding {email_subject}...",
+                "timestamp": datetime.now().isoformat()
+            }
+            all_messages.append(message)
+            if on_message_callback:
+                await on_message_callback(message, all_messages)
+
+        return {
+            "status": "completed",
+            "team": team,
+            "team_name": team_info["name"],
+            "email_id": email_id,
+            "messages": all_messages,
+            "decision": {"decision_text": "Analysis completed."},
+            "rounds": 1
+        }
+
     async def run_team_discussion(
         self,
         email_id: int,
@@ -514,6 +754,16 @@ Keep the tone natural and authoritative, like a real team leader closing a meeti
 
         if team not in TEAMS:
             raise ValueError(f"Unknown team: {team}")
+
+        # Special handling for Investment Team - use research workflow
+        if team == "investments":
+            return await self.run_investment_analysis(
+                email_id,
+                email_subject,
+                email_body,
+                email_sender,
+                on_message_callback
+            )
 
         team_info = TEAMS[team]
 
@@ -589,7 +839,9 @@ def detect_team_for_email(email_subject: str, email_body: str) -> str:
     """Detect which team should handle an email based on content (keyword-based fallback)"""
     combined = (email_subject + " " + email_body).lower()
 
-    if any(word in combined for word in ['credit', 'loan', 'financing', 'credit line', 'credit increase']):
+    if any(word in combined for word in ['stock analysis', 'stock research', 'equity analysis', 'company analysis', 'investment research', 'stock recommendation']):
+        return 'investments'
+    elif any(word in combined for word in ['credit', 'loan', 'financing', 'credit line', 'credit increase']):
         return 'credit_risk'
     elif any(word in combined for word in ['fraud', 'suspicious', 'wire transfer', 'phishing', 'bec', 'scam']):
         return 'fraud'
@@ -621,6 +873,7 @@ async def suggest_team_for_email_llm(email_subject: str, email_body: str, email_
     system_prompt = """You are an intelligent email routing system for a Swiss bank. Your task is to analyze incoming emails and suggest which specialized team should handle them.
 
 Available teams:
+- investments: 📈 Investment Research Team (handles stock analysis, equity research, company analysis, investment recommendations)
 - credit_risk: 🏦 Credit Risk Committee (handles loan requests, credit analysis, financing decisions)
 - fraud: 🔍 Fraud Investigation Unit (handles suspicious activities, wire transfer issues, phishing, scams)
 - compliance: ⚖️ Compliance & Regulatory Affairs (handles regulatory matters, legal questions, audit issues)
@@ -628,7 +881,7 @@ Available teams:
 - corporate: 🏢 Corporate Banking Team (handles corporate clients, trade finance, treasury services)
 - operations: ⚙️ Operations & Quality (handles customer complaints, process issues, service quality)
 
-Analyze the email and respond with ONLY the team key (e.g., 'fraud' or 'credit_risk'). No explanation, just the team key."""
+Analyze the email and respond with ONLY the team key (e.g., 'fraud' or 'investments'). No explanation, just the team key."""
 
     user_prompt = f"""EMAIL TO ANALYZE:
 Subject: {email_subject}

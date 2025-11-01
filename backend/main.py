@@ -1575,6 +1575,144 @@ async def get_agentic_task_status(task_id: str):
     return response
 
 
+@app.post("/api/agentic/direct-query")
+async def create_direct_query_task(request: dict):
+    """
+    Create a direct query task without an email
+    Request body: {"team": "investments", "query": "I want a complete analysis for stock Apple"}
+    """
+    try:
+        team = request.get("team")
+        query = request.get("query", "")
+
+        if not team or not query:
+            raise HTTPException(status_code=400, detail="team and query are required")
+
+        # Validate team
+        if team not in TEAMS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid team '{team}'. Valid teams: {list(TEAMS.keys())}"
+            )
+
+        # Create task ID
+        task_id = str(uuid.uuid4())
+
+        # Initialize task status
+        agentic_tasks[task_id] = {
+            "status": "pending",
+            "email_id": None,  # No email for direct queries
+            "team": team,
+            "query": query,
+            "created_at": datetime.now().isoformat(),
+            "messages": []
+        }
+
+        # Start background task for agentic workflow
+        asyncio.create_task(run_agentic_workflow_background(
+            task_id=task_id,
+            email_id=None,
+            team=team,
+            email_subject=f"Direct Query: {query[:50]}...",
+            email_body=query,
+            email_sender="Direct User Query"
+        ))
+
+        logger.info(f"Created direct query task {task_id} for team '{team}'")
+
+        return {
+            "status": "created",
+            "task_id": task_id,
+            "team": team,
+            "query": query
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating direct query: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/agentic/task/{task_id}/chat")
+async def send_chat_message_to_team(task_id: str, request: dict):
+    """
+    Send a chat message to the team and get a response
+    Request body: {"message": "What about the company's debt levels?"}
+    """
+    try:
+        message = request.get("message", "").strip()
+
+        if not message:
+            raise HTTPException(status_code=400, detail="message is required")
+
+        if task_id not in agentic_tasks:
+            raise HTTPException(status_code=404, detail=f"Task {task_id} not found")
+
+        task = agentic_tasks[task_id]
+        team = task.get("team")
+
+        if not team or team not in TEAMS:
+            raise HTTPException(status_code=400, detail="Invalid team")
+
+        # Import orchestrator for LLM calls
+        from agentic_teams import orchestrator, TEAMS as BACKEND_TEAMS
+
+        # Select an appropriate agent to respond (use first agent in team)
+        team_info = BACKEND_TEAMS[team]
+        agent = team_info["agents"][0]  # First agent responds to chat
+
+        # Create agent-specific prompt for chat response
+        system_prompt = f"""You are a {agent['role']} at a Swiss bank. You are part of the {team_info['name']} team.
+
+Your personality: {agent['personality']}
+Your responsibilities: {agent['responsibilities']}
+Your communication style: {agent['style']}
+
+You are having a conversation with a user who asked a question. Respond professionally and helpfully.
+Keep your response concise (2-3 sentences max)."""
+
+        user_prompt = f"""The user asked: {message}
+
+Provide a helpful and professional response based on your role and expertise."""
+
+        # Call LLM
+        response_text = await orchestrator.call_llm(user_prompt, system_prompt)
+
+        # Add to task messages
+        if "messages" not in task:
+            task["messages"] = []
+
+        task["messages"].append({
+            "role": "You",
+            "icon": "👤",
+            "text": message,
+            "timestamp": datetime.now().isoformat()
+        })
+
+        task["messages"].append({
+            "role": agent["role"],
+            "icon": agent["icon"],
+            "text": response_text,
+            "timestamp": datetime.now().isoformat()
+        })
+
+        logger.info(f"Chat message sent to task {task_id}")
+
+        return {
+            "status": "success",
+            "agent": agent["role"],
+            "icon": agent["icon"],
+            "response": response_text
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in chat for task {task_id}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/api/agentic/emails/{email_id}/team")
 async def detect_team_for_email_endpoint(
     email_id: int,
@@ -1699,14 +1837,23 @@ async def suggest_team_for_email_endpoint(
 @app.post("/api/emails/{email_id}/assign-team")
 async def assign_team_to_email(
     email_id: int,
-    team: str,
+    request: dict,
     db: Session = Depends(get_db)
 ):
     """
     Manually assign a team to an email and trigger the agentic workflow.
     This is called when the operator drags an email to a team or confirms assignment.
+
+    Request body:
+    {
+        "team": "investments",
+        "assignment_message": "Please check this email and tell me what you suggest I should do?"
+    }
     """
     try:
+        team = request.get("team")
+        assignment_message = request.get("assignment_message", "")
+
         # Get email from database
         email = db.query(Email).filter(Email.id == email_id).first()
         if not email:
@@ -1733,8 +1880,15 @@ async def assign_team_to_email(
             "status": "pending",
             "email_id": email_id,
             "team": team,
-            "created_at": datetime.now().isoformat()
+            "assignment_message": assignment_message,
+            "created_at": datetime.now().isoformat(),
+            "messages": []
         }
+
+        # Prepend assignment message to email body if provided
+        email_body = email.body_text or email.body_html
+        if assignment_message:
+            email_body = f"ASSIGNMENT MESSAGE: {assignment_message}\n\n{email_body}"
 
         # Start background task for agentic workflow
         asyncio.create_task(run_agentic_workflow_background(
@@ -1742,18 +1896,18 @@ async def assign_team_to_email(
             email_id=email.id,
             team=team,
             email_subject=email.subject,
-            email_body=email.body_text or email.body_html,
+            email_body=email_body,
             email_sender=email.sender
         ))
 
-        logger.info(f"Assigned team '{team}' to email {email_id} and started workflow task {task_id}")
+        logger.info(f"Assigned team '{team}' to email {email_id} with message and started workflow task {task_id}")
 
         return {
             "status": "assigned",
             "email_id": email_id,
             "assigned_team": team,
             "task_id": task_id,
-            "workflow_url": f"/agentic-teams.html?email_id={email_id}&task_id={task_id}"
+            "workflow_url": f"/pages/agentic-teams.html?email_id={email_id}&task_id={task_id}"
         }
 
     except HTTPException:
