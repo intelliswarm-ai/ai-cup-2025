@@ -120,28 +120,12 @@
       margin-right: 5px;
       font-weight: 600;
     }
-    .team-badge-credit_risk {
-      background: linear-gradient(195deg, #1E3A5F 0%, #2E5A8F 100%);
-      color: white;
-    }
     .team-badge-fraud {
       background: linear-gradient(195deg, #8B1538 0%, #B82255 100%);
       color: white;
     }
     .team-badge-compliance {
       background: linear-gradient(195deg, #4A5568 0%, #6B7280 100%);
-      color: white;
-    }
-    .team-badge-wealth {
-      background: linear-gradient(195deg, #B8751B 0%, #D6951F 100%);
-      color: white;
-    }
-    .team-badge-corporate {
-      background: linear-gradient(195deg, #2C5234 0%, #3A6B45 100%);
-      color: white;
-    }
-    .team-badge-operations {
-      background: linear-gradient(195deg, #6B5B4C 0%, #8B7355 100%);
       color: white;
     }
     .team-badge-investments {
@@ -230,14 +214,6 @@
         <li class="nav-item mt-3">
           <h6 class="ps-4 ms-2 text-uppercase text-xs font-weight-bolder" style="color: #000; opacity: 0.6;">Virtual Teams</h6>
         </li>
-        <li class="nav-item team-drop-zone" data-team="credit_risk" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragleave="handleDragLeave(event)">
-          <a class="nav-link text-white" href="/pages/agentic-teams.html?team=credit_risk">
-            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
-              <i class="material-icons-round opacity-10">account_balance</i>
-            </div>
-            <span class="nav-link-text ms-1">Credit Risk</span>
-          </a>
-        </li>
         <li class="nav-item team-drop-zone" data-team="fraud" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragleave="handleDragLeave(event)">
           <a class="nav-link text-white" href="/pages/agentic-teams.html?team=fraud">
             <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
@@ -252,30 +228,6 @@
               <i class="material-icons-round opacity-10">gavel</i>
             </div>
             <span class="nav-link-text ms-1">Compliance</span>
-          </a>
-        </li>
-        <li class="nav-item team-drop-zone" data-team="wealth" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragleave="handleDragLeave(event)">
-          <a class="nav-link text-white" href="/pages/agentic-teams.html?team=wealth">
-            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
-              <i class="material-icons-round opacity-10">trending_up</i>
-            </div>
-            <span class="nav-link-text ms-1">Wealth Mgmt</span>
-          </a>
-        </li>
-        <li class="nav-item team-drop-zone" data-team="corporate" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragleave="handleDragLeave(event)">
-          <a class="nav-link text-white" href="/pages/agentic-teams.html?team=corporate">
-            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
-              <i class="material-icons-round opacity-10">business</i>
-            </div>
-            <span class="nav-link-text ms-1">Corporate</span>
-          </a>
-        </li>
-        <li class="nav-item team-drop-zone" data-team="operations" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragleave="handleDragLeave(event)">
-          <a class="nav-link text-white" href="/pages/agentic-teams.html?team=operations">
-            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
-              <i class="material-icons-round opacity-10">settings</i>
-            </div>
-            <span class="nav-link-text ms-1">Operations</span>
           </a>
         </li>
         <li class="nav-item team-drop-zone" data-team="investments" ondragover="handleDragOver(event)" ondrop="handleDrop(event)" ondragleave="handleDragLeave(event)">
@@ -704,12 +656,8 @@
 
     function getTeamDisplayName(teamKey) {
       const teamNames = {
-        'credit_risk': 'Credit Risk',
         'fraud': 'Fraud Investigation',
         'compliance': 'Compliance',
-        'wealth': 'Wealth Management',
-        'corporate': 'Corporate Banking',
-        'operations': 'Operations',
         'investments': 'Investment Team'
       };
       return teamNames[teamKey] || teamKey;
@@ -954,12 +902,8 @@
                   <button class="btn btn-sm btn-outline-primary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, '${email.suggested_team}', '${escapeQuotes(email.subject)}')">
                     ✓ Accept Suggestion
                   </button>
-                  <button class="btn btn-sm btn-outline-secondary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'credit_risk', '${escapeQuotes(email.subject)}')">Credit Risk</button>
                   <button class="btn btn-sm btn-outline-secondary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'fraud', '${escapeQuotes(email.subject)}')">Fraud</button>
                   <button class="btn btn-sm btn-outline-secondary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'compliance', '${escapeQuotes(email.subject)}')">Compliance</button>
-                  <button class="btn btn-sm btn-outline-secondary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'wealth', '${escapeQuotes(email.subject)}')">Wealth</button>
-                  <button class="btn btn-sm btn-outline-secondary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'corporate', '${escapeQuotes(email.subject)}')">Corporate</button>
-                  <button class="btn btn-sm btn-outline-secondary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'operations', '${escapeQuotes(email.subject)}')">Operations</button>
                   <button class="btn btn-sm btn-outline-secondary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'investments', '${escapeQuotes(email.subject)}')">Investments</button>
                 </div>
               ` : ''}
@@ -979,23 +923,11 @@
             <div class="mb-3 p-3" style="background: #fff9f0; border-left: 4px solid #f39c12; border-radius: 4px;">
               <h6><i class="material-icons-round" style="font-size: 20px; vertical-align: middle;">psychology</i> Assign to Agentic Team</h6>
               <p class="text-sm mb-2">This email can be analyzed by our virtual bank teams. Select a team to start the agentic workflow:</p>
-              <button class="btn btn-sm btn-outline-primary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'credit_risk', '${escapeQuotes(email.subject)}')">
-                <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">account_balance</i> Credit Risk
-              </button>
               <button class="btn btn-sm btn-outline-primary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'fraud', '${escapeQuotes(email.subject)}')">
-                <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">search</i> Fraud
+                <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">security</i> Fraud
               </button>
               <button class="btn btn-sm btn-outline-primary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'compliance', '${escapeQuotes(email.subject)}')">
                 <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">gavel</i> Compliance
-              </button>
-              <button class="btn btn-sm btn-outline-primary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'wealth', '${escapeQuotes(email.subject)}')">
-                <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">trending_up</i> Wealth
-              </button>
-              <button class="btn btn-sm btn-outline-primary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'corporate', '${escapeQuotes(email.subject)}')">
-                <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">business</i> Corporate
-              </button>
-              <button class="btn btn-sm btn-outline-primary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'operations', '${escapeQuotes(email.subject)}')">
-                <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">settings</i> Operations
               </button>
               <button class="btn btn-sm btn-outline-primary team-assign-btn" onclick="event.stopPropagation(); assignTeamToEmail(${email.id}, 'investments', '${escapeQuotes(email.subject)}')">
                 <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">show_chart</i> Investments
@@ -1011,7 +943,7 @@
                 <p class="text-sm mb-2"><strong>📚 Relevant Wiki Pages (${email.enriched_data.relevant_pages.length}):</strong></p>
                 <div class="mb-2">
                   ${email.enriched_data.relevant_pages.map(page => {
-                    const wikiSlug = page.replace(/\s+/g, '-').toLowerCase();
+                    const wikiSlug = page.replace(/\s+/g, '-');
                     const wikiUrl = `http://localhost:9000/${wikiSlug}`;
                     return `<a href="${wikiUrl}" target="_blank" class="badge bg-success me-1 mb-1" style="text-decoration: none; cursor: pointer;">${escapeHtml(page)} 📖</a>`;
                   }).join('')}
@@ -1023,7 +955,7 @@
                 ${email.enriched_data.enriched_keywords.length > 0 ? `
                   <div style="background: #fff; padding: 10px; border-radius: 6px; border: 1px solid #4caf50;">
                     ${email.enriched_data.enriched_keywords.map((kw, idx) => {
-                      const wikiSlug = kw.wiki_page.replace(/\s+/g, '-').toLowerCase();
+                      const wikiSlug = kw.wiki_page.replace(/\s+/g, '-');
                       const wikiUrl = `http://localhost:9000/${wikiSlug}`;
                       return `
                       <div class="mb-2 pb-2 ${idx < email.enriched_data.enriched_keywords.length - 1 ? 'border-bottom' : ''}">
@@ -1669,7 +1601,7 @@
         const confidence = item.confidence;
 
         // Convert wiki page name to URL slug (lowercase for OtterWiki compatibility)
-        const wikiSlug = item.wiki_page.replace(/\s+/g, '-').toLowerCase();
+        const wikiSlug = item.wiki_page.replace(/\s+/g, '-');
         const wikiUrl = `http://localhost:9000/${wikiSlug}`;
 
         // Create regex to find whole word matches (case insensitive) - use raw keyword, not escaped
