@@ -114,9 +114,10 @@ def fetch_all_emails_from_database():
     limit = 100
 
     while True:
-        # Use curl to fetch emails
+        # Use curl to fetch emails (use backend hostname in Docker)
+        backend_host = "backend"  # Docker service name
         result = subprocess.run(
-            ["curl", "-s", f"http://localhost:8000/api/emails?limit={limit}&offset={offset}"],
+            ["curl", "-s", f"http://{backend_host}:8000/api/emails?limit={limit}&offset={offset}"],
             capture_output=True,
             text=True
         )
