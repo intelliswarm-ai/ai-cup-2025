@@ -1,17 +1,13 @@
 """
 Agentic Virtual Bank Teams
-Multi-agent collaboration system using LangGraph
+Multi-agent collaboration system for email analysis
 """
 import os
 import json
 import asyncio
-from typing import Dict, List, Any, Optional, TypedDict, Annotated
+from typing import Dict, List, Any, Optional, TypedDict
 from datetime import datetime
 import httpx
-
-from langgraph.graph import StateGraph, END
-from langchain.prompts import ChatPromptTemplate
-from langchain.schema import HumanMessage, AIMessage, SystemMessage
 
 
 # ============================================================================
@@ -19,39 +15,6 @@ from langchain.schema import HumanMessage, AIMessage, SystemMessage
 # ============================================================================
 
 TEAMS = {
-    "credit_risk": {
-        "name": "🏦 Credit Risk Committee",
-        "agents": [
-            {
-                "role": "Senior Credit Analyst",
-                "icon": "👔",
-                "personality": "Analytical and detail-oriented. Always starts by breaking down financial metrics. Uses phrases like 'Looking at the numbers...' and 'From a credit perspective...'",
-                "responsibilities": "Analyze creditworthiness, financial ratios, debt capacity, and repayment ability",
-                "style": "Data-driven, methodical, cautious"
-            },
-            {
-                "role": "Risk Manager",
-                "icon": "🛡️",
-                "personality": "Conservative and protective. Focuses on downside scenarios. Often says 'What if...' and 'We need to consider the risks...'",
-                "responsibilities": "Assess risk exposure, stress scenarios, collateral adequacy, and portfolio impact",
-                "style": "Risk-averse, thorough, questioning"
-            },
-            {
-                "role": "Relationship Manager",
-                "icon": "💼",
-                "personality": "Client-focused and diplomatic. Balances risk with opportunity. Uses phrases like 'The client has been...' and 'This relationship represents...'",
-                "responsibilities": "Evaluate client relationship value, cross-sell opportunities, long-term potential",
-                "style": "Diplomatic, balanced, opportunity-focused"
-            },
-            {
-                "role": "Chief Risk Officer",
-                "icon": "👨‍💼",
-                "personality": "Strategic and decisive. Synthesizes input and makes final call. Says 'Based on the discussion...' and 'Here's what we'll do...'",
-                "responsibilities": "Make final decision, set conditions, approve or decline with rationale",
-                "style": "Authoritative, strategic, conclusive"
-            }
-        ]
-    },
     "fraud": {
         "name": "🔍 Fraud Investigation Unit",
         "agents": [
@@ -118,105 +81,6 @@ TEAMS = {
             }
         ]
     },
-    "wealth": {
-        "name": "💼 Wealth Management Advisory",
-        "agents": [
-            {
-                "role": "Senior Wealth Advisor",
-                "icon": "💼",
-                "personality": "Client-centric and advisory. Understands client goals. Says 'Based on the client's objectives...' and 'I would recommend...'",
-                "responsibilities": "Understand client goals, risk tolerance, time horizon, and constraints",
-                "style": "Advisory, client-focused, holistic"
-            },
-            {
-                "role": "Investment Specialist",
-                "icon": "📈",
-                "personality": "Market-savvy and analytical. Discusses investments. Uses phrases like 'Current market conditions...' and 'The portfolio allocation should...'",
-                "responsibilities": "Recommend asset allocation, investment products, portfolio construction",
-                "style": "Analytical, market-aware, strategic"
-            },
-            {
-                "role": "Tax Consultant",
-                "icon": "💰",
-                "personality": "Detail-oriented and optimization-focused. Finds tax efficiencies. Says 'From a tax perspective...' and 'We can optimize by...'",
-                "responsibilities": "Analyze tax implications, optimize tax efficiency, consider jurisdictions",
-                "style": "Detail-oriented, optimization-focused, technical"
-            },
-            {
-                "role": "Estate Planning Expert",
-                "icon": "🏛️",
-                "personality": "Long-term thinking and legacy-focused. Plans for generations. Uses phrases like 'Looking long-term...' and 'For wealth preservation...'",
-                "responsibilities": "Plan wealth transfer, estate structures, succession planning, legacy goals",
-                "style": "Long-term, legacy-focused, strategic"
-            }
-        ]
-    },
-    "corporate": {
-        "name": "🏢 Corporate Banking Team",
-        "agents": [
-            {
-                "role": "Corporate Relationship Manager",
-                "icon": "🤝",
-                "personality": "Business-savvy and relationship-focused. Understands corporate needs. Says 'The company's business model...' and 'This supports their strategy...'",
-                "responsibilities": "Understand business model, strategic objectives, relationship potential",
-                "style": "Business-savvy, relationship-focused, strategic"
-            },
-            {
-                "role": "Trade Finance Specialist",
-                "icon": "🌍",
-                "personality": "Process-oriented and international. Knows trade mechanics. Uses phrases like 'The trade flow indicates...' and 'For cross-border transactions...'",
-                "responsibilities": "Structure trade finance, letters of credit, export financing, guarantees",
-                "style": "Process-oriented, international, technical"
-            },
-            {
-                "role": "Treasury Expert",
-                "icon": "💵",
-                "personality": "Financial and liquidity-focused. Manages cash flows. Says 'The treasury position...' and 'Cash flow management requires...'",
-                "responsibilities": "Analyze liquidity needs, cash management, FX hedging, interest rate risk",
-                "style": "Financial, liquidity-focused, technical"
-            },
-            {
-                "role": "Syndication Lead",
-                "icon": "📊",
-                "personality": "Deal-making and collaborative. Coordinates large deals. Uses phrases like 'We can syndicate with...' and 'The deal structure should...'",
-                "responsibilities": "Structure syndicated facilities, coordinate with other banks, risk distribution",
-                "style": "Deal-making, collaborative, strategic"
-            }
-        ]
-    },
-    "operations": {
-        "name": "⚙️ Operations & Quality",
-        "agents": [
-            {
-                "role": "Operations Manager",
-                "icon": "⚙️",
-                "personality": "Process-driven and efficiency-focused. Improves operations. Says 'The current process...' and 'We can streamline by...'",
-                "responsibilities": "Analyze processes, identify bottlenecks, improve efficiency, quality control",
-                "style": "Process-driven, efficiency-focused, systematic"
-            },
-            {
-                "role": "Quality Assurance Lead",
-                "icon": "✓",
-                "personality": "Standards-focused and error-catching. Ensures quality. Uses phrases like 'Quality standards require...' and 'I've identified issues with...'",
-                "responsibilities": "Check quality standards, identify errors, ensure compliance with procedures",
-                "style": "Standards-focused, critical, thorough"
-            },
-            {
-                "role": "Technology Liaison",
-                "icon": "💻",
-                "personality": "Tech-savvy and solution-oriented. Finds technical fixes. Says 'The system should...' and 'We can automate...'",
-                "responsibilities": "Assess technical solutions, system capabilities, automation opportunities",
-                "style": "Tech-savvy, solution-oriented, innovative"
-            },
-            {
-                "role": "Customer Service Lead",
-                "icon": "👥",
-                "personality": "Empathetic and customer-focused. Champions client experience. Uses phrases like 'From the customer's perspective...' and 'We need to ensure satisfaction...'",
-                "responsibilities": "Evaluate customer impact, satisfaction, communication strategy, resolution",
-                "style": "Empathetic, customer-focused, communicative"
-            }
-        ]
-    },
     "investments": {
         "name": "📈 Investment Research Team",
         "agents": [
@@ -254,7 +118,7 @@ TEAMS = {
 
 
 # ============================================================================
-# LANGCHAIN/LANGGRAPH STATE AND WORKFLOW
+# AGENT STATE AND WORKFLOW
 # ============================================================================
 
 class AgentState(TypedDict):
@@ -264,7 +128,7 @@ class AgentState(TypedDict):
     email_body: str
     email_sender: str
     team: str
-    messages: Annotated[List[Dict[str, Any]], "The conversation messages"]
+    messages: List[Dict[str, Any]]
     current_speaker: str
     round: int
     max_rounds: int
@@ -273,7 +137,7 @@ class AgentState(TypedDict):
 
 
 class AgenticTeamOrchestrator:
-    """Orchestrates multi-agent team discussions using LangGraph"""
+    """Orchestrates multi-agent team discussions"""
 
     def __init__(self, openai_api_key: str = None, openai_model: str = "gpt-4o-mini", ollama_url: str = "http://ollama:11434"):
         self.openai_api_key = openai_api_key
@@ -819,22 +683,15 @@ def detect_team_for_email(email_subject: str, email_body: str) -> str:
     """Detect which team should handle an email based on content (keyword-based fallback)"""
     combined = (email_subject + " " + email_body).lower()
 
-    if any(word in combined for word in ['stock analysis', 'stock research', 'equity analysis', 'company analysis', 'investment research', 'stock recommendation']):
+    if any(word in combined for word in ['stock analysis', 'stock research', 'equity analysis', 'company analysis', 'investment research', 'stock recommendation', 'financial analysis']):
         return 'investments'
-    elif any(word in combined for word in ['credit', 'loan', 'financing', 'credit line', 'credit increase']):
-        return 'credit_risk'
-    elif any(word in combined for word in ['fraud', 'suspicious', 'wire transfer', 'phishing', 'bec', 'scam']):
+    elif any(word in combined for word in ['fraud', 'suspicious', 'wire transfer', 'phishing', 'bec', 'scam', 'unauthorized', 'security breach']):
         return 'fraud'
-    elif any(word in combined for word in ['compliance', 'regulatory', 'fatca', 'regulation', 'legal', 'audit']):
+    elif any(word in combined for word in ['compliance', 'regulatory', 'fatca', 'regulation', 'legal', 'audit', 'aml', 'kyc']):
         return 'compliance'
-    elif any(word in combined for word in ['wealth', 'investment', 'portfolio', 'inheritance', 'estate']):
-        return 'wealth'
-    elif any(word in combined for word in ['corporate', 'trade finance', 'letter of credit', 'import', 'export']):
-        return 'corporate'
-    elif any(word in combined for word in ['complaint', 'customer service', 'quality', 'operations', 'issue']):
-        return 'operations'
 
-    return 'credit_risk'  # default
+    # Default to fraud for security-related inquiries
+    return 'fraud'
 
 
 async def suggest_team_for_email_llm(email_subject: str, email_body: str, email_sender: str = "") -> str:
@@ -853,15 +710,11 @@ async def suggest_team_for_email_llm(email_subject: str, email_body: str, email_
     system_prompt = """You are an intelligent email routing system for a Swiss bank. Your task is to analyze incoming emails and suggest which specialized team should handle them.
 
 Available teams:
-- investments: 📈 Investment Research Team (handles stock analysis, equity research, company analysis, investment recommendations)
-- credit_risk: 🏦 Credit Risk Committee (handles loan requests, credit analysis, financing decisions)
-- fraud: 🔍 Fraud Investigation Unit (handles suspicious activities, wire transfer issues, phishing, scams)
-- compliance: ⚖️ Compliance & Regulatory Affairs (handles regulatory matters, legal questions, audit issues)
-- wealth: 💼 Wealth Management Advisory (handles investment queries, portfolio management, estate planning)
-- corporate: 🏢 Corporate Banking Team (handles corporate clients, trade finance, treasury services)
-- operations: ⚙️ Operations & Quality (handles customer complaints, process issues, service quality)
+- fraud: 🔍 Fraud Investigation Unit (handles suspicious activities, wire transfer issues, phishing, scams, security breaches, unauthorized transactions)
+- compliance: ⚖️ Compliance & Regulatory Affairs (handles regulatory matters, legal questions, audit issues, AML, KYC, FATCA)
+- investments: 📈 Investment Research Team (handles stock analysis, equity research, company analysis, investment recommendations, financial analysis)
 
-Analyze the email and respond with ONLY the team key (e.g., 'fraud' or 'investments'). No explanation, just the team key."""
+Analyze the email and respond with ONLY the team key (e.g., 'fraud', 'compliance', or 'investments'). No explanation, just the team key."""
 
     user_prompt = f"""EMAIL TO ANALYZE:
 Subject: {email_subject}
