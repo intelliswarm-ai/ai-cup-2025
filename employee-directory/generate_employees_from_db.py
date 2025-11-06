@@ -82,9 +82,9 @@ def fetch_emails_from_backend():
     limit = 100
 
     while True:
-        # Use curl to fetch emails
+        # Use curl to fetch emails (backend uses 'skip' parameter, not 'offset')
         result = subprocess.run(
-            ["curl", "-s", f"http://backend:8000/api/emails?limit={limit}&offset={offset}"],
+            ["curl", "-s", f"http://backend:8000/api/emails?limit={limit}&skip={offset}"],
             capture_output=True,
             text=True,
             timeout=30

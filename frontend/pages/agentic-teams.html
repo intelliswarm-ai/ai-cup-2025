@@ -99,12 +99,9 @@
       margin-top: 8px;
     }
 
-    .team-credit { background: #e3f2fd; color: #1976d2; }
     .team-fraud { background: #ffebee; color: #c62828; }
     .team-compliance { background: #f3e5f5; color: #7b1fa2; }
-    .team-wealth { background: #e8f5e9; color: #388e3c; }
-    .team-corporate { background: #fff3e0; color: #f57c00; }
-    .team-operations { background: #fce4ec; color: #c2185b; }
+    .team-investments { background: #e8f5e9; color: #2e7d32; }
 
     .status-indicator {
       display: inline-block;
@@ -177,6 +174,104 @@
       overflow-y: auto;
       padding: 20px;
       background: #f8f9fa;
+    }
+
+    /* Investment Progress Tracker */
+    .investment-progress-tracker {
+      background: white;
+      border-radius: 12px;
+      padding: 25px;
+      margin-bottom: 25px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    .progress-tracker-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .progress-steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .progress-step {
+      background: #f8f9fa;
+      border-radius: 10px;
+      padding: 15px;
+      text-align: center;
+      transition: all 0.3s ease;
+      border: 2px solid transparent;
+    }
+
+    .progress-step.pending {
+      opacity: 0.5;
+    }
+
+    .progress-step.active {
+      background: linear-gradient(195deg, #e3f2fd 0%, #bbdefb 100%);
+      border-color: #2196f3;
+      box-shadow: 0 4px 12px rgba(33, 150, 243, 0.2);
+    }
+
+    .progress-step.completed {
+      background: linear-gradient(195deg, #e8f5e9 0%, #c8e6c9 100%);
+      border-color: #4caf50;
+    }
+
+    .step-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+
+    .step-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #666;
+      margin-bottom: 4px;
+    }
+
+    .step-status {
+      font-size: 11px;
+      color: #999;
+    }
+
+    .progress-step.active .step-status {
+      color: #2196f3;
+      font-weight: 600;
+      animation: pulse-text 1.5s ease-in-out infinite;
+    }
+
+    .progress-step.completed .step-status {
+      color: #4caf50;
+      font-weight: 600;
+    }
+
+    @keyframes pulse-text {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    .progress-timeline {
+      position: relative;
+      height: 4px;
+      background: #e0e0e0;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .progress-timeline-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #2196f3 0%, #4caf50 100%);
+      transition: width 0.5s ease;
+      border-radius: 2px;
     }
 
     .chat-message {
@@ -260,7 +355,158 @@
     .message-text {
       color: #444;
       line-height: 1.6;
-      white-space: pre-wrap;
+      white-space: normal;
+    }
+
+    /* Markdown Styling */
+    .message-text h1,
+    .message-text h2,
+    .message-text h3,
+    .message-text h4,
+    .message-text h5,
+    .message-text h6 {
+      font-weight: 600;
+      margin-top: 1.5em;
+      margin-bottom: 0.75em;
+      line-height: 1.3;
+      color: #2c3e50;
+    }
+
+    .message-text h1 { font-size: 1.8em; border-bottom: 2px solid #e0e0e0; padding-bottom: 0.3em; }
+    .message-text h2 { font-size: 1.5em; border-bottom: 1px solid #e8e8e8; padding-bottom: 0.3em; }
+    .message-text h3 { font-size: 1.3em; }
+    .message-text h4 { font-size: 1.1em; }
+    .message-text h5 { font-size: 1em; }
+    .message-text h6 { font-size: 0.9em; color: #666; }
+
+    .message-text h1:first-child,
+    .message-text h2:first-child,
+    .message-text h3:first-child {
+      margin-top: 0;
+    }
+
+    .message-text strong,
+    .message-text b {
+      font-weight: 600;
+      color: #2c3e50;
+    }
+
+    .message-text em,
+    .message-text i {
+      font-style: italic;
+      color: #555;
+    }
+
+    .message-text ul,
+    .message-text ol {
+      margin: 1em 0;
+      padding-left: 2em;
+    }
+
+    .message-text li {
+      margin: 0.5em 0;
+      line-height: 1.6;
+    }
+
+    .message-text ul li {
+      list-style-type: disc;
+    }
+
+    .message-text ol li {
+      list-style-type: decimal;
+    }
+
+    .message-text ul ul,
+    .message-text ol ul {
+      list-style-type: circle;
+    }
+
+    .message-text code {
+      background: #f5f5f5;
+      border: 1px solid #e0e0e0;
+      border-radius: 3px;
+      padding: 2px 6px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+      color: #d63384;
+    }
+
+    .message-text pre {
+      background: #f8f9fa;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 12px 16px;
+      overflow-x: auto;
+      margin: 1em 0;
+    }
+
+    .message-text pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      color: #333;
+    }
+
+    .message-text blockquote {
+      border-left: 4px solid #2196f3;
+      background: #f8f9fa;
+      margin: 1em 0;
+      padding: 0.5em 1em;
+      color: #555;
+      font-style: italic;
+    }
+
+    .message-text a {
+      color: #2196f3;
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: all 0.2s ease;
+    }
+
+    .message-text a:hover {
+      border-bottom-color: #2196f3;
+    }
+
+    .message-text hr {
+      border: none;
+      border-top: 2px solid #e0e0e0;
+      margin: 2em 0;
+    }
+
+    .message-text table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 1em 0;
+      font-size: 0.95em;
+    }
+
+    .message-text table th,
+    .message-text table td {
+      border: 1px solid #e0e0e0;
+      padding: 8px 12px;
+      text-align: left;
+    }
+
+    .message-text table th {
+      background: #f8f9fa;
+      font-weight: 600;
+      color: #2c3e50;
+    }
+
+    .message-text table tr:nth-child(even) {
+      background: #fafafa;
+    }
+
+    .message-text p {
+      margin: 0.75em 0;
+    }
+
+    .message-text p:first-child {
+      margin-top: 0;
+    }
+
+    .message-text p:last-child {
+      margin-bottom: 0;
     }
 
     .thinking-indicator {
@@ -789,6 +1035,94 @@
     .emoji-picker-trigger:hover {
       background: #e0e0e0;
     }
+
+    /* Direct Interaction Panel */
+    .direct-interaction-panel {
+      padding: 30px;
+      background: white;
+    }
+
+    .interaction-header {
+      margin-bottom: 25px;
+      border-bottom: 2px solid #e0e0e0;
+      padding-bottom: 15px;
+    }
+
+    .interaction-header h3 {
+      font-size: 24px;
+      font-weight: 600;
+      color: #333;
+      margin: 0 0 5px 0;
+    }
+
+    .interaction-subtitle {
+      color: #666;
+      font-size: 14px;
+      margin: 0;
+    }
+
+    .interaction-form-container {
+      max-width: 800px;
+    }
+
+    .interaction-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 15px;
+    }
+
+    /* Chat Input Area */
+    .chat-input-container {
+      border-top: 1px solid #e0e0e0;
+      padding: 20px;
+      background: white;
+      display: none;
+    }
+
+    .chat-input-wrapper {
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+
+    .chat-input-wrapper textarea {
+      flex: 1;
+      resize: none;
+      border-radius: 12px;
+      padding: 12px 15px;
+      border: 1px solid #e0e0e0;
+      font-size: 14px;
+    }
+
+    .chat-input-wrapper textarea:focus {
+      outline: none;
+      border-color: #e91e63;
+      box-shadow: 0 0 0 2px rgba(233, 30, 99, 0.1);
+    }
+
+    .chat-send-btn {
+      background: linear-gradient(195deg, #EC407A 0%, #D81B60 100%);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      padding: 12px 24px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .chat-send-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(233, 30, 99, 0.4);
+    }
+
+    .chat-send-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
   </style>
 </head>
 
@@ -833,14 +1167,6 @@
           <h6 class="ps-4 ms-2 text-uppercase text-xs font-weight-bolder" style="color: #000; opacity: 0.6;">Virtual Teams</h6>
         </li>
         <li class="nav-item">
-          <a class="nav-link text-white" href="/pages/agentic-teams.html?team=credit_risk">
-            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
-              <i class="material-icons-round opacity-10">account_balance</i>
-            </div>
-            <span class="nav-link-text ms-1">Credit Risk</span>
-          </a>
-        </li>
-        <li class="nav-item">
           <a class="nav-link text-white" href="/pages/agentic-teams.html?team=fraud">
             <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
               <i class="material-icons-round opacity-10">security</i>
@@ -857,27 +1183,11 @@
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link text-white" href="/pages/agentic-teams.html?team=wealth">
+          <a class="nav-link text-white" href="/pages/agentic-teams.html?team=investments">
             <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
               <i class="material-icons-round opacity-10">trending_up</i>
             </div>
-            <span class="nav-link-text ms-1">Wealth Mgmt</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link text-white" href="/pages/agentic-teams.html?team=corporate">
-            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
-              <i class="material-icons-round opacity-10">business</i>
-            </div>
-            <span class="nav-link-text ms-1">Corporate</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link text-white" href="/pages/agentic-teams.html?team=operations">
-            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
-              <i class="material-icons-round opacity-10">settings</i>
-            </div>
-            <span class="nav-link-text ms-1">Operations</span>
+            <span class="nav-link-text ms-1">Investments</span>
           </a>
         </li>
         <li class="nav-item">
@@ -940,6 +1250,46 @@
             <p>Select an email from the queue to watch the virtual team discuss and decide</p>
           </div>
 
+          <!-- Direct Interaction Form -->
+          <div class="direct-interaction-panel" id="direct-interaction-panel" style="display: none;">
+            <div class="interaction-header">
+              <div style="flex: 1;">
+                <h3 id="interaction-team-title">Ask the Team Directly</h3>
+                <p class="interaction-subtitle">Submit a request directly to the team without an email</p>
+              </div>
+            </div>
+
+            <div class="interaction-form-container">
+              <div class="form-group mb-3">
+                <label for="direct-query-input" class="form-label">Your Request</label>
+                <textarea
+                  id="direct-query-input"
+                  class="form-control"
+                  rows="4"
+                  placeholder="e.g., I want a complete analysis for stock Apple"></textarea>
+                <small class="form-text text-muted" id="query-hint">
+                  For Investment Team: Request stock analysis by company name or ticker symbol
+                </small>
+              </div>
+
+              <div class="interaction-actions">
+                <button class="btn btn-primary" onclick="submitDirectQuery()">
+                  <i class="material-icons-round">send</i> Submit to Team
+                </button>
+                <button class="btn btn-outline-secondary" onclick="clearDirectQuery()">
+                  <i class="material-icons-round">clear</i> Clear
+                </button>
+              </div>
+            </div>
+
+            <div id="interaction-result" style="display: none; margin-top: 20px;">
+              <div class="alert alert-info">
+                <strong>Analysis Started!</strong>
+                <span id="interaction-status">The team is working on your request...</span>
+              </div>
+            </div>
+          </div>
+
           <!-- Team Presentation Panel (Read-only View) -->
           <div class="team-presentation-panel" id="team-presentation-panel" style="display: none;">
             <div class="presentation-header">
@@ -990,6 +1340,21 @@
             <!-- Team member cards will be inserted here -->
           </div>
         </div>
+
+        <!-- Interactive Chat Input -->
+        <div class="chat-input-container" id="chat-input-container">
+          <div class="chat-input-wrapper">
+            <textarea
+              id="chat-message-input"
+              rows="2"
+              placeholder="Ask a follow-up question to the team..."
+              onkeypress="handleChatKeypress(event)"></textarea>
+            <button class="chat-send-btn" onclick="sendChatMessage()" id="chat-send-btn">
+              <i class="material-icons-round">send</i>
+              Send
+            </button>
+          </div>
+        </div>
       </div>
     </div>
     </div>
@@ -999,21 +1364,14 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="../assets/js/material-dashboard.min.js?v=3.0.0"></script>
 
+  <!-- Marked.js for Markdown parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
+
   <script>
     const API_BASE_URL = '/api';
 
     // Sample team definitions
     const TEAMS = {
-      'credit_risk': {
-        name: 'Credit Risk Committee',
-        badge: 'team-credit',
-        members: [
-          { role: 'Senior Credit Analyst', avatar: 'avatar-analyst' },
-          { role: 'Risk Manager', avatar: 'avatar-risk' },
-          { role: 'Relationship Manager', avatar: 'avatar-relationship' },
-          { role: 'Chief Risk Officer', avatar: 'avatar-cro' }
-        ]
-      },
       'fraud': {
         name: 'Fraud Investigation Unit',
         badge: 'team-fraud',
@@ -1034,34 +1392,14 @@
           { role: 'Regulatory Liaison', avatar: 'avatar-cro' }
         ]
       },
-      'wealth': {
-        name: 'Wealth Management Advisory',
-        badge: 'team-wealth',
+      'investments': {
+        name: 'Investment Research Team',
+        badge: 'team-investments',
         members: [
-          { role: 'Senior Wealth Advisor', avatar: 'avatar-relationship' },
-          { role: 'Investment Specialist', avatar: 'avatar-analyst' },
-          { role: 'Tax Consultant', avatar: 'avatar-compliance' },
-          { role: 'Estate Planning Expert', avatar: 'avatar-cro' }
-        ]
-      },
-      'corporate': {
-        name: 'Corporate Banking Team',
-        badge: 'team-corporate',
-        members: [
-          { role: 'Corporate Relationship Manager', avatar: 'avatar-relationship' },
-          { role: 'Trade Finance Specialist', avatar: 'avatar-analyst' },
-          { role: 'Treasury Expert', avatar: 'avatar-risk' },
-          { role: 'Syndication Lead', avatar: 'avatar-cro' }
-        ]
-      },
-      'operations': {
-        name: 'Operations & Quality',
-        badge: 'team-operations',
-        members: [
-          { role: 'Operations Manager', avatar: 'avatar-analyst' },
-          { role: 'Quality Assurance Lead', avatar: 'avatar-risk' },
-          { role: 'Technology Liaison', avatar: 'avatar-compliance' },
-          { role: 'Customer Service Lead', avatar: 'avatar-relationship' }
+          { role: 'Research Analyst', avatar: 'avatar-analyst' },
+          { role: 'Financial Analyst', avatar: 'avatar-risk' },
+          { role: 'Market Strategist', avatar: 'avatar-relationship' },
+          { role: 'Chief Investment Officer', avatar: 'avatar-cro' }
         ]
       }
     };
@@ -1109,13 +1447,16 @@
       const membersGrid = document.getElementById('presentation-members-grid');
       const titleElement = document.getElementById('presentation-team-title');
 
-      titleElement.textContent = teamData.name;
-      membersGrid.innerHTML = '';
-
-      teamData.agents.forEach((agent, index) => {
-        const card = createPresentationCard(agent, index);
-        membersGrid.appendChild(card);
-      });
+      if (titleElement) {
+        titleElement.textContent = teamData.name;
+      }
+      if (membersGrid) {
+        membersGrid.innerHTML = '';
+        teamData.agents.forEach((agent, index) => {
+          const card = createPresentationCard(agent, index);
+          membersGrid.appendChild(card);
+        });
+      }
 
       presentationPanel.style.display = 'block';
       document.getElementById('team-config-panel').style.display = 'none';
@@ -1175,13 +1516,16 @@
       const membersContainer = document.getElementById('team-members-config');
       const titleElement = document.getElementById('team-config-title');
 
-      titleElement.textContent = `${teamData.name} Configuration`;
-      membersContainer.innerHTML = '';
-
-      teamData.agents.forEach((agent, index) => {
-        const card = createMemberCard(agent, index);
-        membersContainer.appendChild(card);
-      });
+      if (titleElement) {
+        titleElement.textContent = `${teamData.name} Configuration`;
+      }
+      if (membersContainer) {
+        membersContainer.innerHTML = '';
+        teamData.agents.forEach((agent, index) => {
+          const card = createMemberCard(agent, index);
+          membersContainer.appendChild(card);
+        });
+      }
     }
 
     function createMemberCard(agent, index) {
@@ -1425,7 +1769,10 @@
     // Display email queue
     function displayEmailQueue(emails, selectedTeam) {
       const container = document.getElementById('email-queue-container');
-      document.getElementById('queue-count').textContent = emails.length;
+      const queueCountEl = document.getElementById('queue-count');
+      if (queueCountEl) {
+        queueCountEl.textContent = emails.length;
+      }
 
       // Update header if viewing a specific team
       const queueHeader = document.querySelector('.email-queue-header');
@@ -1452,24 +1799,60 @@
         const team = TEAMS[teamKey];
         // Determine status based on agentic_task_id
         const status = email.agentic_task_id ? 'completed' : 'pending';
+        // Check if this is a direct query (no mailpit_id)
+        const isDirectQuery = !email.mailpit_id;
 
         return `
-          <div class="email-card ${status}" onclick="viewDiscussion(${email.id}, '${teamKey}', '${email.subject.replace(/'/g, "\\'")}')">
-            <div class="email-meta">
-              <span>
-                <span class="status-indicator status-${status}"></span>
-                ${status.charAt(0).toUpperCase() + status.slice(1)}
-              </span>
-              <span style="font-size: 11px;">#${email.id}</span>
+          <div class="email-card ${status}" style="position: relative;">
+            <div onclick="viewDiscussion(${email.id}, '${teamKey}', '${email.subject.replace(/'/g, "\\'")}')" style="cursor: pointer; flex: 1;">
+              <div class="email-meta">
+                <span>
+                  <span class="status-indicator status-${status}"></span>
+                  ${status.charAt(0).toUpperCase() + status.slice(1)}
+                </span>
+                <span style="font-size: 11px;">#${email.id}</span>
+              </div>
+              <div class="email-subject">${email.subject}</div>
+              <div style="font-size: 11px; color: #999; margin-bottom: 8px;">
+                From: ${email.sender}${isDirectQuery ? ' <span style="background: #4CAF50; color: white; padding: 2px 6px; border-radius: 3px; font-size: 10px; margin-left: 6px;">DIRECT</span>' : ''}
+              </div>
+              <span class="team-badge ${team.badge}">${team.name}</span>
             </div>
-            <div class="email-subject">${email.subject}</div>
-            <div style="font-size: 11px; color: #999; margin-bottom: 8px;">
-              From: ${email.sender}
-            </div>
-            <span class="team-badge ${team.badge}">${team.name}</span>
+            <button onclick="event.stopPropagation(); deleteEmail(${email.id})"
+                    style="position: absolute; top: 8px; right: 8px; background: #f44336; color: white; border: none; border-radius: 4px; padding: 4px 8px; font-size: 11px; cursor: pointer; opacity: 0.7; transition: opacity 0.2s;"
+                    onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.7'"
+                    title="Delete this query">×</button>
           </div>
         `;
       }).join('');
+    }
+
+    // Delete email/query
+    async function deleteEmail(emailId) {
+      if (!confirm('Delete this analysis? This cannot be undone.')) {
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/emails/${emailId}`, {
+          method: 'DELETE'
+        });
+
+        if (response.ok) {
+          console.log('[deleteEmail] Deleted email:', emailId);
+          // Reload the email list
+          await loadEmails();
+          // Clear the discussion panel
+          document.getElementById('chat-container').innerHTML = '';
+          document.getElementById('team-presentation-panel').style.display = 'block';
+          document.getElementById('empty-state').style.display = 'none';
+        } else {
+          alert('Failed to delete. Please try again.');
+        }
+      } catch (error) {
+        console.error('[deleteEmail] Error:', error);
+        alert('Error deleting. Please try again.');
+      }
     }
 
     // View team discussion for selected email
@@ -1482,9 +1865,15 @@
       document.getElementById('team-config-panel').style.display = 'none';
       document.getElementById('empty-state').style.display = 'none';
 
+      // IMPORTANT: Clear chat container immediately to show we're loading new content
+      const chatContainer = document.getElementById('chat-container');
+      chatContainer.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">Loading analysis...</div>';
+
       // Update header
-      document.getElementById('discussion-team').textContent = team.name;
-      document.getElementById('discussion-subject').textContent = subject;
+      const teamEl = document.getElementById('discussion-team');
+      const subjectEl = document.getElementById('discussion-subject');
+      if (teamEl) teamEl.textContent = team.name;
+      if (subjectEl) subjectEl.textContent = subject;
 
       // Show team members
       const membersPanel = document.getElementById('team-members-panel');
@@ -1546,6 +1935,25 @@
             const message = messages[i];
             const agent = TEAMS[team].members.find(m => m.role === message.role) || TEAMS[team].members[0];
 
+            // Parse Markdown to HTML
+            let parsedContent;
+            if (typeof marked !== 'undefined') {
+              try {
+                marked.setOptions({
+                  breaks: true,
+                  gfm: true,
+                  headerIds: false,
+                  mangle: false
+                });
+                parsedContent = marked(message.text);
+              } catch (error) {
+                console.error('[Markdown] Parse error:', error);
+                parsedContent = message.text.replace(/\n/g, '<br>');
+              }
+            } else {
+              parsedContent = message.text.replace(/\n/g, '<br>');
+            }
+
             const messageHTML = `
               <div class="chat-message">
                 <div class="message-header">
@@ -1556,7 +1964,7 @@
                   <span class="message-time">${new Date(message.timestamp).toLocaleTimeString()}</span>
                 </div>
                 <div class="message-content">
-                  <div class="message-text">${message.text}</div>
+                  <div class="message-text">${parsedContent}</div>
                 </div>
               </div>
             `;
@@ -1594,22 +2002,41 @@
       const chatContainer = document.getElementById('chat-container');
       chatContainer.innerHTML = '';
 
-      // Show loading indicator
-      chatContainer.innerHTML = `
-        <div style="text-align: center; padding: 60px 20px; color: #999;">
-          <div style="font-size: 48px; margin-bottom: 20px;">🤖</div>
-          <h3>Assembling Virtual Team...</h3>
-          <p>The ${TEAMS[team].name} is analyzing this email</p>
-          <div class="thinking-indicator">
-            <span id="status-text">Starting workflow...</span>
-            <div class="thinking-dots">
-              <span></span>
-              <span></span>
-              <span></span>
+      // Show loading indicator with progress tracker for investments
+      if (team === 'investments') {
+        chatContainer.innerHTML = `
+          ${createInvestmentProgressTracker()}
+          <div style="text-align: center; padding: 40px 20px; color: #999;">
+            <div style="font-size: 48px; margin-bottom: 20px;">🤖</div>
+            <h3>Assembling Virtual Team...</h3>
+            <p>The ${TEAMS[team].name} is analyzing this email</p>
+            <div class="thinking-indicator">
+              <span id="status-text">Starting workflow...</span>
+              <div class="thinking-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
             </div>
           </div>
-        </div>
-      `;
+        `;
+      } else {
+        chatContainer.innerHTML = `
+          <div style="text-align: center; padding: 60px 20px; color: #999;">
+            <div style="font-size: 48px; margin-bottom: 20px;">🤖</div>
+            <h3>Assembling Virtual Team...</h3>
+            <p>The ${TEAMS[team].name} is analyzing this email</p>
+            <div class="thinking-indicator">
+              <span id="status-text">Starting workflow...</span>
+              <div class="thinking-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            </div>
+          </div>
+        `;
+      }
 
       try {
         console.log('[simulateDiscussion] Starting workflow...');
@@ -1625,20 +2052,115 @@
 
         const startResult = await response.json();
         const taskId = startResult.task_id;
+        currentTaskId = taskId;  // Store task ID for chat functionality
 
         console.log(`Started agentic workflow, task_id: ${taskId}`);
 
-        // Update status
-        document.getElementById('status-text').textContent = 'Processing with virtual team...';
+        // Update status (only if element exists)
+        const statusTextEl = document.getElementById('status-text');
+        if (statusTextEl) {
+          statusTextEl.textContent = 'Processing with virtual team...';
+        }
 
-        // Poll for results with real-time display
-        let pollCount = 0;
+        // Enable chat input during analysis
+        const chatInputContainer = document.getElementById('chat-input-container');
+        if (chatInputContainer) {
+          chatInputContainer.style.display = 'block';
+        }
+
+        // Real-time update variables
         let displayedMessageCount = 0;
-        const maxPolls = 180; // 180 * 2 seconds = 6 minutes max
-        const pollInterval = 1000; // 1 second for faster updates
+
+        // Create investment progress tracker for investments team
+        const createInvestmentProgressTracker = () => {
+          const trackerHTML = `
+            <div class="investment-progress-tracker" id="investment-tracker">
+              <div class="progress-tracker-title">
+                <span>📊</span>
+                <span>Investment Analysis Progress</span>
+              </div>
+              <div class="progress-steps" id="progress-steps">
+                <div class="progress-step pending" data-agent="Financial Analyst">
+                  <div class="step-icon">📊</div>
+                  <div class="step-label">Financial Analysis</div>
+                  <div class="step-status">Pending...</div>
+                </div>
+                <div class="progress-step pending" data-agent="Research Analyst">
+                  <div class="step-icon">🔍</div>
+                  <div class="step-label">Market Research</div>
+                  <div class="step-status">Pending...</div>
+                </div>
+                <div class="progress-step pending" data-agent="Filings Analyst">
+                  <div class="step-icon">📋</div>
+                  <div class="step-label">SEC Filings</div>
+                  <div class="step-status">Pending...</div>
+                </div>
+                <div class="progress-step pending" data-agent="Investment Advisor">
+                  <div class="step-icon">💼</div>
+                  <div class="step-label">Final Recommendation</div>
+                  <div class="step-status">Pending...</div>
+                </div>
+              </div>
+              <div class="progress-timeline">
+                <div class="progress-timeline-fill" id="investment-timeline-fill" style="width: 0%"></div>
+              </div>
+            </div>
+          `;
+          return trackerHTML;
+        };
+
+        // Update investment progress tracker
+        const updateInvestmentProgress = (role) => {
+          const tracker = document.getElementById('investment-tracker');
+          if (!tracker) return;
+
+          const steps = tracker.querySelectorAll('.progress-step');
+          const agentRoles = ['Financial Analyst', 'Research Analyst', 'Filings Analyst', 'Investment Advisor'];
+
+          const currentIndex = agentRoles.indexOf(role);
+          if (currentIndex === -1) return;
+
+          // Update steps
+          steps.forEach((step, index) => {
+            step.classList.remove('active', 'pending', 'completed');
+
+            if (index < currentIndex) {
+              step.classList.add('completed');
+              step.querySelector('.step-status').textContent = '✓ Complete';
+            } else if (index === currentIndex) {
+              step.classList.add('active');
+              step.querySelector('.step-status').textContent = 'Analyzing...';
+            } else {
+              step.classList.add('pending');
+              step.querySelector('.step-status').textContent = 'Pending...';
+            }
+          });
+
+          // Update timeline
+          const progress = ((currentIndex + 1) / agentRoles.length) * 100;
+          const timeline = document.getElementById('investment-timeline-fill');
+          if (timeline) {
+            timeline.style.width = `${progress}%`;
+          }
+        };
 
         const displayMessage = (message, team, isLast = false) => {
           const agent = TEAMS[team].members.find(m => m.role === message.role) || TEAMS[team].members[0];
+
+          // Update investment tracker if this is investments team
+          if (team === 'investments' && message.role) {
+            updateInvestmentProgress(message.role);
+          }
+
+          // Parse Markdown to HTML
+          const parsedContent = typeof marked !== 'undefined'
+            ? marked.parse(message.text, {
+                breaks: true,
+                gfm: true,
+                headerIds: false,
+                mangle: false
+              })
+            : message.text.replace(/\n/g, '<br>');
 
           const messageHTML = `
             <div class="chat-message" style="opacity: 0; transform: translateY(10px);">
@@ -1650,7 +2172,7 @@
                 <span class="message-time">${new Date(message.timestamp).toLocaleTimeString()}</span>
               </div>
               <div class="message-content">
-                <div class="message-text">${message.text}</div>
+                <div class="message-text">${parsedContent}</div>
               </div>
             </div>
           `;
@@ -1668,7 +2190,115 @@
           chatContainer.scrollTop = chatContainer.scrollHeight;
         };
 
+        // Register handler with global SSE connection
+        const sseHandler = (data) => {
+          try {
+            console.log('[Task SSE] Received event for task:', taskId, data.type);
+
+            // Handle agentic_message events for this task
+            if (data.type === 'agentic_message') {
+              const message = data.data?.message || data.message;
+
+              // Clear loading state on first message (but preserve tracker for investments)
+              if (displayedMessageCount === 0) {
+                if (team === 'investments') {
+                  // Remove only the loading indicator, keep the progress tracker
+                  const loadingDiv = chatContainer.querySelector('.thinking-indicator')?.closest('div[style*="text-align: center"]');
+                  if (loadingDiv) {
+                    loadingDiv.remove();
+                  }
+                } else {
+                  chatContainer.innerHTML = '';
+                }
+              }
+
+              // Display message (including thinking messages)
+              displayMessage(message, team);
+
+              // Only count non-thinking messages for progress
+              if (!message.is_thinking && !message.is_progress) {
+                displayedMessageCount++;
+              }
+
+              // Update progress (only if elements still exist)
+              const totalExpected = TEAMS[team].members.length;
+              const progress = (displayedMessageCount / totalExpected) * 100;
+              const progressEl = document.getElementById('discussion-progress');
+              if (progressEl) {
+                progressEl.style.width = progress + '%';
+              }
+
+              // Update status text (only if element still exists)
+              const statusEl = document.getElementById('status-text');
+              if (statusEl) {
+                if (displayedMessageCount < totalExpected - 1) {
+                  statusEl.textContent = `Agent ${displayedMessageCount} speaking...`;
+                } else {
+                  statusEl.textContent = 'Final decision being made...';
+                }
+              }
+            }
+
+            // Handle chat user messages
+            if (data.type === 'agentic_chat_user') {
+              const message = data.message;
+              displayMessage(message, team);
+            }
+
+            // Handle chat agent responses
+            if (data.type === 'agentic_chat_response') {
+              const message = data.message;
+              displayMessage(message, team);
+            }
+
+            // Handle agentic_complete events for this task
+            if (data.type === 'agentic_complete') {
+              console.log('[Task SSE] Workflow completed');
+              const progressEl = document.getElementById('discussion-progress');
+              if (progressEl) {
+                progressEl.style.width = '100%';
+              }
+              const statusEl = document.getElementById('status-text');
+              if (statusEl) {
+                statusEl.textContent = 'Discussion completed!';
+              }
+
+              // Show chat input after completion for follow-up questions
+              const chatInputContainer = document.getElementById('chat-input-container');
+              if (chatInputContainer) {
+                chatInputContainer.style.display = 'block';
+              }
+
+              // Unregister handler
+              unregisterTaskHandler(taskId);
+            }
+          } catch (parseError) {
+            console.error('[Task SSE] Error handling event:', parseError);
+          }
+        };
+
+        // Register handler BEFORE starting workflow
+        if (typeof registerTaskHandler === 'function') {
+          registerTaskHandler(taskId, sseHandler);
+          console.log('[Task SSE] Handler registered for', taskId);
+        } else {
+          console.warn('[Task SSE] Global SSE not available, will use polling fallback');
+          // Start polling as fallback
+          setTimeout(poll, 1000);
+        }
+
+        // Polling function as fallback
+        let pollCount = 0;
+        const maxPolls = 180; // 180 * 1 second = 3 minutes max
+        const pollInterval = 1000; // 1 second
+
         const poll = async () => {
+          // Skip polling if global SSE is handling events
+          if (typeof registerTaskHandler === 'function' && messageHandlers[taskId]) {
+            console.log('[Poll] Skipping poll, Global SSE is handling events');
+            return;
+          }
+
           try {
             const statusResponse = await fetch(`${API_BASE_URL}/agentic/tasks/${taskId}`);
             if (!statusResponse.ok) {
@@ -1676,7 +2306,7 @@
             }
 
             const status = await statusResponse.json();
-            console.log(`Task status: ${status.status}`, status);
+            console.log(`[Poll] Task status: ${status.status}`, status);
 
             // Display any new messages as they arrive
             if (status.result && status.result.discussion && status.result.discussion.messages) {
@@ -1686,22 +2316,35 @@
               // Display new messages
               for (let i = displayedMessageCount; i < messages.length; i++) {
                 if (i === 0) {
-                  // Clear loading state on first message
-                  chatContainer.innerHTML = '';
+                  // Clear loading state on first message (but preserve tracker for investments)
+                  if (team === 'investments') {
+                    const loadingDiv = chatContainer.querySelector('.thinking-indicator')?.closest('div[style*="text-align: center"]');
+                    if (loadingDiv) {
+                      loadingDiv.remove();
+                    }
+                  } else {
+                    chatContainer.innerHTML = '';
+                  }
                 }
 
                 displayMessage(messages[i], team, i === messages.length - 1);
                 displayedMessageCount++;
 
-                // Update progress
+                // Update progress (only if element still exists)
                 const progress = (displayedMessageCount / totalExpected) * 100;
-                document.getElementById('discussion-progress').style.width = progress + '%';
+                const progressEl = document.getElementById('discussion-progress');
+                if (progressEl) {
+                  progressEl.style.width = progress + '%';
+                }
 
-                // Update status text
-                if (displayedMessageCount < totalExpected - 1) {
-                  document.getElementById('status-text').textContent = `Agent ${displayedMessageCount + 1} of ${totalExpected} speaking...`;
-                } else {
-                  document.getElementById('status-text').textContent = 'Final decision being made...';
+                // Update status text (only if element still exists)
+                const statusEl = document.getElementById('status-text');
+                if (statusEl) {
+                  if (displayedMessageCount < totalExpected - 1) {
+                    statusEl.textContent = `Agent ${displayedMessageCount + 1} of ${totalExpected} speaking...`;
+                  } else {
+                    statusEl.textContent = 'Final decision being made...';
+                  }
                 }
               }
             }
@@ -1737,8 +2380,14 @@
                 }
               }
 
-              document.getElementById('discussion-progress').style.width = '100%';
-              document.getElementById('status-text').textContent = 'Discussion completed!';
+              const progressEl = document.getElementById('discussion-progress');
+              if (progressEl) {
+                progressEl.style.width = '100%';
+              }
+              const statusEl = document.getElementById('status-text');
+              if (statusEl) {
+                statusEl.textContent = 'Discussion completed!';
+              }
 
             } else if (status.status === 'failed') {
               throw new Error(status.error || 'Workflow failed');
@@ -1756,7 +2405,10 @@
             } else if (status.status === 'pending') {
               // Still pending
               if (displayedMessageCount === 0) {
-                document.getElementById('status-text').textContent = 'Assembling virtual team...';
+                const statusEl = document.getElementById('status-text');
+                if (statusEl) {
+                  statusEl.textContent = 'Assembling virtual team...';
+                }
               }
               pollCount++;
 
@@ -1768,7 +2420,7 @@
             }
 
           } catch (pollError) {
-            console.error('Polling error:', pollError);
+            console.error('[Poll] Polling error:', pollError);
             chatContainer.innerHTML = `
               <div style="text-align: center; padding: 60px 20px; color: #e53935;">
                 <div style="font-size: 48px; margin-bottom: 20px;">⚠️</div>
@@ -1779,8 +2431,7 @@
           }
         };
 
-        // Start polling
-        setTimeout(poll, pollInterval);
+        // Polling will only start if explicitly triggered (no global SSE available)
 
       } catch (error) {
         console.error('Error starting team discussion:', error);
@@ -1819,10 +2470,594 @@
       }
     }
 
+    // ============================================
+    // Direct Interaction & Chat Functions
+    // ============================================
+
+    let currentTaskId = null;
+    let currentEmailId = null;
+
+    async function submitDirectQuery() {
+      const query = document.getElementById('direct-query-input').value.trim();
+      const selectedTeam = getSelectedTeam();
+
+      if (!query) {
+        alert('Please enter a request');
+        return;
+      }
+
+      if (!selectedTeam) {
+        alert('Please select a team first');
+        return;
+      }
+
+      try {
+        // Show loading state
+        const resultEl = document.getElementById('interaction-result');
+        if (resultEl) {
+          resultEl.style.display = 'block';
+        }
+        const statusEl = document.getElementById('interaction-status');
+        if (statusEl) {
+          statusEl.textContent = 'Starting analysis...';
+        }
+
+        // Call API to create direct query task
+        const response = await fetch(`${API_BASE_URL}/agentic/direct-query`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            team: selectedTeam,
+            query: query
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to submit query');
+        }
+
+        const result = await response.json();
+        currentTaskId = result.task_id;
+        const emailId = result.email_id;
+        const taskId = result.task_id;
+
+        console.log('[submitDirectQuery] Task created:', taskId, 'Email:', emailId);
+
+        // Reload email list to show the new direct query
+        await loadEmails();
+
+        // Hide the interaction form and show the discussion
+        document.getElementById('direct-interaction-panel').style.display = 'none';
+        document.getElementById('empty-state').style.display = 'none';
+        document.getElementById('team-presentation-panel').style.display = 'none';
+
+        // Update header
+        const teamEl = document.getElementById('discussion-team');
+        const subjectEl = document.getElementById('discussion-subject');
+        if (teamEl) teamEl.textContent = TEAMS[selectedTeam]?.name || selectedTeam;
+        if (subjectEl) subjectEl.textContent = query;
+
+        // DON'T call simulateDiscussion - it would create a duplicate task!
+        // Instead, directly show the UI and register SSE handler
+        const chatContainer = document.getElementById('chat-container');
+
+        // Show loading with progress tracker
+        if (selectedTeam === 'investments') {
+          // Create progress tracker function (copy from simulateDiscussion)
+          const createProgressTracker = () => `
+            <div class="investment-progress-tracker" id="investment-tracker">
+              <div class="progress-tracker-title">
+                <span>📊</span>
+                <span>Investment Analysis Progress</span>
+              </div>
+              <div class="progress-steps" id="progress-steps">
+                <div class="progress-step pending" data-agent="Financial Analyst">
+                  <div class="step-icon">📊</div>
+                  <div class="step-label">Financial Analysis</div>
+                  <div class="step-status">Pending...</div>
+                </div>
+                <div class="progress-step pending" data-agent="Research Analyst">
+                  <div class="step-icon">🔍</div>
+                  <div class="step-label">Market Research</div>
+                  <div class="step-status">Pending...</div>
+                </div>
+                <div class="progress-step pending" data-agent="Filings Analyst">
+                  <div class="step-icon">📋</div>
+                  <div class="step-label">SEC Filings</div>
+                  <div class="step-status">Pending...</div>
+                </div>
+                <div class="progress-step pending" data-agent="Investment Advisor">
+                  <div class="step-icon">💼</div>
+                  <div class="step-label">Final Recommendation</div>
+                  <div class="step-status">Pending...</div>
+                </div>
+              </div>
+              <div class="progress-timeline">
+                <div class="progress-timeline-fill" id="investment-timeline-fill" style="width: 0%"></div>
+              </div>
+            </div>
+          `;
+
+          chatContainer.innerHTML = `
+            ${createProgressTracker()}
+            <div style="text-align: center; padding: 40px 20px; color: #999;">
+              <div style="font-size: 48px; margin-bottom: 20px;">🤖</div>
+              <h3>Assembling Virtual Team...</h3>
+              <p>The ${TEAMS[selectedTeam].name} is analyzing this request</p>
+              <div class="thinking-indicator">
+                <span id="status-text">Analysis in progress...</span>
+                <div class="thinking-dots">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              </div>
+            </div>
+          `;
+        } else {
+          chatContainer.innerHTML = `
+            <div style="text-align: center; padding: 60px 20px; color: #999;">
+              <div style="font-size: 48px; margin-bottom: 20px;">🤖</div>
+              <h3>Assembling Virtual Team...</h3>
+              <p>The ${TEAMS[selectedTeam].name} is analyzing this request</p>
+            </div>
+          `;
+        }
+
+        // Register SSE handler for real-time updates
+        let displayedMessageCount = 0;
+
+        const updateInvestmentProgress = (role) => {
+          const tracker = document.getElementById('investment-tracker');
+          if (!tracker) return;
+
+          const steps = tracker.querySelectorAll('.progress-step');
+          const agentRoles = ['Financial Analyst', 'Research Analyst', 'Filings Analyst', 'Investment Advisor'];
+          const currentIndex = agentRoles.indexOf(role);
+          if (currentIndex === -1) return;
+
+          steps.forEach((step, index) => {
+            step.classList.remove('active', 'pending', 'completed');
+            if (index < currentIndex) {
+              step.classList.add('completed');
+              step.querySelector('.step-status').textContent = '✓ Complete';
+            } else if (index === currentIndex) {
+              step.classList.add('active');
+              step.querySelector('.step-status').textContent = 'Analyzing...';
+            } else {
+              step.classList.add('pending');
+              step.querySelector('.step-status').textContent = 'Pending...';
+            }
+          });
+
+          const progress = ((currentIndex + 1) / agentRoles.length) * 100;
+          const timeline = document.getElementById('investment-timeline-fill');
+          if (timeline) timeline.style.width = `${progress}%`;
+        };
+
+        const displayMessage = (message) => {
+          if (selectedTeam === 'investments' && message.role) {
+            updateInvestmentProgress(message.role);
+          }
+
+          // Remove loading on first message
+          if (displayedMessageCount === 0) {
+            if (selectedTeam === 'investments') {
+              const loadingDiv = chatContainer.querySelector('.thinking-indicator')?.closest('div[style*="text-align: center"]');
+              if (loadingDiv) loadingDiv.remove();
+            } else {
+              chatContainer.innerHTML = '';
+            }
+          }
+
+          const agent = TEAMS[selectedTeam].members.find(m => m.role === message.role) || TEAMS[selectedTeam].members[0];
+
+          // Parse Markdown to HTML
+          let parsedContent;
+          if (typeof marked !== 'undefined') {
+            try {
+              marked.setOptions({
+                breaks: true,       // Support GFM line breaks
+                gfm: true,          // GitHub Flavored Markdown
+                headerIds: false,   // Don't add IDs to headers
+                mangle: false       // Don't escape email addresses
+              });
+              parsedContent = marked(message.text);
+              console.log('[Markdown] Parsed successfully');
+            } catch (error) {
+              console.error('[Markdown] Parse error:', error);
+              parsedContent = message.text.replace(/\n/g, '<br>');
+            }
+          } else {
+            console.warn('[Markdown] marked library not loaded');
+            parsedContent = message.text.replace(/\n/g, '<br>');
+          }
+
+          const messageHTML = `
+            <div class="chat-message" style="opacity: 0; transform: translateY(10px);">
+              <div class="message-header">
+                <div class="agent-avatar ${agent.avatar}"></div>
+                <div class="agent-info">
+                  <div class="agent-name">${message.role}</div>
+                </div>
+                <span class="message-time">${new Date(message.timestamp).toLocaleTimeString()}</span>
+              </div>
+              <div class="message-content">
+                <div class="message-text">${parsedContent}</div>
+              </div>
+            </div>
+          `;
+
+          chatContainer.insertAdjacentHTML('beforeend', messageHTML);
+          const lastMessage = chatContainer.lastElementChild;
+          setTimeout(() => {
+            lastMessage.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            lastMessage.style.opacity = '1';
+            lastMessage.style.transform = 'translateY(0)';
+          }, 50);
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+        };
+
+        const sseHandler = (data) => {
+          console.log('[Direct Query SSE] Received event:', data.type);
+
+          if (data.type === 'agentic_message') {
+            const message = data.data?.message || data.message;
+            displayMessage(message);
+            displayedMessageCount++;
+          }
+
+          if (data.type === 'agentic_complete') {
+            console.log('[Direct Query SSE] Analysis complete');
+            const progressEl = document.getElementById('discussion-progress');
+            if (progressEl) progressEl.style.width = '100%';
+            unregisterTaskHandler(taskId);
+          }
+        };
+
+        // Register handler with global SSE
+        if (typeof registerTaskHandler === 'function') {
+          registerTaskHandler(taskId, sseHandler);
+          console.log('[Direct Query] SSE handler registered for task:', taskId);
+        } else {
+          console.warn('[Direct Query] Global SSE not available');
+        }
+
+        // Enable chat input after analysis starts
+        setTimeout(() => {
+          document.getElementById('chat-input-container').style.display = 'block';
+        }, 2000);
+
+      } catch (error) {
+        console.error('Error submitting query:', error);
+        const statusEl = document.getElementById('interaction-status');
+        if (statusEl) {
+          statusEl.textContent = 'Error: ' + error.message;
+        }
+      }
+    }
+
+    function clearDirectQuery() {
+      const inputEl = document.getElementById('direct-query-input');
+      if (inputEl) {
+        inputEl.value = '';
+      }
+      const resultEl = document.getElementById('interaction-result');
+      if (resultEl) {
+        resultEl.style.display = 'none';
+      }
+    }
+
+    async function monitorDirectQueryTask(taskId) {
+      // Use the same email monitoring logic but for direct queries
+      const chatContainer = document.getElementById('chat-container');
+      chatContainer.innerHTML = '';
+
+      let displayedMessageCount = 0;
+      let pollCount = 0;
+      const maxPolls = 120;
+      const pollInterval = 2000;
+
+      const poll = async () => {
+        try {
+          const response = await fetch(`${API_BASE_URL}/agentic/task/${taskId}`);
+          const status = await response.json();
+
+          // Update progress bar (only if element exists)
+          const progress = Math.min((status.messages?.length || 0) * 10, 90);
+          const progressEl = document.getElementById('discussion-progress');
+          if (progressEl) {
+            progressEl.style.width = `${progress}%`;
+          }
+
+          // Display new messages
+          if (status.messages && status.messages.length > displayedMessageCount) {
+            for (let i = displayedMessageCount; i < status.messages.length; i++) {
+              const msg = status.messages[i];
+              displayMessage(msg, chatContainer);
+            }
+            displayedMessageCount = status.messages.length;
+          }
+
+          if (status.status === 'completed') {
+            const progressEl = document.getElementById('discussion-progress');
+            if (progressEl) {
+              progressEl.style.width = '100%';
+            }
+          } else if (status.status === 'processing' || status.status === 'pending') {
+            pollCount++;
+            if (pollCount < maxPolls) {
+              setTimeout(poll, pollInterval);
+            }
+          }
+
+        } catch (error) {
+          console.error('Polling error:', error);
+        }
+      };
+
+      poll();
+    }
+
+    async function sendChatMessage() {
+      const input = document.getElementById('chat-message-input');
+      const message = input.value.trim();
+
+      if (!message) return;
+
+      const selectedTeam = getSelectedTeam();
+      if (!selectedTeam) {
+        alert('Please select a team first');
+        return;
+      }
+
+      try {
+        // Disable input while sending
+        input.disabled = true;
+        document.getElementById('chat-send-btn').disabled = true;
+
+        // Clear input
+        input.value = '';
+
+        const chatContainer = document.getElementById('chat-container');
+
+        // Check if there's an active task - if so, send chat message to task
+        if (currentTaskId) {
+          // Show user message immediately in chat
+          const userMsgHTML = `
+            <div class="chat-message">
+              <div class="message-header">
+                <div class="agent-avatar" style="background: linear-gradient(195deg, #42424a 0%, #191919 100%);">👤</div>
+                <div class="agent-info">
+                  <div class="agent-name">You</div>
+                </div>
+                <span class="message-time">${new Date().toLocaleTimeString()}</span>
+              </div>
+              <div class="message-content">
+                <div class="message-text">${message}</div>
+              </div>
+            </div>
+          `;
+          chatContainer.insertAdjacentHTML('beforeend', userMsgHTML);
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+
+          // Send chat message to the active task
+          const response = await fetch(`${API_BASE_URL}/agentic/task/${currentTaskId}/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to send chat message');
+          }
+
+          const result = await response.json();
+          // Agent response will be broadcast via SSE and handled by sseHandler
+
+        } else {
+          // No active task - create a new direct query (full team discussion)
+          chatContainer.innerHTML += `
+            <div class="thinking-indicator" style="margin: 20px 0;">
+              <span>🤖 Starting new team analysis...</span>
+              <div class="thinking-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            </div>
+          `;
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+
+          const response = await fetch(`${API_BASE_URL}/agentic/direct-query`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              team: selectedTeam,
+              query: message
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to submit query');
+          }
+
+          const result = await response.json();
+          currentTaskId = result.task_id;
+          const emailId = result.email_id;
+
+          // Reload email list to show the new direct query
+          await loadEmails();
+
+          // Update header
+          const teamEl = document.getElementById('discussion-team');
+          const subjectEl = document.getElementById('discussion-subject');
+          if (teamEl) teamEl.textContent = TEAMS[selectedTeam]?.name || selectedTeam;
+          if (subjectEl) subjectEl.textContent = message;
+
+          // Start the discussion with real-time SSE streaming
+          simulateDiscussion(selectedTeam, emailId);
+        }
+
+      } catch (error) {
+        console.error('Error sending chat message:', error);
+        alert('Failed to send message: ' + error.message);
+      } finally {
+        // Re-enable input
+        input.disabled = false;
+        document.getElementById('chat-send-btn').disabled = false;
+        input.focus();
+      }
+    }
+
+    function handleChatKeypress(event) {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        sendChatMessage();
+      }
+    }
+
+    function displayMessage(msg, container) {
+      const isDecision = msg.is_decision || false;
+      const isProgress = msg.is_progress || false;
+
+      if (isProgress) {
+        // Show progress indicator
+        const progressDiv = document.createElement('div');
+        progressDiv.className = 'thinking-indicator';
+        progressDiv.innerHTML = `${msg.icon} ${msg.text}<div class="thinking-dots"><span></span><span></span><span></span></div>`;
+        container.appendChild(progressDiv);
+        setTimeout(() => progressDiv.remove(), 3000);
+        return;
+      }
+
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'chat-message';
+
+      if (isDecision) {
+        messageDiv.innerHTML = `
+          <div class="decision-panel">
+            <div class="decision-title">${msg.role}</div>
+            <div class="decision-details">
+              <div class="message-text">${escapeHtml(msg.text)}</div>
+            </div>
+          </div>
+        `;
+      } else {
+        messageDiv.innerHTML = `
+          <div class="message-header">
+            <div class="agent-avatar">${msg.icon}</div>
+            <div class="agent-info">
+              <span class="agent-name">${escapeHtml(msg.role)}</span>
+              <span class="message-time">${new Date(msg.timestamp).toLocaleTimeString()}</span>
+            </div>
+          </div>
+          <div class="message-content">
+            <div class="message-text">${escapeHtml(msg.text)}</div>
+          </div>
+        `;
+      }
+
+      container.appendChild(messageDiv);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+      const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+      };
+      return text ? String(text).replace(/[&<>"']/g, m => map[m]) : '';
+    }
+
+    // Show direct interaction panel when team is selected
+    function showDirectInteractionIfTeamSelected() {
+      const selectedTeam = getSelectedTeam();
+      const directPanel = document.getElementById('direct-interaction-panel');
+      const emptyState = document.getElementById('empty-state');
+
+      if (selectedTeam && !currentTaskId) {
+        // Show direct interaction form
+        directPanel.style.display = 'block';
+        emptyState.style.display = 'none';
+
+        // Update hint based on team
+        const hint = document.getElementById('query-hint');
+        if (hint) {
+          if (selectedTeam === 'investments') {
+            hint.textContent = 'For Investment Team: Request stock analysis by company name or ticker symbol (e.g., "Analyze Apple stock" or "Complete analysis for TSLA")';
+          } else if (selectedTeam === 'fraud') {
+            hint.textContent = 'For Fraud Team: Report suspicious activities (e.g., "Investigate unusual transaction pattern")';
+          } else if (selectedTeam === 'compliance') {
+            hint.textContent = 'For Compliance Team: Submit regulatory queries (e.g., "Review FATCA compliance requirements")';
+          } else {
+            hint.textContent = `Submit your request to the ${TEAMS[selectedTeam]?.name || selectedTeam} team`;
+          }
+        }
+      } else if (!selectedTeam) {
+        directPanel.style.display = 'none';
+        emptyState.style.display = 'block';
+      }
+    }
+
+    // ============================================
+    // Global SSE Connection (Always Active)
+    // ============================================
+    let globalEventSource = null;
+    let messageHandlers = {};  // Map of task_id -> handler function
+
+    function initGlobalSSE() {
+      try {
+        console.log('[Global SSE] Connecting to event stream...');
+        globalEventSource = new EventSource(`${API_BASE_URL}/events`);
+
+        globalEventSource.onopen = () => {
+          console.log('[Global SSE] ✅ Connection established');
+        };
+
+        globalEventSource.addEventListener('message', (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('[Global SSE] Received event:', data.type, data.data?.task_id);
+
+            // Route to registered handler
+            const taskId = data.data?.task_id || data.task_id;
+            if (taskId && messageHandlers[taskId]) {
+              messageHandlers[taskId](data);
+            }
+          } catch (error) {
+            console.error('[Global SSE] Error parsing event:', error);
+          }
+        });
+
+        globalEventSource.onerror = (error) => {
+          console.error('[Global SSE] Connection error, will auto-reconnect...', error);
+        };
+
+      } catch (error) {
+        console.error('[Global SSE] Failed to initialize:', error);
+      }
+    }
+
+    function registerTaskHandler(taskId, handler) {
+      console.log('[Global SSE] Registering handler for task:', taskId);
+      messageHandlers[taskId] = handler;
+    }
+
+    function unregisterTaskHandler(taskId) {
+      console.log('[Global SSE] Unregistering handler for task:', taskId);
+      delete messageHandlers[taskId];
+    }
+
     // Initialize on page load
     highlightActiveTeam();
     loadEmails();
     loadTeamConfiguration();
+    showDirectInteractionIfTeamSelected();
+    initGlobalSSE();  // Start global SSE connection
   </script>
 </body>
 </html>

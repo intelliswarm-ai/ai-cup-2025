@@ -82,7 +82,7 @@ class OllamaService:
             if system_prompt:
                 payload["system"] = system_prompt
 
-            async with httpx.AsyncClient(timeout=120.0) as client:
+            async with httpx.AsyncClient(timeout=300.0) as client:  # 5 minutes for CPU-only Ollama
                 response = await client.post(
                     f"{self.base_url}/api/generate",
                     json=payload
@@ -100,7 +100,7 @@ class OllamaService:
             raise ConnectionError(f"Cannot connect to Ollama at {self.base_url}")
         except httpx.TimeoutException as e:
             logger.error(f"Timeout error from Ollama: {e}")
-            raise TimeoutError(f"Ollama request timed out after 120 seconds")
+            raise TimeoutError(f"Ollama request timed out after 300 seconds")
         except httpx.HTTPStatusError as e:
             logger.error(f"HTTP error from Ollama: {e.response.status_code} - {e.response.text}")
             raise RuntimeError(f"Ollama returned error: {e.response.status_code}")
@@ -162,10 +162,18 @@ JSON array:"""
                 json_str = response[start:end]
                 ctas = json.loads(json_str)
 
-                # Handle format: [{"action": "text"}] -> ["text", ...]
+                # Handle format: [{"action": "text"}] or [{"task": "text"}] -> ["text", ...]
                 if isinstance(ctas, list) and len(ctas) > 0:
-                    if isinstance(ctas[0], dict) and "action" in ctas[0]:
-                        return [item["action"] for item in ctas if isinstance(item, dict) and "action" in item]
+                    if isinstance(ctas[0], dict):
+                        # Try different key names that LLM might use
+                        result = []
+                        for item in ctas:
+                            if isinstance(item, dict):
+                                # Try common keys: action, task, cta, description, text
+                                value = item.get("action") or item.get("task") or item.get("cta") or item.get("description") or item.get("text")
+                                if value and isinstance(value, str):
+                                    result.append(value)
+                        return result if result else []
                     elif isinstance(ctas[0], str):
                         return ctas
 

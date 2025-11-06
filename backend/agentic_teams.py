@@ -1,17 +1,13 @@
 """
 Agentic Virtual Bank Teams
-Multi-agent collaboration system using LangGraph
+Multi-agent collaboration system for email analysis
 """
 import os
 import json
 import asyncio
-from typing import Dict, List, Any, Optional, TypedDict, Annotated
+from typing import Dict, List, Any, Optional, TypedDict
 from datetime import datetime
 import httpx
-
-from langgraph.graph import StateGraph, END
-from langchain.prompts import ChatPromptTemplate
-from langchain.schema import HumanMessage, AIMessage, SystemMessage
 
 
 # ============================================================================
@@ -19,39 +15,6 @@ from langchain.schema import HumanMessage, AIMessage, SystemMessage
 # ============================================================================
 
 TEAMS = {
-    "credit_risk": {
-        "name": "🏦 Credit Risk Committee",
-        "agents": [
-            {
-                "role": "Senior Credit Analyst",
-                "icon": "👔",
-                "personality": "Analytical and detail-oriented. Always starts by breaking down financial metrics. Uses phrases like 'Looking at the numbers...' and 'From a credit perspective...'",
-                "responsibilities": "Analyze creditworthiness, financial ratios, debt capacity, and repayment ability",
-                "style": "Data-driven, methodical, cautious"
-            },
-            {
-                "role": "Risk Manager",
-                "icon": "🛡️",
-                "personality": "Conservative and protective. Focuses on downside scenarios. Often says 'What if...' and 'We need to consider the risks...'",
-                "responsibilities": "Assess risk exposure, stress scenarios, collateral adequacy, and portfolio impact",
-                "style": "Risk-averse, thorough, questioning"
-            },
-            {
-                "role": "Relationship Manager",
-                "icon": "💼",
-                "personality": "Client-focused and diplomatic. Balances risk with opportunity. Uses phrases like 'The client has been...' and 'This relationship represents...'",
-                "responsibilities": "Evaluate client relationship value, cross-sell opportunities, long-term potential",
-                "style": "Diplomatic, balanced, opportunity-focused"
-            },
-            {
-                "role": "Chief Risk Officer",
-                "icon": "👨‍💼",
-                "personality": "Strategic and decisive. Synthesizes input and makes final call. Says 'Based on the discussion...' and 'Here's what we'll do...'",
-                "responsibilities": "Make final decision, set conditions, approve or decline with rationale",
-                "style": "Authoritative, strategic, conclusive"
-            }
-        ]
-    },
     "fraud": {
         "name": "🔍 Fraud Investigation Unit",
         "agents": [
@@ -118,102 +81,36 @@ TEAMS = {
             }
         ]
     },
-    "wealth": {
-        "name": "💼 Wealth Management Advisory",
+    "investments": {
+        "name": "📈 Investment Research Team",
         "agents": [
             {
-                "role": "Senior Wealth Advisor",
-                "icon": "💼",
-                "personality": "Client-centric and advisory. Understands client goals. Says 'Based on the client's objectives...' and 'I would recommend...'",
-                "responsibilities": "Understand client goals, risk tolerance, time horizon, and constraints",
-                "style": "Advisory, client-focused, holistic"
-            },
-            {
-                "role": "Investment Specialist",
-                "icon": "📈",
-                "personality": "Market-savvy and analytical. Discusses investments. Uses phrases like 'Current market conditions...' and 'The portfolio allocation should...'",
-                "responsibilities": "Recommend asset allocation, investment products, portfolio construction",
-                "style": "Analytical, market-aware, strategic"
-            },
-            {
-                "role": "Tax Consultant",
-                "icon": "💰",
-                "personality": "Detail-oriented and optimization-focused. Finds tax efficiencies. Says 'From a tax perspective...' and 'We can optimize by...'",
-                "responsibilities": "Analyze tax implications, optimize tax efficiency, consider jurisdictions",
-                "style": "Detail-oriented, optimization-focused, technical"
-            },
-            {
-                "role": "Estate Planning Expert",
-                "icon": "🏛️",
-                "personality": "Long-term thinking and legacy-focused. Plans for generations. Uses phrases like 'Looking long-term...' and 'For wealth preservation...'",
-                "responsibilities": "Plan wealth transfer, estate structures, succession planning, legacy goals",
-                "style": "Long-term, legacy-focused, strategic"
-            }
-        ]
-    },
-    "corporate": {
-        "name": "🏢 Corporate Banking Team",
-        "agents": [
-            {
-                "role": "Corporate Relationship Manager",
-                "icon": "🤝",
-                "personality": "Business-savvy and relationship-focused. Understands corporate needs. Says 'The company's business model...' and 'This supports their strategy...'",
-                "responsibilities": "Understand business model, strategic objectives, relationship potential",
-                "style": "Business-savvy, relationship-focused, strategic"
-            },
-            {
-                "role": "Trade Finance Specialist",
-                "icon": "🌍",
-                "personality": "Process-oriented and international. Knows trade mechanics. Uses phrases like 'The trade flow indicates...' and 'For cross-border transactions...'",
-                "responsibilities": "Structure trade finance, letters of credit, export financing, guarantees",
-                "style": "Process-oriented, international, technical"
-            },
-            {
-                "role": "Treasury Expert",
-                "icon": "💵",
-                "personality": "Financial and liquidity-focused. Manages cash flows. Says 'The treasury position...' and 'Cash flow management requires...'",
-                "responsibilities": "Analyze liquidity needs, cash management, FX hedging, interest rate risk",
-                "style": "Financial, liquidity-focused, technical"
-            },
-            {
-                "role": "Syndication Lead",
+                "role": "Financial Analyst",
                 "icon": "📊",
-                "personality": "Deal-making and collaborative. Coordinates large deals. Uses phrases like 'We can syndicate with...' and 'The deal structure should...'",
-                "responsibilities": "Structure syndicated facilities, coordinate with other banks, risk distribution",
-                "style": "Deal-making, collaborative, strategic"
-            }
-        ]
-    },
-    "operations": {
-        "name": "⚙️ Operations & Quality",
-        "agents": [
-            {
-                "role": "Operations Manager",
-                "icon": "⚙️",
-                "personality": "Process-driven and efficiency-focused. Improves operations. Says 'The current process...' and 'We can streamline by...'",
-                "responsibilities": "Analyze processes, identify bottlenecks, improve efficiency, quality control",
-                "style": "Process-driven, efficiency-focused, systematic"
+                "personality": "Seasoned expert in stock market analysis. The Best Financial Analyst. Says 'The financial data shows...' and 'Market trends indicate...'",
+                "responsibilities": "Impress customers with financial data and market trends analysis. Evaluate P/E ratio, EPS growth, revenue trends, and debt-to-equity metrics. Compare performance against industry peers.",
+                "style": "Expert, analytical, confident"
             },
             {
-                "role": "Quality Assurance Lead",
-                "icon": "✓",
-                "personality": "Standards-focused and error-catching. Ensures quality. Uses phrases like 'Quality standards require...' and 'I've identified issues with...'",
-                "responsibilities": "Check quality standards, identify errors, ensure compliance with procedures",
-                "style": "Standards-focused, critical, thorough"
+                "role": "Research Analyst",
+                "icon": "🔍",
+                "personality": "Known as the BEST research analyst. Skilled in sifting through news, company announcements, and market sentiments. Says 'The research shows...' and 'Looking at recent developments...'",
+                "responsibilities": "Excel at data gathering and interpretation. Compile recent news, press releases, and market analyses. Highlight significant events and analyst perspectives.",
+                "style": "Thorough, investigative, detail-oriented"
             },
             {
-                "role": "Technology Liaison",
-                "icon": "💻",
-                "personality": "Tech-savvy and solution-oriented. Finds technical fixes. Says 'The system should...' and 'We can automate...'",
-                "responsibilities": "Assess technical solutions, system capabilities, automation opportunities",
-                "style": "Tech-savvy, solution-oriented, innovative"
+                "role": "Filings Analyst",
+                "icon": "📋",
+                "personality": "Expert in analyzing SEC filings and regulatory documents. Says 'The filings reveal...' and 'According to the 10-K...'",
+                "responsibilities": "Review latest 10-Q and 10-K EDGAR filings. Extract insights from Management Discussion & Analysis, financial statements, and risk factors.",
+                "style": "Meticulous, regulatory-focused, analytical"
             },
             {
-                "role": "Customer Service Lead",
-                "icon": "👥",
-                "personality": "Empathetic and customer-focused. Champions client experience. Uses phrases like 'From the customer's perspective...' and 'We need to ensure satisfaction...'",
-                "responsibilities": "Evaluate customer impact, satisfaction, communication strategy, resolution",
-                "style": "Empathetic, customer-focused, communicative"
+                "role": "Investment Advisor",
+                "icon": "💼",
+                "personality": "Experienced advisor combining analytical insights. Says 'Based on our comprehensive analysis...' and 'My recommendation is...'",
+                "responsibilities": "Deliver comprehensive stock analyses and strategic investment recommendations. Synthesize all analyses into unified investment guidance.",
+                "style": "Authoritative, strategic, actionable"
             }
         ]
     }
@@ -221,7 +118,7 @@ TEAMS = {
 
 
 # ============================================================================
-# LANGCHAIN/LANGGRAPH STATE AND WORKFLOW
+# AGENT STATE AND WORKFLOW
 # ============================================================================
 
 class AgentState(TypedDict):
@@ -231,7 +128,7 @@ class AgentState(TypedDict):
     email_body: str
     email_sender: str
     team: str
-    messages: Annotated[List[Dict[str, Any]], "The conversation messages"]
+    messages: List[Dict[str, Any]]
     current_speaker: str
     round: int
     max_rounds: int
@@ -240,13 +137,14 @@ class AgentState(TypedDict):
 
 
 class AgenticTeamOrchestrator:
-    """Orchestrates multi-agent team discussions using LangGraph"""
+    """Orchestrates multi-agent team discussions"""
 
     def __init__(self, openai_api_key: str = None, openai_model: str = "gpt-4o-mini", ollama_url: str = "http://ollama:11434"):
         self.openai_api_key = openai_api_key
         self.openai_model = openai_model
         self.ollama_url = ollama_url
-        self.client = httpx.AsyncClient(timeout=120.0)
+        self.ollama_model = os.getenv("OLLAMA_MODEL", "phi3")
+        self.client = httpx.AsyncClient(timeout=300.0)  # 5 minutes timeout for CPU-only Ollama
 
         # Determine which LLM to use - automatically fallback to Ollama if OpenAI key is not valid
         # Fallback cases: no .env file, missing key, empty key, placeholder value, or whitespace
@@ -255,7 +153,7 @@ class AgenticTeamOrchestrator:
         if self.use_openai:
             print(f"[AgenticTeamOrchestrator] Using OpenAI API with model: {self.openai_model}")
         else:
-            print(f"[AgenticTeamOrchestrator] OpenAI API key not configured - using Ollama at {self.ollama_url}")
+            print(f"[AgenticTeamOrchestrator] OpenAI API key not configured - using Ollama at {self.ollama_url} with model: {self.ollama_model}")
 
     def _is_valid_openai_key(self, api_key: str) -> bool:
         """
@@ -348,13 +246,13 @@ class AgenticTeamOrchestrator:
             response = await self.client.post(
                 f"{self.ollama_url}/api/generate",
                 json={
-                    "model": "tinyllama:latest",
+                    "model": self.ollama_model,
                     "prompt": full_prompt,
                     "stream": False,
                     "options": {
                         "temperature": 0.7,
                         "top_p": 0.9,
-                        "num_predict": 100  # Limit response length for speed
+                        "num_predict": 500  # Increased for better team discussions
                     }
                 }
             )
@@ -499,6 +397,229 @@ Keep the tone natural and authoritative, like a real team leader closing a meeti
 
         return decision
 
+    async def run_investment_analysis(
+        self,
+        email_id: int,
+        email_subject: str,
+        email_body: str,
+        email_sender: str,
+        on_message_callback = None
+    ) -> Dict[str, Any]:
+        """
+        Run investment research workflow for the Investment Team
+        Uses specialized tools for stock analysis
+        """
+        try:
+            # Import the investment workflow
+            from investment_workflow import investment_workflow
+
+            # Extract company/ticker from email
+            # Look for stock analysis request in subject or body
+            combined_text = f"{email_subject} {email_body}".lower()
+
+            # Extract company name or ticker (simple pattern matching)
+            company = self._extract_company_from_text(combined_text)
+
+            if not company:
+                company = "the requested company"
+
+            # Send initial message
+            if on_message_callback:
+                await on_message_callback({
+                    "role": "Investment Research Team",
+                    "icon": "📈",
+                    "text": f"Starting comprehensive stock analysis for {company}...",
+                    "timestamp": datetime.now().isoformat()
+                }, [])
+
+            # Run the investment analysis workflow
+            async def progress_callback(update):
+                if on_message_callback:
+                    await on_message_callback(update, [])
+
+            analysis = await investment_workflow.analyze_stock(
+                company,
+                on_progress_callback=progress_callback
+            )
+
+            # Format the results as messages
+            all_messages = []
+            team_info = TEAMS["investments"]
+
+            # Add messages for each stage
+            for i, stage_data in enumerate(analysis["stages"]):
+                agent_name = stage_data["agent"]
+
+                # Find matching agent icon
+                agent_icon = "💼"
+                for agent in team_info["agents"]:
+                    if agent["role"] == agent_name:
+                        agent_icon = agent["icon"]
+                        break
+
+                # Create message with stage results
+                message_text = self._format_investment_stage_message(
+                    stage_data["stage"],
+                    stage_data["data"]
+                )
+
+                message = {
+                    "role": agent_name,
+                    "icon": agent_icon,
+                    "text": message_text,
+                    "timestamp": datetime.now().isoformat(),
+                    "is_decision": (stage_data["stage"] == "recommendation")
+                }
+
+                all_messages.append(message)
+
+                if on_message_callback:
+                    await on_message_callback(message, all_messages)
+                    await asyncio.sleep(0.5)  # Delay for UX
+
+            return {
+                "status": "completed",
+                "team": "investments",
+                "team_name": team_info["name"],
+                "email_id": email_id,
+                "messages": all_messages,
+                "decision": analysis.get("final_recommendation", {}),
+                "rounds": len(analysis["stages"]),
+                "investment_analysis": analysis
+            }
+
+        except Exception as e:
+            # Fallback to standard team discussion if workflow fails
+            print(f"Investment workflow error: {e}")
+            return await self._run_standard_discussion("investments", email_id, email_subject, email_body, email_sender, on_message_callback)
+
+    def _extract_company_from_text(self, text: str) -> str:
+        """Extract company name or ticker from text"""
+        import re
+
+        # Clean the text - remove emojis and common prefixes
+        text = text.strip()
+
+        # Remove emojis (Unicode emoji ranges)
+        text = re.sub(r'[\U0001F300-\U0001F9FF]', '', text)
+
+        # Remove common prefixes like "direct query:", "stock analysis:", etc.
+        text = re.sub(r'(?:direct query|stock analysis|analysis|query):\s*', '', text, flags=re.IGNORECASE)
+
+        # Clean up extra whitespace
+        text = ' '.join(text.split())
+
+        # Convert to uppercase for pattern matching (keep original for company names)
+        text_upper = text.upper()
+
+        # Pattern 1: Just a standalone ticker (e.g., "AAPL", "IMPP", "TSLA")
+        # Check if the entire text is just a ticker symbol (1-5 uppercase letters)
+        standalone_match = re.match(r'^([A-Z]{1,5})$', text_upper)
+        if standalone_match:
+            return standalone_match.group(1)
+
+        # Pattern 2: Ticker in various contexts
+        patterns = [
+            r'\b([A-Z]{2,5})\s*(?:stock|shares?|ticker|analysis|report)',  # "AAPL stock", "IMPP analysis"
+            r'(?:stock|shares?|ticker|analysis|report)\s*(?:for|of|on)?\s*([A-Z]{2,5})\b',  # "stock AAPL", "analysis for TSLA"
+            r'(?:analyze|analysis)\s+(?:stock\s+)?([A-Z]{2,5})\b',  # "analyze AAPL", "analysis TSLA"
+            r'\(([A-Z]{2,5})\)',  # "Tesla (TSLA)"
+            r'^([A-Z]{2,5})\s',  # Ticker at start followed by space
+            r'\s([A-Z]{2,5})$',  # Ticker at end
+            r'\b([A-Z]{2,5})\b',  # Any standalone uppercase 2-5 letter word
+        ]
+
+        for pattern in patterns:
+            match = re.search(pattern, text_upper)
+            if match:
+                ticker = match.group(1)
+                # Exclude common words that might match (like "US", "IT", "OR", etc.)
+                if ticker not in ['US', 'IT', 'OR', 'IN', 'TO', 'AT', 'BY', 'OF', 'ON', 'AN', 'AS', 'IS', 'IF', 'FOR', 'THE']:
+                    return ticker
+
+        # Pattern 3: Company names (capitalized words) - use original text
+        company_name_match = re.search(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b', text)
+        if company_name_match:
+            name = company_name_match.group(1)
+            # Return if it looks like a company name (not just one common word)
+            if len(name.split()) > 1 or name in ['Apple', 'Microsoft', 'Amazon', 'Tesla', 'Google', 'Meta', 'Netflix', 'Nvidia', 'Intel']:
+                return name
+
+        # If nothing found, return cleaned text (fallback)
+        return text if text else "the requested company"
+
+    def _format_investment_stage_message(self, stage: str, data: Dict[str, Any]) -> str:
+        """Format investment analysis stage data into a readable message"""
+        if stage == "financial_analysis":
+            analysis = data.get('analysis', 'Financial analysis in progress...')
+            return f"""💰 **Financial Analysis & Valuation**
+
+{analysis}"""
+
+        elif stage == "research":
+            summary = data.get('summary', 'Research compilation completed')
+            news_count = data.get('news_sources_count', 0)
+
+            return f"""📊 **Research & Market Intelligence**
+
+{summary}
+
+*Analysis based on {news_count} recent news sources and market data*"""
+
+        elif stage == "filings_analysis":
+            analysis = data.get('analysis', 'Filings analysis in progress...')
+            filings = data.get('filings_reviewed', {})
+            has_10k = 'Reviewed' if filings.get('10k_available', False) else 'Not Available'
+            has_10q = 'Reviewed' if filings.get('10q_available', False) else 'Not Available'
+
+            return f"""📋 **SEC Filings Analysis**
+
+**Filings Reviewed:**
+✓ 10-K Filing: {has_10k}
+✓ 10-Q Filing: {has_10q}
+
+{analysis}"""
+
+        elif stage == "recommendation":
+            executive_summary = data.get('executive_summary', 'Generating final recommendation...')
+            company = data.get('company', 'the company')
+
+            return f"""💼 **Executive Investment Recommendation for {company}**
+
+{executive_summary}
+
+---
+*This recommendation is based on comprehensive analysis of financial metrics, market sentiment, SEC filings, and industry trends available as of {data.get('analysis_date', 'today')}.*"""
+
+        return str(data)
+
+    async def _run_standard_discussion(self, team: str, email_id: int, email_subject: str, email_body: str, email_sender: str, on_message_callback):
+        """Fallback to standard discussion format"""
+        team_info = TEAMS[team]
+        # Simplified discussion for fallback
+        all_messages = []
+
+        for agent in team_info["agents"]:
+            message = {
+                "role": agent["role"],
+                "icon": agent["icon"],
+                "text": f"Analyzing the email regarding {email_subject}...",
+                "timestamp": datetime.now().isoformat()
+            }
+            all_messages.append(message)
+            if on_message_callback:
+                await on_message_callback(message, all_messages)
+
+        return {
+            "status": "completed",
+            "team": team,
+            "team_name": team_info["name"],
+            "email_id": email_id,
+            "messages": all_messages,
+            "decision": {"decision_text": "Analysis completed."},
+            "rounds": 1
+        }
+
     async def run_team_discussion(
         self,
         email_id: int,
@@ -513,6 +634,16 @@ Keep the tone natural and authoritative, like a real team leader closing a meeti
 
         if team not in TEAMS:
             raise ValueError(f"Unknown team: {team}")
+
+        # Special handling for Investment Team - use research workflow
+        if team == "investments":
+            return await self.run_investment_analysis(
+                email_id,
+                email_subject,
+                email_body,
+                email_sender,
+                on_message_callback
+            )
 
         team_info = TEAMS[team]
 
@@ -544,8 +675,8 @@ Keep the tone natural and authoritative, like a real team leader closing a meeti
                 if on_message_callback:
                     await on_message_callback(message, all_messages)
 
-                # Small delay for realistic pacing
-                await asyncio.sleep(0.5)
+                # Small delay for realistic pacing (reduced for CPU performance)
+                await asyncio.sleep(0.1)
 
             # Update round counter after all agents speak
             state["round"] += 1
@@ -588,20 +719,15 @@ def detect_team_for_email(email_subject: str, email_body: str) -> str:
     """Detect which team should handle an email based on content (keyword-based fallback)"""
     combined = (email_subject + " " + email_body).lower()
 
-    if any(word in combined for word in ['credit', 'loan', 'financing', 'credit line', 'credit increase']):
-        return 'credit_risk'
-    elif any(word in combined for word in ['fraud', 'suspicious', 'wire transfer', 'phishing', 'bec', 'scam']):
+    if any(word in combined for word in ['stock analysis', 'stock research', 'equity analysis', 'company analysis', 'investment research', 'stock recommendation', 'financial analysis']):
+        return 'investments'
+    elif any(word in combined for word in ['fraud', 'suspicious', 'wire transfer', 'phishing', 'bec', 'scam', 'unauthorized', 'security breach']):
         return 'fraud'
-    elif any(word in combined for word in ['compliance', 'regulatory', 'fatca', 'regulation', 'legal', 'audit']):
+    elif any(word in combined for word in ['compliance', 'regulatory', 'fatca', 'regulation', 'legal', 'audit', 'aml', 'kyc']):
         return 'compliance'
-    elif any(word in combined for word in ['wealth', 'investment', 'portfolio', 'inheritance', 'estate']):
-        return 'wealth'
-    elif any(word in combined for word in ['corporate', 'trade finance', 'letter of credit', 'import', 'export']):
-        return 'corporate'
-    elif any(word in combined for word in ['complaint', 'customer service', 'quality', 'operations', 'issue']):
-        return 'operations'
 
-    return 'credit_risk'  # default
+    # Default to fraud for security-related inquiries
+    return 'fraud'
 
 
 async def suggest_team_for_email_llm(email_subject: str, email_body: str, email_sender: str = "") -> str:
@@ -620,14 +746,11 @@ async def suggest_team_for_email_llm(email_subject: str, email_body: str, email_
     system_prompt = """You are an intelligent email routing system for a Swiss bank. Your task is to analyze incoming emails and suggest which specialized team should handle them.
 
 Available teams:
-- credit_risk: 🏦 Credit Risk Committee (handles loan requests, credit analysis, financing decisions)
-- fraud: 🔍 Fraud Investigation Unit (handles suspicious activities, wire transfer issues, phishing, scams)
-- compliance: ⚖️ Compliance & Regulatory Affairs (handles regulatory matters, legal questions, audit issues)
-- wealth: 💼 Wealth Management Advisory (handles investment queries, portfolio management, estate planning)
-- corporate: 🏢 Corporate Banking Team (handles corporate clients, trade finance, treasury services)
-- operations: ⚙️ Operations & Quality (handles customer complaints, process issues, service quality)
+- fraud: 🔍 Fraud Investigation Unit (handles suspicious activities, wire transfer issues, phishing, scams, security breaches, unauthorized transactions)
+- compliance: ⚖️ Compliance & Regulatory Affairs (handles regulatory matters, legal questions, audit issues, AML, KYC, FATCA)
+- investments: 📈 Investment Research Team (handles stock analysis, equity research, company analysis, investment recommendations, financial analysis)
 
-Analyze the email and respond with ONLY the team key (e.g., 'fraud' or 'credit_risk'). No explanation, just the team key."""
+Analyze the email and respond with ONLY the team key (e.g., 'fraud', 'compliance', or 'investments'). No explanation, just the team key."""
 
     user_prompt = f"""EMAIL TO ANALYZE:
 Subject: {email_subject}
