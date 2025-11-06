@@ -28,6 +28,27 @@ class InvestmentResearchWorkflow:
         self.openai_client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         self.model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
 
+        # Chat context for user interactions
+        self.user_messages = []
+
+    def add_user_message(self, message: str):
+        """Add a user message to the conversation context"""
+        self.user_messages.append({
+            "content": message,
+            "timestamp": datetime.now().isoformat()
+        })
+
+    def get_user_context(self) -> str:
+        """Get formatted user context for including in prompts"""
+        if not self.user_messages:
+            return ""
+
+        context = "\n\nUSER QUESTIONS/COMMENTS:\n"
+        for msg in self.user_messages:
+            context += f"- {msg['content']}\n"
+        context += "\nPlease address any user questions or concerns in your analysis.\n"
+        return context
+
     async def analyze_stock(
         self,
         company_or_ticker: str,
@@ -55,10 +76,10 @@ class InvestmentResearchWorkflow:
             on_progress_callback,
             "Financial Analyst",
             "📊",
-            "Analyzing financial health and performance metrics..."
+            "Starting financial analysis..."
         )
 
-        financial_analysis = await self._financial_analysis_task(company_or_ticker)
+        financial_analysis = await self._financial_analysis_task(company_or_ticker, on_progress_callback)
         analysis_results["stages"].append({
             "stage": "financial_analysis",
             "agent": "Financial Analyst",
@@ -71,10 +92,10 @@ class InvestmentResearchWorkflow:
             on_progress_callback,
             "Research Analyst",
             "🔍",
-            "Compiling recent news and market sentiment..."
+            "Starting market research..."
         )
 
-        research_data = await self._research_task(company_or_ticker)
+        research_data = await self._research_task(company_or_ticker, on_progress_callback)
         analysis_results["stages"].append({
             "stage": "research",
             "agent": "Research Analyst",
@@ -87,10 +108,10 @@ class InvestmentResearchWorkflow:
             on_progress_callback,
             "Filings Analyst",
             "📋",
-            "Reviewing SEC filings (10-K and 10-Q)..."
+            "Starting SEC filings analysis..."
         )
 
-        filings_analysis = await self._filings_analysis_task(company_or_ticker)
+        filings_analysis = await self._filings_analysis_task(company_or_ticker, on_progress_callback)
         analysis_results["stages"].append({
             "stage": "filings_analysis",
             "agent": "Filings Analyst",
@@ -103,14 +124,15 @@ class InvestmentResearchWorkflow:
             on_progress_callback,
             "Investment Advisor",
             "💼",
-            "Formulating final investment recommendation..."
+            "Preparing final investment recommendation..."
         )
 
         recommendation = await self._recommendation_task(
             company_or_ticker,
             financial_analysis,
             research_data,
-            filings_analysis
+            filings_analysis,
+            on_progress_callback
         )
         analysis_results["stages"].append({
             "stage": "recommendation",
@@ -121,12 +143,22 @@ class InvestmentResearchWorkflow:
         analysis_results["final_recommendation"] = recommendation
         return analysis_results
 
-    async def _financial_analysis_task(self, company: str) -> Dict[str, Any]:
+    async def _financial_analysis_task(self, company: str, on_progress_callback=None) -> Dict[str, Any]:
         """
         Task 1: Financial Analysis
         Evaluate financial health via P/E ratio, EPS growth, revenue trends, and debt-to-equity metrics.
         Compare performance against industry peers and market trends.
         """
+        # Send update about data gathering
+        if on_progress_callback:
+            await on_progress_callback({
+                "role": "Financial Analyst",
+                "icon": "📊",
+                "text": "Gathering financial data from multiple sources...",
+                "timestamp": datetime.now().isoformat(),
+                "is_thinking": True
+            })
+
         # Gather financial data
         tasks = [
             self.search_tools.search_financial_data(company),
@@ -138,6 +170,26 @@ class InvestmentResearchWorkflow:
         financial_search = str(results[0]) if not isinstance(results[0], Exception) else "N/A"
         company_website = str(results[1]) if not isinstance(results[1], Exception) else "N/A"
 
+        # Update about processing with data preview
+        if on_progress_callback:
+            # Extract a brief preview of what was found
+            data_preview = ""
+            if financial_search and "N/A" not in financial_search:
+                preview_snippet = financial_search[:200].strip()
+                if preview_snippet:
+                    data_preview = f"\n\n📋 *Data found: {preview_snippet}...*"
+
+            await on_progress_callback({
+                "role": "Financial Analyst",
+                "icon": "📊",
+                "text": f"Retrieved financial data for **{company}**. Now analyzing valuation metrics (P/E ratio, EPS), growth indicators, and financial health...{data_preview}",
+                "timestamp": datetime.now().isoformat(),
+                "is_thinking": True
+            })
+
+        # Check if we have real data or mock data
+        is_mock_data = "mock search results" in financial_search.lower() or "serper_api_key not configured" in financial_search.lower()
+
         # Use LLM to perform financial analysis
         prompt = f"""You are a Financial Analyst evaluating {company}'s financial health.
 
@@ -146,6 +198,8 @@ FINANCIAL DATA AVAILABLE:
 
 COMPANY INFORMATION:
 {company_website[:1000]}
+
+IMPORTANT: {"⚠️ WARNING: The above data is MOCK/SIMULATED (API keys not configured). You MUST state that real financial data is unavailable and avoid making up specific numbers. Provide general guidance only." if is_mock_data else "Use the real data above to provide accurate analysis."}
 
 Task: Evaluate {company}'s financial health and provide a clear assessment.
 
@@ -179,20 +233,53 @@ Use specific numbers and metrics where available. Keep your analysis under 600 w
             "data_sources": ["Financial search results", "Company website"]
         }
 
-    async def _research_task(self, company: str) -> Dict[str, Any]:
+    async def _research_task(self, company: str, on_progress_callback=None) -> Dict[str, Any]:
         """
         Task 2: Research
         Compile recent news, press releases, and market analyses.
         Highlight significant events, market sentiment shifts, and analyst perspectives.
         """
+        # Send update about data gathering
+        if on_progress_callback:
+            await on_progress_callback({
+                "role": "Research Analyst",
+                "icon": "🔍",
+                "text": f"Searching for recent news, press releases, and market sentiment for {company}...",
+                "timestamp": datetime.now().isoformat(),
+                "is_thinking": True
+            })
+
         # Search for recent news and market information
         news_results = await self.search_tools.search_news(company, days=30)
+
+        # Update about processing with news preview
+        if on_progress_callback:
+            # Count sources and extract headlines
+            news_count = news_results.count("http") if isinstance(news_results, str) else 0
+            news_preview = ""
+            if news_results and len(str(news_results)) > 100:
+                preview_snippet = str(news_results)[:300].strip()
+                if preview_snippet:
+                    news_preview = f"\n\n📰 *Found {news_count}+ sources. Preview: {preview_snippet}...*"
+
+            await on_progress_callback({
+                "role": "Research Analyst",
+                "icon": "🔍",
+                "text": f"Found news sources for **{company}**. Analyzing market sentiment, recent developments, and analyst perspectives...{news_preview}",
+                "timestamp": datetime.now().isoformat(),
+                "is_thinking": True
+            })
+
+        # Check if we have real data or mock data
+        is_mock_data = "mock search results" in str(news_results).lower() or "serper_api_key not configured" in str(news_results).lower()
 
         # Use LLM to compile and analyze research
         prompt = f"""You are a Research Analyst compiling recent news and market analyses for {company}.
 
 RECENT NEWS AND MARKET DATA:
 {news_results[:2500]}
+
+IMPORTANT: {"⚠️ WARNING: The above news data is MOCK/SIMULATED (API keys not configured). You MUST state that real news data is unavailable and avoid making up specific articles, headlines, or events. Provide general market guidance only." if is_mock_data else "Use the real news data above to provide accurate analysis."}
 
 Task: Compile a comprehensive summary of latest news, press releases, and market analyses for {company}.
 
@@ -225,13 +312,23 @@ Be specific with dates and sources where available. Keep your summary under 600 
             "news_sources_count": news_results.count("http") if isinstance(news_results, str) else 0
         }
 
-    async def _filings_analysis_task(self, company: str) -> Dict[str, Any]:
+    async def _filings_analysis_task(self, company: str, on_progress_callback=None) -> Dict[str, Any]:
         """
         Task 3: Filings Analysis
         Review latest 10-Q and 10-K EDGAR filings.
         Extract insights from Management Discussion & Analysis, financial statements,
         insider transactions, and disclosed risk factors.
         """
+        # Send update about data gathering
+        if on_progress_callback:
+            await on_progress_callback({
+                "role": "Filings Analyst",
+                "icon": "📋",
+                "text": f"Retrieving latest SEC EDGAR filings (10-K and 10-Q) for {company}...",
+                "timestamp": datetime.now().isoformat(),
+                "is_thinking": True
+            })
+
         # Gather SEC filings
         tasks = [
             self.sec_tools.get_10k(company),
@@ -243,6 +340,40 @@ Be specific with dates and sources where available. Keep your summary under 600 
         filing_10k = str(results[0]) if not isinstance(results[0], Exception) else "N/A"
         filing_10q = str(results[1]) if not isinstance(results[1], Exception) else "N/A"
 
+        # Update about processing with filing details
+        if on_progress_callback:
+            filing_status = []
+            filings_preview = ""
+
+            if "N/A" not in filing_10k and len(filing_10k) > 100:
+                filing_status.append("10-K")
+                # Extract a snippet from 10-K
+                snippet_10k = filing_10k[:250].strip()
+                if snippet_10k:
+                    filings_preview += f"\n\n**10-K excerpt:** {snippet_10k}..."
+
+            if "N/A" not in filing_10q and len(filing_10q) > 100:
+                filing_status.append("10-Q")
+                # Extract a snippet from 10-Q
+                if len(filings_preview) < 200:  # Only add if not too long
+                    snippet_10q = filing_10q[:250].strip()
+                    if snippet_10q:
+                        filings_preview += f"\n\n**10-Q excerpt:** {snippet_10q}..."
+
+            status_text = f"Retrieved {', '.join(filing_status)} filings" if filing_status else "Limited filing data available"
+            await on_progress_callback({
+                "role": "Filings Analyst",
+                "icon": "📋",
+                "text": f"**{status_text} for {company}**. Now analyzing Management Discussion & Analysis, financial statements, and disclosed risk factors...{filings_preview}",
+                "timestamp": datetime.now().isoformat(),
+                "is_thinking": True
+            })
+
+        # Check if we have real data or mock data
+        is_mock_data = ("sec_api_key not configured" in filing_10k.lower() or
+                        "fallback sec data access" in filing_10k.lower() or
+                        "n/a" in filing_10k.lower())
+
         # Use LLM to analyze SEC filings
         prompt = f"""You are a Filings Analyst reviewing SEC EDGAR filings for {company}.
 
@@ -251,6 +382,8 @@ LATEST 10-K FILING:
 
 LATEST 10-Q FILING:
 {filing_10q[:2000]}
+
+IMPORTANT: {"⚠️ WARNING: Actual SEC filing data is NOT AVAILABLE (SEC_API_KEY not configured). You MUST clearly state that real SEC filings could not be accessed and avoid making up specific financial figures, risk factors, or filing contents. Explain that users should visit sec.gov directly for accurate information." if is_mock_data else "Use the real SEC filing data above to provide accurate analysis."}
 
 Task: Review the latest 10-Q and 10-K EDGAR filings and extract key insights.
 
@@ -291,14 +424,27 @@ Be specific with numbers and sections. Keep your analysis under 700 words."""
         company: str,
         financial_analysis: Dict[str, Any],
         research: Dict[str, Any],
-        filings: Dict[str, Any]
+        filings: Dict[str, Any],
+        on_progress_callback=None
     ) -> Dict[str, Any]:
         """
         Task 4: Recommendation
         Synthesize Financial Analysis, Research, and Filings analyses into unified investment guidance.
         Incorporate financial metrics, sentiment data, EDGAR insights, insider activity, and upcoming events.
         """
+        # Send update about synthesis
+        if on_progress_callback:
+            await on_progress_callback({
+                "role": "Investment Advisor",
+                "icon": "💼",
+                "text": f"Synthesizing financial analysis, research findings, and SEC filings for {company}...",
+                "timestamp": datetime.now().isoformat(),
+                "is_thinking": True
+            })
+
         # Generate comprehensive investment recommendation
+        user_context = self.get_user_context()
+
         prompt = f"""You are an Investment Advisor providing a final investment recommendation for {company}.
 
 FINANCIAL ANALYSIS (Task 1):
@@ -308,7 +454,7 @@ RESEARCH SUMMARY (Task 2):
 {research.get('summary', 'N/A')[:1500]}
 
 FILINGS ANALYSIS (Task 3):
-{filings.get('analysis', 'N/A')[:1500]}
+{filings.get('analysis', 'N/A')[:1500]}{user_context}
 
 Task: Synthesize all analyses into unified investment guidance.
 

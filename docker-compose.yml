@@ -54,6 +54,10 @@ services:
       OLLAMA_MODEL: tinyllama
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      # Investment Team API Keys
+      SERPER_API_KEY: ${SERPER_API_KEY}
+      SEC_API_KEY: ${SEC_API_KEY}
+      BROWSERLESS_API_KEY: ${BROWSERLESS_API_KEY}
     depends_on:
       postgres:
         condition: service_healthy

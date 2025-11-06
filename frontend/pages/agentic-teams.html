@@ -2052,6 +2052,7 @@
 
         const startResult = await response.json();
         const taskId = startResult.task_id;
+        currentTaskId = taskId;  // Store task ID for chat functionality
 
         console.log(`Started agentic workflow, task_id: ${taskId}`);
 
@@ -2059,6 +2060,12 @@
         const statusTextEl = document.getElementById('status-text');
         if (statusTextEl) {
           statusTextEl.textContent = 'Processing with virtual team...';
+        }
+
+        // Enable chat input during analysis
+        const chatInputContainer = document.getElementById('chat-input-container');
+        if (chatInputContainer) {
+          chatInputContainer.style.display = 'block';
         }
 
         // Real-time update variables
@@ -2205,8 +2212,13 @@
                 }
               }
 
+              // Display message (including thinking messages)
               displayMessage(message, team);
-              displayedMessageCount++;
+
+              // Only count non-thinking messages for progress
+              if (!message.is_thinking && !message.is_progress) {
+                displayedMessageCount++;
+              }
 
               // Update progress (only if elements still exist)
               const totalExpected = TEAMS[team].members.length;
@@ -2227,6 +2239,18 @@
               }
             }
 
+            // Handle chat user messages
+            if (data.type === 'agentic_chat_user') {
+              const message = data.message;
+              displayMessage(message, team);
+            }
+
+            // Handle chat agent responses
+            if (data.type === 'agentic_chat_response') {
+              const message = data.message;
+              displayMessage(message, team);
+            }
+
             // Handle agentic_complete events for this task
             if (data.type === 'agentic_complete') {
               console.log('[Task SSE] Workflow completed');
@@ -2237,6 +2261,12 @@
               const statusEl = document.getElementById('status-text');
               if (statusEl) {
                 statusEl.textContent = 'Discussion completed!';
+              }
+
+              // Show chat input after completion for follow-up questions
+              const chatInputContainer = document.getElementById('chat-input-container');
+              if (chatInputContainer) {
+                chatInputContainer.style.display = 'block';
               }
 
               // Unregister handler
@@ -2789,49 +2819,85 @@
         // Clear input
         input.value = '';
 
-        // Show loading state
         const chatContainer = document.getElementById('chat-container');
-        chatContainer.innerHTML += `
-          <div class="thinking-indicator" style="margin: 20px 0;">
-            <span>🤖 Starting new team analysis...</span>
-            <div class="thinking-dots">
-              <span></span>
-              <span></span>
-              <span></span>
+
+        // Check if there's an active task - if so, send chat message to task
+        if (currentTaskId) {
+          // Show user message immediately in chat
+          const userMsgHTML = `
+            <div class="chat-message">
+              <div class="message-header">
+                <div class="agent-avatar" style="background: linear-gradient(195deg, #42424a 0%, #191919 100%);">👤</div>
+                <div class="agent-info">
+                  <div class="agent-name">You</div>
+                </div>
+                <span class="message-time">${new Date().toLocaleTimeString()}</span>
+              </div>
+              <div class="message-content">
+                <div class="message-text">${message}</div>
+              </div>
             </div>
-          </div>
-        `;
-        chatContainer.scrollTop = chatContainer.scrollHeight;
+          `;
+          chatContainer.insertAdjacentHTML('beforeend', userMsgHTML);
+          chatContainer.scrollTop = chatContainer.scrollHeight;
 
-        // Create a new direct query (full team discussion)
-        const response = await fetch(`${API_BASE_URL}/agentic/direct-query`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            team: selectedTeam,
-            query: message
-          })
-        });
+          // Send chat message to the active task
+          const response = await fetch(`${API_BASE_URL}/agentic/task/${currentTaskId}/chat`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message })
+          });
 
-        if (!response.ok) {
-          throw new Error('Failed to submit query');
+          if (!response.ok) {
+            throw new Error('Failed to send chat message');
+          }
+
+          const result = await response.json();
+          // Agent response will be broadcast via SSE and handled by sseHandler
+
+        } else {
+          // No active task - create a new direct query (full team discussion)
+          chatContainer.innerHTML += `
+            <div class="thinking-indicator" style="margin: 20px 0;">
+              <span>🤖 Starting new team analysis...</span>
+              <div class="thinking-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            </div>
+          `;
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+
+          const response = await fetch(`${API_BASE_URL}/agentic/direct-query`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              team: selectedTeam,
+              query: message
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error('Failed to submit query');
+          }
+
+          const result = await response.json();
+          currentTaskId = result.task_id;
+          const emailId = result.email_id;
+
+          // Reload email list to show the new direct query
+          await loadEmails();
+
+          // Update header
+          const teamEl = document.getElementById('discussion-team');
+          const subjectEl = document.getElementById('discussion-subject');
+          if (teamEl) teamEl.textContent = TEAMS[selectedTeam]?.name || selectedTeam;
+          if (subjectEl) subjectEl.textContent = message;
+
+          // Start the discussion with real-time SSE streaming
+          simulateDiscussion(selectedTeam, emailId);
         }
-
-        const result = await response.json();
-        currentTaskId = result.task_id;
-        const emailId = result.email_id;
-
-        // Reload email list to show the new direct query
-        await loadEmails();
-
-        // Update header
-        const teamEl = document.getElementById('discussion-team');
-        const subjectEl = document.getElementById('discussion-subject');
-        if (teamEl) teamEl.textContent = TEAMS[selectedTeam]?.name || selectedTeam;
-        if (subjectEl) subjectEl.textContent = message;
-
-        // Start the discussion with real-time SSE streaming
-        simulateDiscussion(selectedTeam, emailId);
 
       } catch (error) {
         console.error('Error sending chat message:', error);

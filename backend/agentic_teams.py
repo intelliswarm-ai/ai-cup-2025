@@ -497,12 +497,24 @@ Keep the tone natural and authoritative, like a real team leader closing a meeti
         """Extract company name or ticker from text"""
         import re
 
-        # Clean the text
+        # Clean the text - remove emojis and common prefixes
         text = text.strip()
+
+        # Remove emojis (Unicode emoji ranges)
+        text = re.sub(r'[\U0001F300-\U0001F9FF]', '', text)
+
+        # Remove common prefixes like "direct query:", "stock analysis:", etc.
+        text = re.sub(r'(?:direct query|stock analysis|analysis|query):\s*', '', text, flags=re.IGNORECASE)
+
+        # Clean up extra whitespace
+        text = ' '.join(text.split())
+
+        # Convert to uppercase for pattern matching (keep original for company names)
+        text_upper = text.upper()
 
         # Pattern 1: Just a standalone ticker (e.g., "AAPL", "IMPP", "TSLA")
         # Check if the entire text is just a ticker symbol (1-5 uppercase letters)
-        standalone_match = re.match(r'^([A-Z]{1,5})$', text)
+        standalone_match = re.match(r'^([A-Z]{1,5})$', text_upper)
         if standalone_match:
             return standalone_match.group(1)
 
@@ -514,17 +526,18 @@ Keep the tone natural and authoritative, like a real team leader closing a meeti
             r'\(([A-Z]{2,5})\)',  # "Tesla (TSLA)"
             r'^([A-Z]{2,5})\s',  # Ticker at start followed by space
             r'\s([A-Z]{2,5})$',  # Ticker at end
+            r'\b([A-Z]{2,5})\b',  # Any standalone uppercase 2-5 letter word
         ]
 
         for pattern in patterns:
-            match = re.search(pattern, text)
+            match = re.search(pattern, text_upper)
             if match:
                 ticker = match.group(1)
                 # Exclude common words that might match (like "US", "IT", "OR", etc.)
-                if ticker not in ['US', 'IT', 'OR', 'IN', 'TO', 'AT', 'BY', 'OF', 'ON', 'AN', 'AS', 'IS', 'IF']:
+                if ticker not in ['US', 'IT', 'OR', 'IN', 'TO', 'AT', 'BY', 'OF', 'ON', 'AN', 'AS', 'IS', 'IF', 'FOR', 'THE']:
                     return ticker
 
-        # Pattern 3: Company names (capitalized words)
+        # Pattern 3: Company names (capitalized words) - use original text
         company_name_match = re.search(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b', text)
         if company_name_match:
             name = company_name_match.group(1)
@@ -532,7 +545,7 @@ Keep the tone natural and authoritative, like a real team leader closing a meeti
             if len(name.split()) > 1 or name in ['Apple', 'Microsoft', 'Amazon', 'Tesla', 'Google', 'Meta', 'Netflix', 'Nvidia', 'Intel']:
                 return name
 
-        # If nothing found, return the original text (fallback)
+        # If nothing found, return cleaned text (fallback)
         return text if text else "the requested company"
 
     def _format_investment_stage_message(self, stage: str, data: Dict[str, Any]) -> str:
