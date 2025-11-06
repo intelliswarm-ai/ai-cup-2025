@@ -99,12 +99,8 @@
       margin-top: 8px;
     }
 
-    .team-credit { background: #e3f2fd; color: #1976d2; }
     .team-fraud { background: #ffebee; color: #c62828; }
     .team-compliance { background: #f3e5f5; color: #7b1fa2; }
-    .team-wealth { background: #e8f5e9; color: #388e3c; }
-    .team-corporate { background: #fff3e0; color: #f57c00; }
-    .team-operations { background: #fce4ec; color: #c2185b; }
     .team-investments { background: #e8f5e9; color: #2e7d32; }
 
     .status-indicator {
@@ -922,14 +918,6 @@
           <h6 class="ps-4 ms-2 text-uppercase text-xs font-weight-bolder" style="color: #000; opacity: 0.6;">Virtual Teams</h6>
         </li>
         <li class="nav-item">
-          <a class="nav-link text-white" href="/pages/agentic-teams.html?team=credit_risk">
-            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
-              <i class="material-icons-round opacity-10">account_balance</i>
-            </div>
-            <span class="nav-link-text ms-1">Credit Risk</span>
-          </a>
-        </li>
-        <li class="nav-item">
           <a class="nav-link text-white" href="/pages/agentic-teams.html?team=fraud">
             <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
               <i class="material-icons-round opacity-10">security</i>
@@ -946,27 +934,11 @@
           </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link text-white" href="/pages/agentic-teams.html?team=wealth">
+          <a class="nav-link text-white" href="/pages/agentic-teams.html?team=investments">
             <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
               <i class="material-icons-round opacity-10">trending_up</i>
             </div>
-            <span class="nav-link-text ms-1">Wealth Mgmt</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link text-white" href="/pages/agentic-teams.html?team=corporate">
-            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
-              <i class="material-icons-round opacity-10">business</i>
-            </div>
-            <span class="nav-link-text ms-1">Corporate</span>
-          </a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link text-white" href="/pages/agentic-teams.html?team=operations">
-            <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
-              <i class="material-icons-round opacity-10">settings</i>
-            </div>
-            <span class="nav-link-text ms-1">Operations</span>
+            <span class="nav-link-text ms-1">Investments</span>
           </a>
         </li>
         <li class="nav-item">
@@ -1148,16 +1120,6 @@
 
     // Sample team definitions
     const TEAMS = {
-      'credit_risk': {
-        name: 'Credit Risk Committee',
-        badge: 'team-credit',
-        members: [
-          { role: 'Senior Credit Analyst', avatar: 'avatar-analyst' },
-          { role: 'Risk Manager', avatar: 'avatar-risk' },
-          { role: 'Relationship Manager', avatar: 'avatar-relationship' },
-          { role: 'Chief Risk Officer', avatar: 'avatar-cro' }
-        ]
-      },
       'fraud': {
         name: 'Fraud Investigation Unit',
         badge: 'team-fraud',
@@ -1176,36 +1138,6 @@
           { role: 'Legal Counsel', avatar: 'avatar-analyst' },
           { role: 'Auditor', avatar: 'avatar-risk' },
           { role: 'Regulatory Liaison', avatar: 'avatar-cro' }
-        ]
-      },
-      'wealth': {
-        name: 'Wealth Management Advisory',
-        badge: 'team-wealth',
-        members: [
-          { role: 'Senior Wealth Advisor', avatar: 'avatar-relationship' },
-          { role: 'Investment Specialist', avatar: 'avatar-analyst' },
-          { role: 'Tax Consultant', avatar: 'avatar-compliance' },
-          { role: 'Estate Planning Expert', avatar: 'avatar-cro' }
-        ]
-      },
-      'corporate': {
-        name: 'Corporate Banking Team',
-        badge: 'team-corporate',
-        members: [
-          { role: 'Corporate Relationship Manager', avatar: 'avatar-relationship' },
-          { role: 'Trade Finance Specialist', avatar: 'avatar-analyst' },
-          { role: 'Treasury Expert', avatar: 'avatar-risk' },
-          { role: 'Syndication Lead', avatar: 'avatar-cro' }
-        ]
-      },
-      'operations': {
-        name: 'Operations & Quality',
-        badge: 'team-operations',
-        members: [
-          { role: 'Operations Manager', avatar: 'avatar-analyst' },
-          { role: 'Quality Assurance Lead', avatar: 'avatar-risk' },
-          { role: 'Technology Liaison', avatar: 'avatar-compliance' },
-          { role: 'Customer Service Lead', avatar: 'avatar-relationship' }
         ]
       },
       'investments': {
@@ -2442,10 +2374,10 @@
         if (hint) {
           if (selectedTeam === 'investments') {
             hint.textContent = 'For Investment Team: Request stock analysis by company name or ticker symbol (e.g., "Analyze Apple stock" or "Complete analysis for TSLA")';
-          } else if (selectedTeam === 'credit_risk') {
-            hint.textContent = 'For Credit Risk Team: Submit credit analysis requests (e.g., "Evaluate credit application for XYZ Corp")';
           } else if (selectedTeam === 'fraud') {
             hint.textContent = 'For Fraud Team: Report suspicious activities (e.g., "Investigate unusual transaction pattern")';
+          } else if (selectedTeam === 'compliance') {
+            hint.textContent = 'For Compliance Team: Submit regulatory queries (e.g., "Review FATCA compliance requirements")';
           } else {
             hint.textContent = `Submit your request to the ${TEAMS[selectedTeam]?.name || selectedTeam} team`;
           }

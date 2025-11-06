@@ -1858,8 +1858,8 @@ async def detect_team_for_email_endpoint(
 
 @app.get("/api/agentic/simulate-discussion")
 async def simulate_team_discussion(
-    team: str = "credit_risk",
-    subject: str = "Credit Line Increase Request"
+    team: str = "fraud",
+    subject: str = "Suspicious Wire Transfer Request"
 ):
     """
     Simulate a team discussion for testing purposes.
@@ -1874,12 +1874,9 @@ async def simulate_team_discussion(
 
         # Create a mock email body based on the team
         mock_bodies = {
-            "credit_risk": "We are requesting a credit line increase from CHF 2M to CHF 5M to support our expansion plans. Our revenue has grown 40% YoY and we have strong cash flows.",
             "fraud": "We received a suspicious wire transfer request for CHF 500K to an unknown account. The email appears to be from our CEO but the sending domain is slightly different.",
             "compliance": "We need clarification on FATCA reporting requirements for our new US client accounts. What are the thresholds and documentation needed?",
-            "wealth": "Our client inherited CHF 12M and wants to invest conservatively while minimizing tax exposure. They are 55 years old and planning retirement in 10 years.",
-            "corporate": "We need a letter of credit for CHF 3M to support an import transaction from Asia. The goods are electronics with 90-day payment terms.",
-            "operations": "Multiple customers have complained about the new account opening process taking too long. We need to streamline the workflow and improve response times."
+            "investments": "Please provide a comprehensive analysis of Tesla (TSLA) stock, including financial metrics, valuation, and investment recommendation."
         }
 
         result = await orchestrator.run_team_discussion(

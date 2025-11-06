@@ -19,8 +19,9 @@ RUN wget -q https://github.com/liquibase/liquibase/releases/download/v${LIQUIBAS
     && rm liquibase-${LIQUIBASE_VERSION}.tar.gz \
     && chmod +x /liquibase/liquibase
 
-# Download PostgreSQL JDBC driver to liquibase directory
-RUN wget -q https://jdbc.postgresql.org/download/postgresql-42.6.0.jar -O /liquibase/postgresql-42.6.0.jar
+# Download PostgreSQL JDBC driver to liquibase directory from Maven Central (more reliable)
+RUN wget -q https://repo1.maven.org/maven2/org/postgresql/postgresql/42.6.0/postgresql-42.6.0.jar -O /liquibase/postgresql-42.6.0.jar || \
+    curl -sSL https://repo1.maven.org/maven2/org/postgresql/postgresql/42.6.0/postgresql-42.6.0.jar -o /liquibase/postgresql-42.6.0.jar
 
 ENV PATH="/liquibase:${PATH}"
 
