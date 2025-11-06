@@ -176,6 +176,104 @@
       background: #f8f9fa;
     }
 
+    /* Investment Progress Tracker */
+    .investment-progress-tracker {
+      background: white;
+      border-radius: 12px;
+      padding: 25px;
+      margin-bottom: 25px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+
+    .progress-tracker-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .progress-steps {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .progress-step {
+      background: #f8f9fa;
+      border-radius: 10px;
+      padding: 15px;
+      text-align: center;
+      transition: all 0.3s ease;
+      border: 2px solid transparent;
+    }
+
+    .progress-step.pending {
+      opacity: 0.5;
+    }
+
+    .progress-step.active {
+      background: linear-gradient(195deg, #e3f2fd 0%, #bbdefb 100%);
+      border-color: #2196f3;
+      box-shadow: 0 4px 12px rgba(33, 150, 243, 0.2);
+    }
+
+    .progress-step.completed {
+      background: linear-gradient(195deg, #e8f5e9 0%, #c8e6c9 100%);
+      border-color: #4caf50;
+    }
+
+    .step-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+
+    .step-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #666;
+      margin-bottom: 4px;
+    }
+
+    .step-status {
+      font-size: 11px;
+      color: #999;
+    }
+
+    .progress-step.active .step-status {
+      color: #2196f3;
+      font-weight: 600;
+      animation: pulse-text 1.5s ease-in-out infinite;
+    }
+
+    .progress-step.completed .step-status {
+      color: #4caf50;
+      font-weight: 600;
+    }
+
+    @keyframes pulse-text {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    .progress-timeline {
+      position: relative;
+      height: 4px;
+      background: #e0e0e0;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .progress-timeline-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #2196f3 0%, #4caf50 100%);
+      transition: width 0.5s ease;
+      border-radius: 2px;
+    }
+
     .chat-message {
       margin-bottom: 20px;
       animation: slideIn 0.3s ease;
@@ -257,7 +355,158 @@
     .message-text {
       color: #444;
       line-height: 1.6;
-      white-space: pre-wrap;
+      white-space: normal;
+    }
+
+    /* Markdown Styling */
+    .message-text h1,
+    .message-text h2,
+    .message-text h3,
+    .message-text h4,
+    .message-text h5,
+    .message-text h6 {
+      font-weight: 600;
+      margin-top: 1.5em;
+      margin-bottom: 0.75em;
+      line-height: 1.3;
+      color: #2c3e50;
+    }
+
+    .message-text h1 { font-size: 1.8em; border-bottom: 2px solid #e0e0e0; padding-bottom: 0.3em; }
+    .message-text h2 { font-size: 1.5em; border-bottom: 1px solid #e8e8e8; padding-bottom: 0.3em; }
+    .message-text h3 { font-size: 1.3em; }
+    .message-text h4 { font-size: 1.1em; }
+    .message-text h5 { font-size: 1em; }
+    .message-text h6 { font-size: 0.9em; color: #666; }
+
+    .message-text h1:first-child,
+    .message-text h2:first-child,
+    .message-text h3:first-child {
+      margin-top: 0;
+    }
+
+    .message-text strong,
+    .message-text b {
+      font-weight: 600;
+      color: #2c3e50;
+    }
+
+    .message-text em,
+    .message-text i {
+      font-style: italic;
+      color: #555;
+    }
+
+    .message-text ul,
+    .message-text ol {
+      margin: 1em 0;
+      padding-left: 2em;
+    }
+
+    .message-text li {
+      margin: 0.5em 0;
+      line-height: 1.6;
+    }
+
+    .message-text ul li {
+      list-style-type: disc;
+    }
+
+    .message-text ol li {
+      list-style-type: decimal;
+    }
+
+    .message-text ul ul,
+    .message-text ol ul {
+      list-style-type: circle;
+    }
+
+    .message-text code {
+      background: #f5f5f5;
+      border: 1px solid #e0e0e0;
+      border-radius: 3px;
+      padding: 2px 6px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+      color: #d63384;
+    }
+
+    .message-text pre {
+      background: #f8f9fa;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+      padding: 12px 16px;
+      overflow-x: auto;
+      margin: 1em 0;
+    }
+
+    .message-text pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      color: #333;
+    }
+
+    .message-text blockquote {
+      border-left: 4px solid #2196f3;
+      background: #f8f9fa;
+      margin: 1em 0;
+      padding: 0.5em 1em;
+      color: #555;
+      font-style: italic;
+    }
+
+    .message-text a {
+      color: #2196f3;
+      text-decoration: none;
+      border-bottom: 1px solid transparent;
+      transition: all 0.2s ease;
+    }
+
+    .message-text a:hover {
+      border-bottom-color: #2196f3;
+    }
+
+    .message-text hr {
+      border: none;
+      border-top: 2px solid #e0e0e0;
+      margin: 2em 0;
+    }
+
+    .message-text table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 1em 0;
+      font-size: 0.95em;
+    }
+
+    .message-text table th,
+    .message-text table td {
+      border: 1px solid #e0e0e0;
+      padding: 8px 12px;
+      text-align: left;
+    }
+
+    .message-text table th {
+      background: #f8f9fa;
+      font-weight: 600;
+      color: #2c3e50;
+    }
+
+    .message-text table tr:nth-child(even) {
+      background: #fafafa;
+    }
+
+    .message-text p {
+      margin: 0.75em 0;
+    }
+
+    .message-text p:first-child {
+      margin-top: 0;
+    }
+
+    .message-text p:last-child {
+      margin-bottom: 0;
     }
 
     .thinking-indicator {
@@ -1115,6 +1364,9 @@
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
   <script src="../assets/js/material-dashboard.min.js?v=3.0.0"></script>
 
+  <!-- Marked.js for Markdown parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@4.3.0/marked.min.js"></script>
+
   <script>
     const API_BASE_URL = '/api';
 
@@ -1683,6 +1935,25 @@
             const message = messages[i];
             const agent = TEAMS[team].members.find(m => m.role === message.role) || TEAMS[team].members[0];
 
+            // Parse Markdown to HTML
+            let parsedContent;
+            if (typeof marked !== 'undefined') {
+              try {
+                marked.setOptions({
+                  breaks: true,
+                  gfm: true,
+                  headerIds: false,
+                  mangle: false
+                });
+                parsedContent = marked(message.text);
+              } catch (error) {
+                console.error('[Markdown] Parse error:', error);
+                parsedContent = message.text.replace(/\n/g, '<br>');
+              }
+            } else {
+              parsedContent = message.text.replace(/\n/g, '<br>');
+            }
+
             const messageHTML = `
               <div class="chat-message">
                 <div class="message-header">
@@ -1693,7 +1964,7 @@
                   <span class="message-time">${new Date(message.timestamp).toLocaleTimeString()}</span>
                 </div>
                 <div class="message-content">
-                  <div class="message-text">${message.text}</div>
+                  <div class="message-text">${parsedContent}</div>
                 </div>
               </div>
             `;
@@ -1731,22 +2002,41 @@
       const chatContainer = document.getElementById('chat-container');
       chatContainer.innerHTML = '';
 
-      // Show loading indicator
-      chatContainer.innerHTML = `
-        <div style="text-align: center; padding: 60px 20px; color: #999;">
-          <div style="font-size: 48px; margin-bottom: 20px;">🤖</div>
-          <h3>Assembling Virtual Team...</h3>
-          <p>The ${TEAMS[team].name} is analyzing this email</p>
-          <div class="thinking-indicator">
-            <span id="status-text">Starting workflow...</span>
-            <div class="thinking-dots">
-              <span></span>
-              <span></span>
-              <span></span>
+      // Show loading indicator with progress tracker for investments
+      if (team === 'investments') {
+        chatContainer.innerHTML = `
+          ${createInvestmentProgressTracker()}
+          <div style="text-align: center; padding: 40px 20px; color: #999;">
+            <div style="font-size: 48px; margin-bottom: 20px;">🤖</div>
+            <h3>Assembling Virtual Team...</h3>
+            <p>The ${TEAMS[team].name} is analyzing this email</p>
+            <div class="thinking-indicator">
+              <span id="status-text">Starting workflow...</span>
+              <div class="thinking-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
             </div>
           </div>
-        </div>
-      `;
+        `;
+      } else {
+        chatContainer.innerHTML = `
+          <div style="text-align: center; padding: 60px 20px; color: #999;">
+            <div style="font-size: 48px; margin-bottom: 20px;">🤖</div>
+            <h3>Assembling Virtual Team...</h3>
+            <p>The ${TEAMS[team].name} is analyzing this email</p>
+            <div class="thinking-indicator">
+              <span id="status-text">Starting workflow...</span>
+              <div class="thinking-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            </div>
+          </div>
+        `;
+      }
 
       try {
         console.log('[simulateDiscussion] Starting workflow...');
@@ -1773,11 +2063,97 @@
 
         // Real-time update variables
         let displayedMessageCount = 0;
-        let eventSource = null;
-        let sseActive = false;
+
+        // Create investment progress tracker for investments team
+        const createInvestmentProgressTracker = () => {
+          const trackerHTML = `
+            <div class="investment-progress-tracker" id="investment-tracker">
+              <div class="progress-tracker-title">
+                <span>📊</span>
+                <span>Investment Analysis Progress</span>
+              </div>
+              <div class="progress-steps" id="progress-steps">
+                <div class="progress-step pending" data-agent="Financial Analyst">
+                  <div class="step-icon">📊</div>
+                  <div class="step-label">Financial Analysis</div>
+                  <div class="step-status">Pending...</div>
+                </div>
+                <div class="progress-step pending" data-agent="Research Analyst">
+                  <div class="step-icon">🔍</div>
+                  <div class="step-label">Market Research</div>
+                  <div class="step-status">Pending...</div>
+                </div>
+                <div class="progress-step pending" data-agent="Filings Analyst">
+                  <div class="step-icon">📋</div>
+                  <div class="step-label">SEC Filings</div>
+                  <div class="step-status">Pending...</div>
+                </div>
+                <div class="progress-step pending" data-agent="Investment Advisor">
+                  <div class="step-icon">💼</div>
+                  <div class="step-label">Final Recommendation</div>
+                  <div class="step-status">Pending...</div>
+                </div>
+              </div>
+              <div class="progress-timeline">
+                <div class="progress-timeline-fill" id="investment-timeline-fill" style="width: 0%"></div>
+              </div>
+            </div>
+          `;
+          return trackerHTML;
+        };
+
+        // Update investment progress tracker
+        const updateInvestmentProgress = (role) => {
+          const tracker = document.getElementById('investment-tracker');
+          if (!tracker) return;
+
+          const steps = tracker.querySelectorAll('.progress-step');
+          const agentRoles = ['Financial Analyst', 'Research Analyst', 'Filings Analyst', 'Investment Advisor'];
+
+          const currentIndex = agentRoles.indexOf(role);
+          if (currentIndex === -1) return;
+
+          // Update steps
+          steps.forEach((step, index) => {
+            step.classList.remove('active', 'pending', 'completed');
+
+            if (index < currentIndex) {
+              step.classList.add('completed');
+              step.querySelector('.step-status').textContent = '✓ Complete';
+            } else if (index === currentIndex) {
+              step.classList.add('active');
+              step.querySelector('.step-status').textContent = 'Analyzing...';
+            } else {
+              step.classList.add('pending');
+              step.querySelector('.step-status').textContent = 'Pending...';
+            }
+          });
+
+          // Update timeline
+          const progress = ((currentIndex + 1) / agentRoles.length) * 100;
+          const timeline = document.getElementById('investment-timeline-fill');
+          if (timeline) {
+            timeline.style.width = `${progress}%`;
+          }
+        };
 
         const displayMessage = (message, team, isLast = false) => {
           const agent = TEAMS[team].members.find(m => m.role === message.role) || TEAMS[team].members[0];
+
+          // Update investment tracker if this is investments team
+          if (team === 'investments' && message.role) {
+            updateInvestmentProgress(message.role);
+          }
+
+          // Parse Markdown to HTML
+          const parsedContent = typeof marked !== 'undefined'
+            ? marked.parse(message.text, {
+                breaks: true,
+                gfm: true,
+                headerIds: false,
+                mangle: false
+              })
+            : message.text.replace(/\n/g, '<br>');
 
           const messageHTML = `
             <div class="chat-message" style="opacity: 0; transform: translateY(10px);">
@@ -1789,7 +2165,7 @@
                 <span class="message-time">${new Date(message.timestamp).toLocaleTimeString()}</span>
               </div>
               <div class="message-content">
-                <div class="message-text">${message.text}</div>
+                <div class="message-text">${parsedContent}</div>
               </div>
             </div>
           `;
@@ -1807,94 +2183,77 @@
           chatContainer.scrollTop = chatContainer.scrollHeight;
         };
 
-        // Try to use SSE for real-time updates first
-        try {
-          console.log('[SSE] Attempting to connect to event stream...');
-          eventSource = new EventSource(`${API_BASE_URL}/events`);
+        // Register handler with global SSE connection
+        const sseHandler = (data) => {
+          try {
+            console.log('[Task SSE] Received event for task:', taskId, data.type);
 
-          eventSource.onopen = () => {
-            console.log('[SSE] Connection established');
-            sseActive = true;
-          };
+            // Handle agentic_message events for this task
+            if (data.type === 'agentic_message') {
+              const message = data.data?.message || data.message;
 
-          eventSource.addEventListener('message', (event) => {
-            try {
-              const data = JSON.parse(event.data);
-              console.log('[SSE] Received event:', data);
-
-              // Handle agentic_message events for this task
-              if (data.type === 'agentic_message' && data.task_id === taskId) {
-                const message = data.message;
-
-                // Clear loading state on first message
-                if (displayedMessageCount === 0) {
+              // Clear loading state on first message (but preserve tracker for investments)
+              if (displayedMessageCount === 0) {
+                if (team === 'investments') {
+                  // Remove only the loading indicator, keep the progress tracker
+                  const loadingDiv = chatContainer.querySelector('.thinking-indicator')?.closest('div[style*="text-align: center"]');
+                  if (loadingDiv) {
+                    loadingDiv.remove();
+                  }
+                } else {
                   chatContainer.innerHTML = '';
                 }
-
-                displayMessage(message, team);
-                displayedMessageCount++;
-
-                // Update progress (only if elements still exist)
-                const totalExpected = TEAMS[team].members.length;
-                const progress = (displayedMessageCount / totalExpected) * 100;
-                const progressEl = document.getElementById('discussion-progress');
-                if (progressEl) {
-                  progressEl.style.width = progress + '%';
-                }
-
-                // Update status text (only if element still exists)
-                const statusEl = document.getElementById('status-text');
-                if (statusEl) {
-                  if (displayedMessageCount < totalExpected - 1) {
-                    statusEl.textContent = `Agent ${displayedMessageCount} speaking...`;
-                  } else {
-                    statusEl.textContent = 'Final decision being made...';
-                  }
-                }
               }
 
-              // Handle agentic_complete events for this task
-              if (data.type === 'agentic_complete' && data.task_id === taskId) {
-                console.log('[SSE] Workflow completed');
-                const progressEl = document.getElementById('discussion-progress');
-                if (progressEl) {
-                  progressEl.style.width = '100%';
-                }
-                const statusEl = document.getElementById('status-text');
-                if (statusEl) {
-                  statusEl.textContent = 'Discussion completed!';
-                }
+              displayMessage(message, team);
+              displayedMessageCount++;
 
-                // Close SSE connection
-                if (eventSource) {
-                  eventSource.close();
-                  eventSource = null;
+              // Update progress (only if elements still exist)
+              const totalExpected = TEAMS[team].members.length;
+              const progress = (displayedMessageCount / totalExpected) * 100;
+              const progressEl = document.getElementById('discussion-progress');
+              if (progressEl) {
+                progressEl.style.width = progress + '%';
+              }
+
+              // Update status text (only if element still exists)
+              const statusEl = document.getElementById('status-text');
+              if (statusEl) {
+                if (displayedMessageCount < totalExpected - 1) {
+                  statusEl.textContent = `Agent ${displayedMessageCount} speaking...`;
+                } else {
+                  statusEl.textContent = 'Final decision being made...';
                 }
               }
-            } catch (parseError) {
-              console.error('[SSE] Error parsing event data:', parseError);
-            }
-          });
-
-          eventSource.onerror = (error) => {
-            console.error('[SSE] Connection error:', error);
-            sseActive = false;
-            if (eventSource) {
-              eventSource.close();
-              eventSource = null;
             }
 
-            // Fallback to polling if SSE fails and we haven't displayed any messages yet
-            if (displayedMessageCount === 0) {
-              console.log('[SSE] Falling back to polling...');
-              setTimeout(poll, 1000);
-            }
-          };
+            // Handle agentic_complete events for this task
+            if (data.type === 'agentic_complete') {
+              console.log('[Task SSE] Workflow completed');
+              const progressEl = document.getElementById('discussion-progress');
+              if (progressEl) {
+                progressEl.style.width = '100%';
+              }
+              const statusEl = document.getElementById('status-text');
+              if (statusEl) {
+                statusEl.textContent = 'Discussion completed!';
+              }
 
-        } catch (sseError) {
-          console.error('[SSE] Failed to initialize:', sseError);
-          sseActive = false;
-          // Fallback to polling
+              // Unregister handler
+              unregisterTaskHandler(taskId);
+            }
+          } catch (parseError) {
+            console.error('[Task SSE] Error handling event:', parseError);
+          }
+        };
+
+        // Register handler BEFORE starting workflow
+        if (typeof registerTaskHandler === 'function') {
+          registerTaskHandler(taskId, sseHandler);
+          console.log('[Task SSE] Handler registered for', taskId);
+        } else {
+          console.warn('[Task SSE] Global SSE not available, will use polling fallback');
+          // Start polling as fallback
           setTimeout(poll, 1000);
         }
 
@@ -1904,9 +2263,9 @@
         const pollInterval = 1000; // 1 second
 
         const poll = async () => {
-          // Skip polling if SSE is active
-          if (sseActive) {
-            console.log('[Poll] Skipping poll, SSE is active');
+          // Skip polling if global SSE is handling events
+          if (typeof registerTaskHandler === 'function' && messageHandlers[taskId]) {
+            console.log('[Poll] Skipping poll, Global SSE is handling events');
             return;
           }
 
@@ -1927,8 +2286,15 @@
               // Display new messages
               for (let i = displayedMessageCount; i < messages.length; i++) {
                 if (i === 0) {
-                  // Clear loading state on first message
-                  chatContainer.innerHTML = '';
+                  // Clear loading state on first message (but preserve tracker for investments)
+                  if (team === 'investments') {
+                    const loadingDiv = chatContainer.querySelector('.thinking-indicator')?.closest('div[style*="text-align: center"]');
+                    if (loadingDiv) {
+                      loadingDiv.remove();
+                    }
+                  } else {
+                    chatContainer.innerHTML = '';
+                  }
                 }
 
                 displayMessage(messages[i], team, i === messages.length - 1);
@@ -2035,11 +2401,7 @@
           }
         };
 
-        // Only start polling if SSE failed to initialize
-        if (!sseActive && !eventSource) {
-          console.log('[Poll] SSE not available, starting polling as fallback');
-          setTimeout(poll, pollInterval);
-        }
+        // Polling will only start if explicitly triggered (no global SSE available)
 
       } catch (error) {
         console.error('Error starting team discussion:', error);
@@ -2127,6 +2489,9 @@
         const result = await response.json();
         currentTaskId = result.task_id;
         const emailId = result.email_id;
+        const taskId = result.task_id;
+
+        console.log('[submitDirectQuery] Task created:', taskId, 'Email:', emailId);
 
         // Reload email list to show the new direct query
         await loadEmails();
@@ -2134,6 +2499,7 @@
         // Hide the interaction form and show the discussion
         document.getElementById('direct-interaction-panel').style.display = 'none';
         document.getElementById('empty-state').style.display = 'none';
+        document.getElementById('team-presentation-panel').style.display = 'none';
 
         // Update header
         const teamEl = document.getElementById('discussion-team');
@@ -2141,8 +2507,191 @@
         if (teamEl) teamEl.textContent = TEAMS[selectedTeam]?.name || selectedTeam;
         if (subjectEl) subjectEl.textContent = query;
 
-        // Start the discussion with real-time SSE streaming
-        simulateDiscussion(selectedTeam, emailId);
+        // DON'T call simulateDiscussion - it would create a duplicate task!
+        // Instead, directly show the UI and register SSE handler
+        const chatContainer = document.getElementById('chat-container');
+
+        // Show loading with progress tracker
+        if (selectedTeam === 'investments') {
+          // Create progress tracker function (copy from simulateDiscussion)
+          const createProgressTracker = () => `
+            <div class="investment-progress-tracker" id="investment-tracker">
+              <div class="progress-tracker-title">
+                <span>📊</span>
+                <span>Investment Analysis Progress</span>
+              </div>
+              <div class="progress-steps" id="progress-steps">
+                <div class="progress-step pending" data-agent="Financial Analyst">
+                  <div class="step-icon">📊</div>
+                  <div class="step-label">Financial Analysis</div>
+                  <div class="step-status">Pending...</div>
+                </div>
+                <div class="progress-step pending" data-agent="Research Analyst">
+                  <div class="step-icon">🔍</div>
+                  <div class="step-label">Market Research</div>
+                  <div class="step-status">Pending...</div>
+                </div>
+                <div class="progress-step pending" data-agent="Filings Analyst">
+                  <div class="step-icon">📋</div>
+                  <div class="step-label">SEC Filings</div>
+                  <div class="step-status">Pending...</div>
+                </div>
+                <div class="progress-step pending" data-agent="Investment Advisor">
+                  <div class="step-icon">💼</div>
+                  <div class="step-label">Final Recommendation</div>
+                  <div class="step-status">Pending...</div>
+                </div>
+              </div>
+              <div class="progress-timeline">
+                <div class="progress-timeline-fill" id="investment-timeline-fill" style="width: 0%"></div>
+              </div>
+            </div>
+          `;
+
+          chatContainer.innerHTML = `
+            ${createProgressTracker()}
+            <div style="text-align: center; padding: 40px 20px; color: #999;">
+              <div style="font-size: 48px; margin-bottom: 20px;">🤖</div>
+              <h3>Assembling Virtual Team...</h3>
+              <p>The ${TEAMS[selectedTeam].name} is analyzing this request</p>
+              <div class="thinking-indicator">
+                <span id="status-text">Analysis in progress...</span>
+                <div class="thinking-dots">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              </div>
+            </div>
+          `;
+        } else {
+          chatContainer.innerHTML = `
+            <div style="text-align: center; padding: 60px 20px; color: #999;">
+              <div style="font-size: 48px; margin-bottom: 20px;">🤖</div>
+              <h3>Assembling Virtual Team...</h3>
+              <p>The ${TEAMS[selectedTeam].name} is analyzing this request</p>
+            </div>
+          `;
+        }
+
+        // Register SSE handler for real-time updates
+        let displayedMessageCount = 0;
+
+        const updateInvestmentProgress = (role) => {
+          const tracker = document.getElementById('investment-tracker');
+          if (!tracker) return;
+
+          const steps = tracker.querySelectorAll('.progress-step');
+          const agentRoles = ['Financial Analyst', 'Research Analyst', 'Filings Analyst', 'Investment Advisor'];
+          const currentIndex = agentRoles.indexOf(role);
+          if (currentIndex === -1) return;
+
+          steps.forEach((step, index) => {
+            step.classList.remove('active', 'pending', 'completed');
+            if (index < currentIndex) {
+              step.classList.add('completed');
+              step.querySelector('.step-status').textContent = '✓ Complete';
+            } else if (index === currentIndex) {
+              step.classList.add('active');
+              step.querySelector('.step-status').textContent = 'Analyzing...';
+            } else {
+              step.classList.add('pending');
+              step.querySelector('.step-status').textContent = 'Pending...';
+            }
+          });
+
+          const progress = ((currentIndex + 1) / agentRoles.length) * 100;
+          const timeline = document.getElementById('investment-timeline-fill');
+          if (timeline) timeline.style.width = `${progress}%`;
+        };
+
+        const displayMessage = (message) => {
+          if (selectedTeam === 'investments' && message.role) {
+            updateInvestmentProgress(message.role);
+          }
+
+          // Remove loading on first message
+          if (displayedMessageCount === 0) {
+            if (selectedTeam === 'investments') {
+              const loadingDiv = chatContainer.querySelector('.thinking-indicator')?.closest('div[style*="text-align: center"]');
+              if (loadingDiv) loadingDiv.remove();
+            } else {
+              chatContainer.innerHTML = '';
+            }
+          }
+
+          const agent = TEAMS[selectedTeam].members.find(m => m.role === message.role) || TEAMS[selectedTeam].members[0];
+
+          // Parse Markdown to HTML
+          let parsedContent;
+          if (typeof marked !== 'undefined') {
+            try {
+              marked.setOptions({
+                breaks: true,       // Support GFM line breaks
+                gfm: true,          // GitHub Flavored Markdown
+                headerIds: false,   // Don't add IDs to headers
+                mangle: false       // Don't escape email addresses
+              });
+              parsedContent = marked(message.text);
+              console.log('[Markdown] Parsed successfully');
+            } catch (error) {
+              console.error('[Markdown] Parse error:', error);
+              parsedContent = message.text.replace(/\n/g, '<br>');
+            }
+          } else {
+            console.warn('[Markdown] marked library not loaded');
+            parsedContent = message.text.replace(/\n/g, '<br>');
+          }
+
+          const messageHTML = `
+            <div class="chat-message" style="opacity: 0; transform: translateY(10px);">
+              <div class="message-header">
+                <div class="agent-avatar ${agent.avatar}"></div>
+                <div class="agent-info">
+                  <div class="agent-name">${message.role}</div>
+                </div>
+                <span class="message-time">${new Date(message.timestamp).toLocaleTimeString()}</span>
+              </div>
+              <div class="message-content">
+                <div class="message-text">${parsedContent}</div>
+              </div>
+            </div>
+          `;
+
+          chatContainer.insertAdjacentHTML('beforeend', messageHTML);
+          const lastMessage = chatContainer.lastElementChild;
+          setTimeout(() => {
+            lastMessage.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            lastMessage.style.opacity = '1';
+            lastMessage.style.transform = 'translateY(0)';
+          }, 50);
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+        };
+
+        const sseHandler = (data) => {
+          console.log('[Direct Query SSE] Received event:', data.type);
+
+          if (data.type === 'agentic_message') {
+            const message = data.data?.message || data.message;
+            displayMessage(message);
+            displayedMessageCount++;
+          }
+
+          if (data.type === 'agentic_complete') {
+            console.log('[Direct Query SSE] Analysis complete');
+            const progressEl = document.getElementById('discussion-progress');
+            if (progressEl) progressEl.style.width = '100%';
+            unregisterTaskHandler(taskId);
+          }
+        };
+
+        // Register handler with global SSE
+        if (typeof registerTaskHandler === 'function') {
+          registerTaskHandler(taskId, sseHandler);
+          console.log('[Direct Query] SSE handler registered for task:', taskId);
+        } else {
+          console.warn('[Direct Query] Global SSE not available');
+        }
 
         // Enable chat input after analysis starts
         setTimeout(() => {
@@ -2388,11 +2937,61 @@
       }
     }
 
+    // ============================================
+    // Global SSE Connection (Always Active)
+    // ============================================
+    let globalEventSource = null;
+    let messageHandlers = {};  // Map of task_id -> handler function
+
+    function initGlobalSSE() {
+      try {
+        console.log('[Global SSE] Connecting to event stream...');
+        globalEventSource = new EventSource(`${API_BASE_URL}/events`);
+
+        globalEventSource.onopen = () => {
+          console.log('[Global SSE] ✅ Connection established');
+        };
+
+        globalEventSource.addEventListener('message', (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            console.log('[Global SSE] Received event:', data.type, data.data?.task_id);
+
+            // Route to registered handler
+            const taskId = data.data?.task_id || data.task_id;
+            if (taskId && messageHandlers[taskId]) {
+              messageHandlers[taskId](data);
+            }
+          } catch (error) {
+            console.error('[Global SSE] Error parsing event:', error);
+          }
+        });
+
+        globalEventSource.onerror = (error) => {
+          console.error('[Global SSE] Connection error, will auto-reconnect...', error);
+        };
+
+      } catch (error) {
+        console.error('[Global SSE] Failed to initialize:', error);
+      }
+    }
+
+    function registerTaskHandler(taskId, handler) {
+      console.log('[Global SSE] Registering handler for task:', taskId);
+      messageHandlers[taskId] = handler;
+    }
+
+    function unregisterTaskHandler(taskId) {
+      console.log('[Global SSE] Unregistering handler for task:', taskId);
+      delete messageHandlers[taskId];
+    }
+
     // Initialize on page load
     highlightActiveTeam();
     loadEmails();
     loadTeamConfiguration();
     showDirectInteractionIfTeamSelected();
+    initGlobalSSE();  // Start global SSE connection
   </script>
 </body>
 </html>
