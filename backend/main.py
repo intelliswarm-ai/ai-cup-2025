@@ -1773,9 +1773,47 @@ async def send_chat_message_to_team(task_id: str, request: dict):
         # Import orchestrator for LLM calls
         from agentic_teams import orchestrator, TEAMS as BACKEND_TEAMS
 
+        # Add user message to investment workflow context if team is investments
+        if team == "investments":
+            from investment_workflow import investment_workflow
+            investment_workflow.add_user_message(message)
+
         # Select an appropriate agent to respond (use first agent in team)
         team_info = BACKEND_TEAMS[team]
         agent = team_info["agents"][0]  # First agent responds to chat
+
+        # Add to task messages
+        if "messages" not in task:
+            task["messages"] = []
+
+        # User message
+        user_msg = {
+            "role": "You",
+            "icon": "👤",
+            "text": message,
+            "timestamp": datetime.now().isoformat()
+        }
+        task["messages"].append(user_msg)
+
+        # Broadcast user message via SSE
+        await broadcast_sse_event({
+            "type": "agentic_chat_user",
+            "task_id": task_id,
+            "message": user_msg
+        })
+
+        # Get analysis context from task result
+        analysis_context = ""
+        if "result" in task and "discussion" in task["result"]:
+            messages = task["result"]["discussion"].get("messages", [])
+            # Include last 3-5 messages as context
+            recent_messages = messages[-5:] if len(messages) > 5 else messages
+            if recent_messages:
+                analysis_context = "\n\nPREVIOUS ANALYSIS CONTEXT:\n"
+                for msg in recent_messages:
+                    role = msg.get("role", "Unknown")
+                    text = msg.get("text", "")[:500]  # Limit length
+                    analysis_context += f"{role}: {text}\n\n"
 
         # Create agent-specific prompt for chat response
         system_prompt = f"""You are a {agent['role']} at a Swiss bank. You are part of the {team_info['name']} team.
@@ -1784,32 +1822,34 @@ Your personality: {agent['personality']}
 Your responsibilities: {agent['responsibilities']}
 Your communication style: {agent['style']}
 
-You are having a conversation with a user who asked a question. Respond professionally and helpfully.
-Keep your response concise (2-3 sentences max)."""
+You are having a conversation with a user who asked a question about an analysis your team just completed.
+Use the previous analysis context to inform your response. Be specific and reference actual findings from the analysis.
+Keep your response concise but informative (3-5 sentences)."""
 
-        user_prompt = f"""The user asked: {message}
+        user_prompt = f"""{analysis_context}
 
-Provide a helpful and professional response based on your role and expertise."""
+CURRENT USER QUESTION: {message}
+
+Provide a helpful and professional response based on your role, expertise, and the analysis context above.
+Reference specific findings or data points from the analysis when relevant."""
 
         # Call LLM
         response_text = await orchestrator.call_llm(user_prompt, system_prompt)
 
-        # Add to task messages
-        if "messages" not in task:
-            task["messages"] = []
-
-        task["messages"].append({
-            "role": "You",
-            "icon": "👤",
-            "text": message,
-            "timestamp": datetime.now().isoformat()
-        })
-
-        task["messages"].append({
+        # Agent response
+        agent_msg = {
             "role": agent["role"],
             "icon": agent["icon"],
             "text": response_text,
             "timestamp": datetime.now().isoformat()
+        }
+        task["messages"].append(agent_msg)
+
+        # Broadcast agent response via SSE
+        await broadcast_sse_event({
+            "type": "agentic_chat_response",
+            "task_id": task_id,
+            "message": agent_msg
         })
 
         logger.info(f"Chat message sent to task {task_id}")
