@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SSE Test</title>
+</head>
+<body>
+    <h1>SSE Connection Test</h1>
+    <div id="status">Connecting...</div>
+    <div id="events"></div>
+
+    <script>
+        const eventsDiv = document.getElementById('events');
+        const statusDiv = document.getElementById('status');
+
+        console.log('Opening SSE connection...');
+        const eventSource = new EventSource('http://localhost:8000/api/events');
+
+        eventSource.onopen = () => {
+            console.log('SSE Connected!');
+            statusDiv.textContent = '✅ Connected';
+            statusDiv.style.color = 'green';
+        };
+
+        eventSource.addEventListener('message', (event) => {
+            console.log('Received event:', event.data);
+            try {
+                const data = JSON.parse(event.data);
+                const div = document.createElement('div');
+                div.style.border = '1px solid #ccc';
+                div.style.margin = '10px';
+                div.style.padding = '10px';
+                div.innerHTML = `
+                    <strong>Type:</strong> ${data.type}<br>
+                    <strong>Task ID:</strong> ${data.data?.task_id || 'N/A'}<br>
+                    <strong>Agent:</strong> ${data.data?.message?.role || 'N/A'}<br>
+                    <strong>Time:</strong> ${new Date().toLocaleTimeString()}<br>
+                    <pre>${JSON.stringify(data, null, 2)}</pre>
+                `;
+                eventsDiv.prepend(div);
+            } catch (e) {
+                console.error('Parse error:', e);
+            }
+        });
+
+        eventSource.onerror = (error) => {
+            console.error('SSE Error:', error);
+            statusDiv.textContent = '❌ Error';
+            statusDiv.style.color = 'red';
+        };
+    </script>
+</body>
+</html>
