@@ -85,32 +85,32 @@ TEAMS = {
         "name": "📈 Investment Research Team",
         "agents": [
             {
-                "role": "Research Analyst",
-                "icon": "🔍",
-                "personality": "Data-driven and thorough. Dives deep into financial data. Says 'Looking at the fundamentals...' and 'The data shows...'",
-                "responsibilities": "Analyze company financials, SEC filings, industry trends, competitive positioning",
-                "style": "Analytical, detail-oriented, evidence-based"
-            },
-            {
                 "role": "Financial Analyst",
                 "icon": "📊",
-                "personality": "Numbers-focused and valuation-oriented. Calculates everything. Uses phrases like 'The valuation metrics indicate...' and 'Based on DCF analysis...'",
-                "responsibilities": "Perform valuation analysis, financial modeling, ratio analysis, price targets",
-                "style": "Quantitative, methodical, precise"
+                "personality": "Seasoned expert in stock market analysis. The Best Financial Analyst. Says 'The financial data shows...' and 'Market trends indicate...'",
+                "responsibilities": "Impress customers with financial data and market trends analysis. Evaluate P/E ratio, EPS growth, revenue trends, and debt-to-equity metrics. Compare performance against industry peers.",
+                "style": "Expert, analytical, confident"
             },
             {
-                "role": "Market Strategist",
-                "icon": "🌐",
-                "personality": "Big-picture thinker and macro-aware. Understands market context. Says 'Given current market conditions...' and 'The macro environment suggests...'",
-                "responsibilities": "Assess market trends, sector dynamics, economic indicators, timing considerations",
-                "style": "Strategic, contextual, forward-looking"
+                "role": "Research Analyst",
+                "icon": "🔍",
+                "personality": "Known as the BEST research analyst. Skilled in sifting through news, company announcements, and market sentiments. Says 'The research shows...' and 'Looking at recent developments...'",
+                "responsibilities": "Excel at data gathering and interpretation. Compile recent news, press releases, and market analyses. Highlight significant events and analyst perspectives.",
+                "style": "Thorough, investigative, detail-oriented"
             },
             {
-                "role": "Chief Investment Officer",
+                "role": "Filings Analyst",
+                "icon": "📋",
+                "personality": "Expert in analyzing SEC filings and regulatory documents. Says 'The filings reveal...' and 'According to the 10-K...'",
+                "responsibilities": "Review latest 10-Q and 10-K EDGAR filings. Extract insights from Management Discussion & Analysis, financial statements, and risk factors.",
+                "style": "Meticulous, regulatory-focused, analytical"
+            },
+            {
+                "role": "Investment Advisor",
                 "icon": "💼",
-                "personality": "Decisive and risk-balanced. Synthesizes research into recommendations. Uses phrases like 'Based on our analysis...' and 'My recommendation is...'",
-                "responsibilities": "Make final investment recommendation, assess risk-reward, set conviction level",
-                "style": "Authoritative, balanced, actionable"
+                "personality": "Experienced advisor combining analytical insights. Says 'Based on our comprehensive analysis...' and 'My recommendation is...'",
+                "responsibilities": "Deliver comprehensive stock analyses and strategic investment recommendations. Synthesize all analyses into unified investment guidance.",
+                "style": "Authoritative, strategic, actionable"
             }
         ]
     }
@@ -495,65 +495,88 @@ Keep the tone natural and authoritative, like a real team leader closing a meeti
 
     def _extract_company_from_text(self, text: str) -> str:
         """Extract company name or ticker from text"""
-        # Simple extraction - look for common patterns
+        import re
+
+        # Clean the text
+        text = text.strip()
+
+        # Pattern 1: Just a standalone ticker (e.g., "AAPL", "IMPP", "TSLA")
+        # Check if the entire text is just a ticker symbol (1-5 uppercase letters)
+        standalone_match = re.match(r'^([A-Z]{1,5})$', text)
+        if standalone_match:
+            return standalone_match.group(1)
+
+        # Pattern 2: Ticker in various contexts
         patterns = [
-            r"analysis for (?:stock )?([A-Z]{1,5})\b",  # Ticker symbols
-            r"analyze ([A-Z][a-z]+(?: [A-Z][a-z]+)*)",  # Company names
-            r"stock (Apple|Microsoft|Amazon|Tesla|Google|Meta|Netflix)",  # Common companies
+            r'\b([A-Z]{2,5})\s*(?:stock|shares?|ticker|analysis|report)',  # "AAPL stock", "IMPP analysis"
+            r'(?:stock|shares?|ticker|analysis|report)\s*(?:for|of|on)?\s*([A-Z]{2,5})\b',  # "stock AAPL", "analysis for TSLA"
+            r'(?:analyze|analysis)\s+(?:stock\s+)?([A-Z]{2,5})\b',  # "analyze AAPL", "analysis TSLA"
+            r'\(([A-Z]{2,5})\)',  # "Tesla (TSLA)"
+            r'^([A-Z]{2,5})\s',  # Ticker at start followed by space
+            r'\s([A-Z]{2,5})$',  # Ticker at end
         ]
 
-        import re
         for pattern in patterns:
-            match = re.search(pattern, text, re.IGNORECASE)
+            match = re.search(pattern, text)
             if match:
-                return match.group(1)
+                ticker = match.group(1)
+                # Exclude common words that might match (like "US", "IT", "OR", etc.)
+                if ticker not in ['US', 'IT', 'OR', 'IN', 'TO', 'AT', 'BY', 'OF', 'ON', 'AN', 'AS', 'IS', 'IF']:
+                    return ticker
 
-        return ""
+        # Pattern 3: Company names (capitalized words)
+        company_name_match = re.search(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b', text)
+        if company_name_match:
+            name = company_name_match.group(1)
+            # Return if it looks like a company name (not just one common word)
+            if len(name.split()) > 1 or name in ['Apple', 'Microsoft', 'Amazon', 'Tesla', 'Google', 'Meta', 'Netflix', 'Nvidia', 'Intel']:
+                return name
+
+        # If nothing found, return the original text (fallback)
+        return text if text else "the requested company"
 
     def _format_investment_stage_message(self, stage: str, data: Dict[str, Any]) -> str:
         """Format investment analysis stage data into a readable message"""
-        if stage == "research":
-            summary = data.get('summary', 'Data collection completed')
-            has_10k = 'Available' if '10-K' in str(data.get('10k_filing', '')) and 'N/A' not in str(data.get('10k_filing', '')) else 'Not Available'
-            has_10q = 'Available' if '10-Q' in str(data.get('10q_filing', '')) and 'N/A' not in str(data.get('10q_filing', '')) else 'Not Available'
-
-            return f"""📊 **Research & Data Collection Complete**
-
-**Data Sources Accessed:**
-✓ Financial news and market data
-✓ SEC 10-K Filing: {has_10k}
-✓ SEC 10-Q Filing: {has_10q}
-✓ Company website and investor relations
-
-**Research Summary:**
-{summary}"""
-
-        elif stage == "financial_analysis":
+        if stage == "financial_analysis":
             analysis = data.get('analysis', 'Financial analysis in progress...')
             return f"""💰 **Financial Analysis & Valuation**
 
 {analysis}"""
 
-        elif stage == "market_analysis":
-            analysis = data.get('analysis', 'Market analysis in progress...')
+        elif stage == "research":
+            summary = data.get('summary', 'Research compilation completed')
             news_count = data.get('news_sources_count', 0)
 
-            return f"""🌐 **Market Context & Competitive Analysis**
+            return f"""📊 **Research & Market Intelligence**
 
-{analysis}
+{summary}
 
-*Analysis based on {news_count} recent news sources*"""
+*Analysis based on {news_count} recent news sources and market data*"""
+
+        elif stage == "filings_analysis":
+            analysis = data.get('analysis', 'Filings analysis in progress...')
+            filings = data.get('filings_reviewed', {})
+            has_10k = 'Reviewed' if filings.get('10k_available', False) else 'Not Available'
+            has_10q = 'Reviewed' if filings.get('10q_available', False) else 'Not Available'
+
+            return f"""📋 **SEC Filings Analysis**
+
+**Filings Reviewed:**
+✓ 10-K Filing: {has_10k}
+✓ 10-Q Filing: {has_10q}
+
+{analysis}"""
 
         elif stage == "recommendation":
             executive_summary = data.get('executive_summary', 'Generating final recommendation...')
             company = data.get('company', 'the company')
 
-            return f"""📋 **Executive Investment Recommendation for {company}**
+            return f"""💼 **Executive Investment Recommendation for {company}**
 
 {executive_summary}
 
 ---
-*This recommendation is based on comprehensive analysis of SEC filings, market data, financial metrics, and industry trends available as of {data.get('analysis_date', 'today')}.*"""
+*This recommendation is based on comprehensive analysis of financial metrics, market sentiment, SEC filings, and industry trends available as of {data.get('analysis_date', 'today')}.*"""
 
         return str(data)
 
