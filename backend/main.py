@@ -628,7 +628,8 @@ async def process_email(
     try:
         llm_result = await ollama_service.process_email(
             email.subject or "",
-            email.body_text or ""
+            email.body_text or "",
+            is_phishing=email.is_phishing
         )
 
         badges = await ollama_service.detect_email_badges(
@@ -729,7 +730,8 @@ async def process_all_unprocessed_emails(
                 try:
                     llm_result = await ollama_service.process_email(
                         email.subject or "",
-                        email.body_text or ""
+                        email.body_text or "",
+                        is_phishing=email.is_phishing
                     )
 
                     # Detect badges
@@ -940,10 +942,11 @@ async def process_email_with_llm(
         raise HTTPException(status_code=404, detail="Email not found")
 
     try:
-        # Process with LLM
+        # Process with LLM (only extract CTAs from safe emails)
         result = await ollama_service.process_email(
             email.subject or "",
-            email.body_text or ""
+            email.body_text or "",
+            is_phishing=email.is_phishing
         )
 
         # Detect badges
@@ -1095,7 +1098,8 @@ async def process_all_emails_with_llm(
             try:
                 result = await ollama_service.process_email(
                     email.subject or "",
-                    email.body_text or ""
+                    email.body_text or "",
+                    is_phishing=email.is_phishing
                 )
 
                 # Detect badges
@@ -1259,7 +1263,8 @@ async def get_inbox_digest(
                 "summary": email.summary,
                 "badges": email.badges or [],
                 "received_at": email.received_at.isoformat(),
-                "is_phishing": email.is_phishing
+                "is_phishing": email.is_phishing,
+                "call_to_actions": email.call_to_actions or []
             }
 
             # Add to primary badge group (first badge takes priority)

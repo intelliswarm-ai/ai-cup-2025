@@ -76,6 +76,53 @@
       color: #B8A068;
       font-weight: bold;
     }
+    .cta-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+    }
+    .cta-item {
+      display: flex;
+      align-items: start;
+      padding: 12px;
+      margin-bottom: 8px;
+      background: white;
+      border: 1px solid #E8E6E3;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .cta-item:hover {
+      box-shadow: 0 4px 12px rgba(0, 40, 85, 0.1);
+      transform: translateX(4px);
+      border-color: #003D82;
+    }
+    .cta-icon {
+      flex-shrink: 0;
+      margin-right: 12px;
+      color: #ff9800;
+    }
+    .cta-content {
+      flex: 1;
+    }
+    .cta-text {
+      font-size: 0.875rem;
+      color: #2C2926;
+      margin-bottom: 4px;
+    }
+    .cta-email-link {
+      font-size: 0.75rem;
+      color: #5B5550;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .cta-section {
+      background: #FFF8E1;
+      border: 1px solid #FFE082;
+      border-radius: 12px;
+      padding: 20px;
+    }
   </style>
 </head>
 
@@ -200,6 +247,24 @@
         </div>
       </div>
 
+      <!-- All Call-to-Action Items Section -->
+      <div class="row mb-4" id="cta-section-container">
+        <div class="col-12">
+          <div class="card cta-section">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <h5 class="mb-0">
+                <i class="material-icons-round" style="font-size: 24px; vertical-align: middle; color: #ff9800;">task_alt</i>
+                All Call-to-Action Items
+              </h5>
+              <span class="badge bg-warning text-dark" id="cta-count">0</span>
+            </div>
+            <div id="all-cta-list">
+              <p class="text-center text-muted">No call-to-action items found</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- Email Groups -->
       <div id="digest-container">
         <p class="text-center">Loading digest...</p>
@@ -270,6 +335,9 @@
 
         // Render email groups
         renderDigest(allEmails);
+
+        // Render all call-to-action items
+        renderAllCallToActions(allEmails);
       } catch (error) {
         console.error('Error loading digest:', error);
       }
@@ -339,6 +407,69 @@
         }
       }
       renderDigest(filteredEmails);
+    }
+
+    function renderAllCallToActions(grouped) {
+      // Group CTAs by email (one entry per email with all its CTAs)
+      const emailsWithCTAs = [];
+      let totalCTACount = 0;
+
+      for (const [badge, emails] of Object.entries(grouped)) {
+        for (const email of emails) {
+          if (email.call_to_actions && email.call_to_actions.length > 0) {
+            emailsWithCTAs.push({
+              ctas: email.call_to_actions,  // All CTAs for this email
+              emailId: email.id,
+              emailSubject: email.subject,
+              emailSender: email.sender,
+              badge: badge
+            });
+            totalCTACount += email.call_to_actions.length;
+          }
+        }
+      }
+
+      // Update CTA count (total number of action items)
+      const ctaCount = document.getElementById('cta-count');
+      ctaCount.textContent = totalCTACount;
+
+      // Render CTA list
+      const container = document.getElementById('all-cta-list');
+
+      if (emailsWithCTAs.length === 0) {
+        container.innerHTML = '<p class="text-center text-muted">No call-to-action items found</p>';
+        return;
+      }
+
+      const ctaHtml = `
+        <ul class="cta-list">
+          ${emailsWithCTAs.map(item => `
+            <li class="cta-item" onclick="viewEmail(${item.emailId})">
+              <div class="cta-icon">
+                <i class="material-icons-round" style="font-size: 20px;">task_alt</i>
+              </div>
+              <div class="cta-content">
+                ${item.ctas.length === 1 ? `
+                  <div class="cta-text">${escapeHtml(item.ctas[0])}</div>
+                ` : `
+                  <div class="cta-text" style="margin-bottom: 8px;"><strong>${item.ctas.length} actions:</strong></div>
+                  <ul style="margin: 0; padding-left: 20px;">
+                    ${item.ctas.map(cta => `<li style="margin-bottom: 4px;">${escapeHtml(cta)}</li>`).join('')}
+                  </ul>
+                `}
+                <div class="cta-email-link" style="margin-top: 8px;">
+                  <i class="material-icons-round" style="font-size: 14px;">email</i>
+                  <span><strong>From:</strong> ${escapeHtml(item.emailSender)}</span>
+                  <span>•</span>
+                  <span><strong>Subject:</strong> ${escapeHtml(item.emailSubject.substring(0, 50))}${item.emailSubject.length > 50 ? '...' : ''}</span>
+                </div>
+              </div>
+            </li>
+          `).join('')}
+        </ul>
+      `;
+
+      container.innerHTML = ctaHtml;
     }
 
     function renderDigest(grouped) {
