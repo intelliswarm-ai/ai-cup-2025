@@ -1865,6 +1865,9 @@
       document.getElementById('team-config-panel').style.display = 'none';
       document.getElementById('empty-state').style.display = 'none';
 
+      // IMPORTANT: Show the discussion panel
+      document.querySelector('.discussion-panel').style.display = 'block';
+
       // IMPORTANT: Clear chat container immediately to show we're loading new content
       const chatContainer = document.getElementById('chat-container');
       chatContainer.innerHTML = '<div style="text-align: center; padding: 40px; color: #999;">Loading analysis...</div>';
@@ -2020,6 +2023,23 @@
             </div>
           </div>
         `;
+      } else if (team === 'fraud') {
+        chatContainer.innerHTML = `
+          ${createFraudProgressTracker()}
+          <div style="text-align: center; padding: 40px 20px; color: #999;">
+            <div style="font-size: 48px; margin-bottom: 20px;">🔍</div>
+            <h3>Assembling Fraud Investigation Team...</h3>
+            <p>The ${TEAMS[team].name} is analyzing this transaction</p>
+            <div class="thinking-indicator">
+              <span id="status-text">Starting fraud analysis...</span>
+              <div class="thinking-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+              </div>
+            </div>
+          </div>
+        `;
       } else {
         chatContainer.innerHTML = `
           <div style="text-align: center; padding: 60px 20px; color: #999;">
@@ -2144,12 +2164,90 @@
           }
         };
 
+        // Create fraud progress tracker for fraud team
+        const createFraudProgressTracker = () => {
+          const trackerHTML = `
+            <div class="investment-progress-tracker" id="fraud-tracker">
+              <div class="progress-tracker-title">
+                <span>🔍</span>
+                <span>Fraud Detection Progress</span>
+              </div>
+              <div class="progress-steps" id="fraud-progress-steps">
+                <div class="progress-step pending" data-agent="Transaction Analyst">
+                  <div class="step-icon">👤</div>
+                  <div class="step-label">Transaction Pattern Analysis</div>
+                  <div class="step-status">Pending...</div>
+                </div>
+                <div class="progress-step pending" data-agent="Risk Analyst">
+                  <div class="step-icon">📊</div>
+                  <div class="step-label">Fraud Risk Assessment</div>
+                  <div class="step-status">Pending...</div>
+                </div>
+                <div class="progress-step pending" data-agent="Investigation Specialist">
+                  <div class="step-icon">🔍</div>
+                  <div class="step-label">Deep Investigation</div>
+                  <div class="step-status">Pending...</div>
+                </div>
+                <div class="progress-step pending" data-agent="Fraud Decision Agent">
+                  <div class="step-icon">⚖️</div>
+                  <div class="step-label">Final Determination</div>
+                  <div class="step-status">Pending...</div>
+                </div>
+              </div>
+              <div class="progress-timeline">
+                <div class="progress-timeline-fill" id="fraud-timeline-fill" style="width: 0%"></div>
+              </div>
+            </div>
+          `;
+          return trackerHTML;
+        };
+
+        // Update fraud progress tracker
+        const updateFraudProgress = (role) => {
+          const tracker = document.getElementById('fraud-tracker');
+          if (!tracker) return;
+
+          const steps = tracker.querySelectorAll('.progress-step');
+          const agentRoles = ['Transaction Analyst', 'Risk Analyst', 'Investigation Specialist', 'Fraud Decision Agent'];
+
+          const currentIndex = agentRoles.indexOf(role);
+          if (currentIndex === -1) return;
+
+          // Update steps
+          steps.forEach((step, index) => {
+            step.classList.remove('active', 'pending', 'completed');
+
+            if (index < currentIndex) {
+              step.classList.add('completed');
+              step.querySelector('.step-status').textContent = '✓ Complete';
+            } else if (index === currentIndex) {
+              step.classList.add('active');
+              step.querySelector('.step-status').textContent = 'Investigating...';
+            } else {
+              step.classList.add('pending');
+              step.querySelector('.step-status').textContent = 'Pending...';
+            }
+          });
+
+          // Update timeline
+          const progress = ((currentIndex + 1) / agentRoles.length) * 100;
+          const timeline = document.getElementById('fraud-timeline-fill');
+          if (timeline) {
+            timeline.style.width = `${progress}%`;
+          }
+        };
+
         const displayMessage = (message, team, isLast = false) => {
           const agent = TEAMS[team].members.find(m => m.role === message.role) || TEAMS[team].members[0];
 
           // Update investment tracker if this is investments team
           if (team === 'investments' && message.role) {
             updateInvestmentProgress(message.role);
+          }
+
+          // Update fraud tracker if this is fraud team
+          if (team === 'fraud' && message.role) {
+            updateFraudProgress(message.role);
           }
 
           // Parse Markdown to HTML

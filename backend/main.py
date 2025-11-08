@@ -188,10 +188,13 @@ async def startup_event():
     asyncio.create_task(email_fetcher.start_fetching())
     logger.info("Email fetcher started")
 
-    # Initialize wiki enrichment knowledge base in background
-    logger.info("Starting wiki enrichment initialization in background...")
-    asyncio.create_task(email_enricher.initialize())
-    logger.info("Wiki enrichment initialization started (loading in background)")
+    # Initialize wiki enrichment knowledge base in background (unless disabled)
+    if os.getenv("DISABLE_WIKI_ENRICHMENT", "false").lower() != "true":
+        logger.info("Starting wiki enrichment initialization in background...")
+        asyncio.create_task(email_enricher.initialize())
+        logger.info("Wiki enrichment initialization started (loading in background)")
+    else:
+        logger.info("Wiki enrichment disabled via DISABLE_WIKI_ENRICHMENT env var")
 
 def detect_ui_badges(email: Email) -> List[str]:
     """Detect UI state badges for an email
@@ -904,6 +907,23 @@ async def startup_llm():
     # Run in background to avoid blocking startup
     asyncio.create_task(init_ollama())
 
+@app.on_event("startup")
+async def startup_mcp():
+    """Initialize MCP servers on startup - non-blocking"""
+    async def init_mcp_servers():
+        try:
+            logger.info("Initializing MCP servers for fraud detection...")
+            from mcp_client import initialize_mcp_servers
+            await initialize_mcp_servers()
+            logger.info("MCP servers initialization complete")
+        except Exception as e:
+            logger.error(f"Error initializing MCP servers on startup: {e}")
+            logger.warning("MCP features (DuckDuckGo fallback) may not work. Serper and mock fallbacks will still work.")
+
+    # Run in background to avoid blocking startup
+    import asyncio
+    asyncio.create_task(init_mcp_servers())
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
@@ -1446,6 +1466,10 @@ async def run_agentic_workflow_background(task_id: str, email_id: int, team: str
     try:
         logger.info(f"[Task {task_id}] Starting agentic workflow for email {email_id} with team '{team}'")
 
+        # Create database session for this background task
+        from database import SessionLocal
+        db = SessionLocal()
+
         # Update status to processing
         agentic_tasks[task_id]["status"] = "processing"
         agentic_tasks[task_id]["team"] = team
@@ -1487,7 +1511,8 @@ async def run_agentic_workflow_background(task_id: str, email_id: int, team: str
             email_sender=email_sender,
             team=team,
             max_rounds=2,
-            on_message_callback=on_message
+            on_message_callback=on_message,
+            db=db
         )
 
         # Store the final result
@@ -1501,8 +1526,7 @@ async def run_agentic_workflow_background(task_id: str, email_id: int, team: str
         }
 
         # Save result to database for persistence across restarts
-        from database import SessionLocal
-        db = SessionLocal()
+        # Using the same db session created at the beginning
         try:
             workflow_result = WorkflowResult(
                 email_id=email_id,
@@ -1519,8 +1543,6 @@ async def run_agentic_workflow_background(task_id: str, email_id: int, team: str
         except Exception as db_error:
             logger.error(f"[Task {task_id}] Failed to save to database: {db_error}")
             db.rollback()
-        finally:
-            db.close()
 
         # Broadcast completion via SSE
         await broadcaster.broadcast("agentic_complete", {
@@ -1535,6 +1557,10 @@ async def run_agentic_workflow_background(task_id: str, email_id: int, team: str
         logger.error(f"[Task {task_id}] Error in agentic workflow: {e}")
         agentic_tasks[task_id]["status"] = "failed"
         agentic_tasks[task_id]["error"] = str(e)
+    finally:
+        # Close database session
+        if 'db' in locals():
+            db.close()
 
 
 @app.post("/api/agentic/emails/{email_id}/process")

@@ -2,13 +2,15 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-# Install system dependencies including Java for Liquibase
+# Install system dependencies including Java for Liquibase and Node.js for MCP servers
 RUN apt-get update && apt-get install -y \
     gcc \
     postgresql-client \
     wget \
     curl \
     openjdk-21-jre-headless \
+    nodejs \
+    npm \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Liquibase

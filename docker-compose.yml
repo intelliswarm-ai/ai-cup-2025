@@ -58,6 +58,11 @@ services:
       SERPER_API_KEY: ${SERPER_API_KEY}
       SEC_API_KEY: ${SEC_API_KEY}
       BROWSERLESS_API_KEY: ${BROWSERLESS_API_KEY}
+      # MCP Configuration
+      MCP_ENABLED: ${MCP_ENABLED:-false}
+      MCP_FRAUD_CASES_PATH: ${MCP_FRAUD_CASES_PATH:-/app/fraud_cases}
+      # Disable wiki enrichment for faster startup during testing
+      DISABLE_WIKI_ENRICHMENT: ${DISABLE_WIKI_ENRICHMENT:-false}
     depends_on:
       postgres:
         condition: service_healthy
