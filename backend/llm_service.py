@@ -3,11 +3,12 @@ import json
 import httpx
 import logging
 from typing import Dict, List, Optional
+from openai import AsyncOpenAI
 
 logger = logging.getLogger(__name__)
 
 class OllamaService:
-    """Service for interacting with Ollama LLM"""
+    """Service for interacting with Ollama LLM and OpenAI for CTA extraction"""
 
     def __init__(self):
         self.host = os.getenv("OLLAMA_HOST", "ollama")
@@ -16,6 +17,15 @@ class OllamaService:
         self.base_url = f"http://{self.host}:{self.port}"
         self.model_loaded = False
         self.max_retries = 2
+
+        # Initialize OpenAI client for CTA extraction
+        self.openai_api_key = os.getenv("OPENAI_API_KEY")
+        if self.openai_api_key:
+            self.openai_client = AsyncOpenAI(api_key=self.openai_api_key)
+            logger.info("OpenAI client initialized for CTA extraction")
+        else:
+            self.openai_client = None
+            logger.warning("OPENAI_API_KEY not set - CTA extraction will use Ollama")
 
     async def check_ollama_available(self) -> bool:
         """Check if Ollama service is available"""
@@ -132,60 +142,247 @@ Summary:"""
             logger.error(f"Error summarizing email: {e}")
             return f"Error generating summary: {type(e).__name__}"
 
+    async def extract_call_to_actions_with_openai(self, subject: str, body: str) -> List[str]:
+        """Extract call-to-actions from an email using OpenAI GPT-4-mini"""
+        try:
+            response = await self.openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "You are a JSON extractor. Analyze emails and extract specific call-to-actions. Return ONLY a JSON array of action strings, or [] if there are no actions. Do not explain, do not add commentary."
+                    },
+                    {
+                        "role": "user",
+                        "content": f"""Email:
+SUBJECT: {subject}
+BODY: {body[:1500]}
+
+Extract ONLY the specific actions this email explicitly asks the recipient to do. Do not invent actions that are not present. Output a JSON array of action strings.
+
+Examples of valid outputs:
+["Submit the expense report by Friday"]
+["Review the attached proposal", "Provide feedback by EOD"]
+[]
+
+JSON:"""
+                    }
+                ],
+                temperature=0.1,
+                max_tokens=500
+            )
+
+            content = response.choices[0].message.content.strip()
+            logger.info(f"OpenAI CTA extraction response (length: {len(content)}): {content[:200]}")
+
+            # Remove markdown code blocks if present
+            if content.startswith("```"):
+                lines = content.split("\n")
+                content = "\n".join(lines[1:-1]).strip()
+
+            # Parse JSON
+            try:
+                ctas = json.loads(content)
+                if isinstance(ctas, list):
+                    # Validate and filter
+                    validated_ctas = []
+                    for item in ctas:
+                        if isinstance(item, str) and self._is_valid_action(item):
+                            validated_ctas.append(item.strip())
+                    return validated_ctas
+                else:
+                    logger.warning(f"OpenAI returned non-list: {type(ctas)}")
+                    return []
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse OpenAI response as JSON: {e}")
+                logger.error(f"Content: {content}")
+                return []
+
+        except Exception as e:
+            logger.error(f"Error extracting CTAs with OpenAI: {e}")
+            return []
+
     async def extract_call_to_actions(self, subject: str, body: str) -> List[str]:
-        """Extract call-to-actions from an email"""
-        system_prompt = """You extract action items from emails. Return only valid JSON array format."""
+        """Extract call-to-actions from an email (uses OpenAI if available, otherwise Ollama)"""
+        # Use OpenAI if available
+        if self.openai_client:
+            logger.info("Using OpenAI for CTA extraction")
+            return await self.extract_call_to_actions_with_openai(subject, body)
 
-        prompt = f"""Email: {subject}
+        # Fallback to Ollama
+        logger.info("Using Ollama for CTA extraction")
+        system_prompt = """You are a JSON extractor. Read the email and output ONLY a JSON array containing the specific actions requested. If no actions are requested, output []. Do not explain, do not write code, only output JSON."""
 
-{body[:1000]}
+        prompt = f"""Email:
+SUBJECT: {subject}
+BODY: {body[:1000]}
 
-List any actions the recipient should take. Return ONLY a JSON array like: ["action1", "action2"]
-If no actions needed, return: []
+Extract ONLY the specific actions this email explicitly asks the recipient to do. Do not invent or assume actions. Output a JSON array of action strings, or [] if there are no actions.
 
-JSON array:"""
+JSON:"""
 
         try:
             response = await self.generate(prompt, system_prompt)
-            # Try to parse JSON from response
+            # Try to parse JSON from response with multiple strategies
             response = response.strip()
 
-            # Sometimes the LLM wraps it in markdown code blocks
+            # DEBUG: Log raw response
+            logger.info(f"Raw CTA extraction response (length: {len(response)}): {response[:200]}")
+
+            # Reject responses that are clearly explanations or code, not JSON
+            lower_response = response.lower()
+            reject_phrases = [
+                "here's how to", "here is how to", "here's an example", "here is an example",
+                "you can use", "to extract", "import ", "function ", "const ", "let ",
+                "use the", "run this", "execute the", "in a terminal"
+            ]
+            if any(phrase in lower_response[:100] for phrase in reject_phrases):
+                logger.warning(f"Rejecting LLM response - contains explanatory/code content")
+                return []
+
+            # Remove markdown code blocks
             if response.startswith("```"):
                 lines = response.split("\n")
-                response = "\n".join(lines[1:-1])
+                response = "\n".join(lines[1:-1]).strip()
 
-            # Try to find JSON array in response
+            # Strategy 1: Try direct JSON parsing
+            try:
+                ctas = json.loads(response)
+                if isinstance(ctas, list):
+                    return self._normalize_cta_list(ctas)
+            except json.JSONDecodeError:
+                pass
+
+            # Strategy 2: Extract JSON array from text
             start = response.find("[")
             end = response.rfind("]") + 1
             if start >= 0 and end > start:
                 json_str = response[start:end]
-                ctas = json.loads(json_str)
 
-                # Handle format: [{"action": "text"}] or [{"task": "text"}] -> ["text", ...]
-                if isinstance(ctas, list) and len(ctas) > 0:
-                    if isinstance(ctas[0], dict):
-                        # Try different key names that LLM might use
-                        result = []
-                        for item in ctas:
-                            if isinstance(item, dict):
-                                # Try common keys: action, task, cta, description, text
-                                value = item.get("action") or item.get("task") or item.get("cta") or item.get("description") or item.get("text")
-                                if value and isinstance(value, str):
-                                    result.append(value)
-                        return result if result else []
-                    elif isinstance(ctas[0], str):
-                        return ctas
+                # Strategy 2a: Try parsing as-is
+                try:
+                    ctas = json.loads(json_str)
+                    if isinstance(ctas, list):
+                        return self._normalize_cta_list(ctas)
+                except json.JSONDecodeError:
+                    pass
 
-                return []
+                # Strategy 2b: Fix unquoted strings in array
+                # Transform [action1, action2] -> ["action1", "action2"]
+                import re
+                # Match unquoted words/phrases between commas or brackets
+                fixed_json = re.sub(r'\[([^\]]+)\]', lambda m: self._quote_array_items(m.group(1)), json_str)
+                try:
+                    ctas = json.loads(fixed_json)
+                    if isinstance(ctas, list):
+                        return self._normalize_cta_list(ctas)
+                except json.JSONDecodeError:
+                    pass
+
+                # Strategy 2c: Manual parsing - split by comma and clean
+                # Remove brackets and split
+                content = json_str[1:-1].strip()
+                if content:
+                    # Split by comma, but be careful of commas in quotes
+                    items = []
+                    current = ""
+                    in_quotes = False
+                    for char in content:
+                        if char == '"':
+                            in_quotes = not in_quotes
+                        elif char == ',' and not in_quotes:
+                            if current.strip():
+                                items.append(current.strip())
+                            current = ""
+                        else:
+                            current += char
+                    if current.strip():
+                        items.append(current.strip())
+
+                    # Clean up items - remove quotes if present
+                    cleaned_items = []
+                    for item in items:
+                        item = item.strip().strip('"').strip("'").strip()
+                        if item and item not in ['action1', 'action2', 'action one', 'action two']:
+                            cleaned_items.append(item)
+
+                    if cleaned_items:
+                        return cleaned_items
 
             return []
         except Exception as e:
             logger.error(f"Error extracting CTAs: {e}")
             return []
 
-    async def process_email(self, subject: str, body: str) -> Dict:
-        """Process an email: generate summary and extract CTAs"""
+    def _quote_array_items(self, content: str) -> str:
+        """Helper to quote unquoted items in array"""
+        items = []
+        for item in content.split(','):
+            item = item.strip()
+            if not item:
+                continue
+            # If not already quoted
+            if not (item.startswith('"') and item.endswith('"')):
+                # Remove any existing quotes and requote
+                item = item.strip('"').strip("'")
+                items.append(f'"{item}"')
+            else:
+                items.append(item)
+        return '[' + ', '.join(items) + ']'
+
+    def _is_valid_action(self, text: str) -> bool:
+        """Check if text looks like a valid action (not code or hallucination)"""
+        # Skip empty or very long strings
+        if not text or len(text) > 200:
+            return False
+
+        # Skip generic placeholders
+        lower_text = text.lower()
+        if lower_text in ['action1', 'action2', 'action one', 'action two', 'action 1', 'action 2']:
+            return False
+
+        # Skip code-like content - check for programming keywords and patterns
+        code_indicators = [
+            'import ', 'function ', 'const ', 'let ', 'var ', 'async ', 'await ',
+            'require(', '=>', 'export ', 'class ', '.then(', '.catch(',
+            'it(', 'expect(', 'describe(', 'return new Promise', 'JSON.parse',
+            'if (', 'for (', 'while (', '});', '}).', 'module.exports',
+            'part.strip()', 'split(', '.toLowerCase()', '.filter(', '.map(',
+            'def ', 'print(', '__init__', 'self.', 'try:', 'except:'
+        ]
+
+        for indicator in code_indicators:
+            if indicator in text:
+                return False
+
+        # Skip if it contains too many special characters (likely code)
+        special_char_count = sum(1 for c in text if c in '{}[]();<>=|&')
+        if special_char_count > 3:
+            return False
+
+        # Skip strings that look like dates/timestamps in ISO format
+        if text.count('T') == 1 and text.count(':') >= 2 and text.count('-') >= 2:
+            return False
+
+        return True
+
+    def _normalize_cta_list(self, ctas: list) -> List[str]:
+        """Normalize CTA list to handle different formats and filter invalid ones"""
+        result = []
+        for item in ctas:
+            if isinstance(item, str):
+                if self._is_valid_action(item):
+                    result.append(item.strip())
+            elif isinstance(item, dict):
+                # Try different key names that LLM might use
+                value = (item.get("action") or item.get("task") or
+                        item.get("cta") or item.get("description") or item.get("text"))
+                if value and isinstance(value, str) and self._is_valid_action(value):
+                    result.append(value.strip())
+        return result
+
+    async def process_email(self, subject: str, body: str, is_phishing: bool = False) -> Dict:
+        """Process an email: generate summary and extract CTAs (only for safe emails)"""
         try:
             # Check Ollama availability once before processing
             if not self.model_loaded and not await self.ensure_model_loaded():
@@ -195,7 +392,13 @@ JSON array:"""
                 }
 
             summary = await self.summarize_email(subject, body)
-            ctas = await self.extract_call_to_actions(subject, body)
+
+            # Only extract CTAs from SAFE (non-phishing) emails
+            if is_phishing:
+                logger.info("Skipping CTA extraction for phishing email")
+                ctas = []
+            else:
+                ctas = await self.extract_call_to_actions(subject, body)
 
             return {
                 "summary": summary,

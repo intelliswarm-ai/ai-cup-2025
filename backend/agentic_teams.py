@@ -493,6 +493,124 @@ Keep the tone natural and authoritative, like a real team leader closing a meeti
             print(f"Investment workflow error: {e}")
             return await self._run_standard_discussion("investments", email_id, email_subject, email_body, email_sender, on_message_callback)
 
+    async def run_fraud_analysis(
+        self,
+        email_id: int,
+        email_subject: str,
+        email_body: str,
+        email_sender: str,
+        on_message_callback = None,
+        db = None
+    ) -> Dict[str, Any]:
+        """
+        Run fraud detection workflow for the Fraud Team
+        Uses specialized tools for transaction analysis and historical data queries
+        """
+        try:
+            # Import the fraud workflow
+            from fraud_workflow import fraud_workflow
+
+            # Extract transaction/user identifiers from email
+            combined_text = f"{email_subject} {email_body}".lower()
+
+            # Simple extraction - look for transaction ID or user ID
+            import re
+            transaction_id = None
+            user_id = None
+
+            # Look for transaction patterns like "txn_12345" or "transaction 12345"
+            txn_match = re.search(r'(?:txn_|transaction[:\s]+)(\w+)', combined_text)
+            if txn_match:
+                transaction_id = f"txn_{txn_match.group(1)}"
+
+            # Look for user patterns like "user_789" or "user 789"
+            user_match = re.search(r'(?:user_|user[:\s]+)(\w+)', combined_text)
+            if user_match:
+                user_id = f"user_{user_match.group(1)}"
+
+            # Fallbacks
+            if not transaction_id:
+                transaction_id = f"txn_{email_id}"
+            if not user_id:
+                user_id = "user_unknown"
+
+            # Send initial message
+            if on_message_callback:
+                await on_message_callback({
+                    "role": "Fraud Investigation Unit",
+                    "icon": "🚨",
+                    "text": f"Analyzing email content to determine fraud type and investigation approach...",
+                    "timestamp": datetime.now().isoformat()
+                }, [])
+
+            # Run the content-aware fraud analysis workflow
+            async def progress_callback(update):
+                if on_message_callback:
+                    await on_message_callback(update, [])
+
+            # Use the new content-aware method that adapts to email content
+            # Pass database session for historical data queries
+            analysis = await fraud_workflow.analyze_email_for_fraud(
+                email_subject=email_subject,
+                email_body=email_body,
+                email_from=email_sender,
+                on_progress_callback=progress_callback,
+                db=db
+            )
+
+            # Format the results as messages
+            all_messages = []
+            team_info = TEAMS["fraud"]
+
+            # Add messages for each stage
+            for i, stage_data in enumerate(analysis["stages"]):
+                agent_name = stage_data["agent"]
+
+                # Find matching agent icon
+                agent_icon = "🔍"
+                for agent in team_info["agents"]:
+                    if agent["role"] == agent_name:
+                        agent_icon = agent["icon"]
+                        break
+
+                # Create message with stage results
+                message_text = self._format_fraud_stage_message(
+                    stage_data["stage"],
+                    stage_data["data"]
+                )
+
+                message = {
+                    "role": agent_name,
+                    "icon": agent_icon,
+                    "text": message_text,
+                    "timestamp": datetime.now().isoformat(),
+                    "is_decision": (stage_data["stage"] == "determination")
+                }
+
+                all_messages.append(message)
+
+                if on_message_callback:
+                    await on_message_callback(message, all_messages)
+                    await asyncio.sleep(0.5)  # Delay for UX
+
+            return {
+                "status": "completed",
+                "team": "fraud",
+                "team_name": team_info["name"],
+                "email_id": email_id,
+                "messages": all_messages,
+                "decision": analysis.get("final_determination", {}),
+                "rounds": len(analysis["stages"]),
+                "fraud_analysis": analysis
+            }
+
+        except Exception as e:
+            # Fallback to standard team discussion if workflow fails
+            print(f"Fraud workflow error: {e}")
+            import traceback
+            traceback.print_exc()
+            return await self._run_standard_discussion("fraud", email_id, email_subject, email_body, email_sender, on_message_callback)
+
     def _extract_company_from_text(self, text: str) -> str:
         """Extract company name or ticker from text"""
         import re
@@ -593,6 +711,65 @@ Keep the tone natural and authoritative, like a real team leader closing a meeti
 
         return str(data)
 
+    def _format_fraud_stage_message(self, stage: str, data: Dict[str, Any]) -> str:
+        """Format fraud analysis stage data into a readable message"""
+        if stage == "transaction_analysis":
+            analysis = data.get('analysis', 'Transaction analysis in progress...')
+            return f"""👤 **Transaction Pattern Analysis**
+
+{analysis}"""
+
+        elif stage == "risk_analysis":
+            analysis = data.get('analysis', 'Risk assessment in progress...')
+            fraud_score = data.get('fraud_score', 'Calculated')
+            device_check = data.get('device_check', 'Completed')
+            geo_check = data.get('geolocation_check', 'Completed')
+
+            return f"""📊 **Fraud Risk Assessment**
+
+**Analysis Components:**
+✓ Fraud Score: {fraud_score}
+✓ Device Verification: {device_check}
+✓ Geolocation Analysis: {geo_check}
+
+{analysis}"""
+
+        elif stage == "investigation":
+            analysis = data.get('analysis', 'Investigation in progress...')
+            db_search = data.get('fraud_db_search', 'Completed')
+            blacklist = data.get('blacklist_check', 'Completed')
+            network = data.get('network_analysis', 'Completed')
+
+            return f"""🔍 **Deep Investigation Results**
+
+**Investigation Steps:**
+✓ Fraud Database Cross-reference: {db_search}
+✓ Blacklist Screening: {blacklist}
+✓ Network Analysis: {network}
+
+{analysis}"""
+
+        elif stage == "determination":
+            determination = data.get('determination', 'Making final determination...')
+            transaction_id = data.get('transaction_id', 'unknown')
+            user_id = data.get('user_id', 'unknown')
+            analyses = data.get('data_quality', {}).get('analyses_completed', [])
+
+            return f"""⚖️ **Final Fraud Determination**
+
+**Transaction**: {transaction_id}
+**User**: {user_id}
+
+**Analyses Completed:**
+{chr(10).join([f'✓ {a}' for a in analyses])}
+
+{determination}
+
+----
+*This determination is based on comprehensive fraud analysis completed on {data.get('analysis_date', 'today')}.*"""
+
+        return str(data)
+
     async def _run_standard_discussion(self, team: str, email_id: int, email_subject: str, email_body: str, email_sender: str, on_message_callback):
         """Fallback to standard discussion format"""
         team_info = TEAMS[team]
@@ -628,7 +805,8 @@ Keep the tone natural and authoritative, like a real team leader closing a meeti
         email_sender: str,
         team: str,
         max_rounds: int = 3,
-        on_message_callback = None
+        on_message_callback = None,
+        db = None
     ) -> Dict[str, Any]:
         """Run a full team discussion on an email with optional real-time callbacks"""
 
@@ -643,6 +821,17 @@ Keep the tone natural and authoritative, like a real team leader closing a meeti
                 email_body,
                 email_sender,
                 on_message_callback
+            )
+
+        # Special handling for Fraud Team - use fraud detection workflow with database access
+        if team == "fraud":
+            return await self.run_fraud_analysis(
+                email_id,
+                email_subject,
+                email_body,
+                email_sender,
+                on_message_callback,
+                db
             )
 
         team_info = TEAMS[team]
@@ -792,3 +981,4 @@ orchestrator = AgenticTeamOrchestrator(
     openai_api_key=openai_api_key,
     openai_model=openai_model
 )
+>>>>>>> agentic-worklow
