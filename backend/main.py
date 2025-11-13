@@ -1804,10 +1804,13 @@ async def send_chat_message_to_team(task_id: str, request: dict):
         # Import orchestrator for LLM calls
         from agentic_teams import orchestrator, TEAMS as BACKEND_TEAMS
 
-        # Add user message to investment workflow context if team is investments
+        # Add user message to workflow context
         if team == "investments":
             from investment_workflow import investment_workflow
             investment_workflow.add_user_message(message)
+        elif team == "fraud":
+            from fraud_workflow import fraud_workflow
+            fraud_workflow.add_user_message(message)
 
         # Select an appropriate agent to respond (use first agent in team)
         team_info = BACKEND_TEAMS[team]

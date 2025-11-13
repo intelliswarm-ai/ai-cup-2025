@@ -171,6 +171,231 @@
       border-left: 4px solid #e91e63;
       transform: translateX(5px);
     }
+
+    /* Fraud Detection Progress Tracker */
+    .fraud-progress-tracker {
+      background: white;
+      border-radius: 12px;
+      padding: 25px;
+      margin: 20px 0;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      border-left: 4px solid #8B1538;
+    }
+
+    .progress-tracker-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .progress-steps {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+
+    .progress-step {
+      background: #f8f9fa;
+      border-radius: 10px;
+      padding: 15px;
+      text-align: center;
+      transition: all 0.3s ease;
+      border: 2px solid transparent;
+    }
+
+    .progress-step.pending {
+      opacity: 0.5;
+    }
+
+    .progress-step.active {
+      background: linear-gradient(195deg, #e3f2fd 0%, #bbdefb 100%);
+      border-color: #2196f3;
+      box-shadow: 0 4px 12px rgba(33, 150, 243, 0.2);
+    }
+
+    .progress-step.completed {
+      background: linear-gradient(195deg, #e8f5e9 0%, #c8e6c9 100%);
+      border-color: #4caf50;
+    }
+
+    .step-icon {
+      font-size: 32px;
+      margin-bottom: 8px;
+    }
+
+    .step-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: #666;
+      margin-bottom: 4px;
+    }
+
+    .step-status {
+      font-size: 11px;
+      color: #999;
+    }
+
+    .progress-step.active .step-status {
+      color: #2196f3;
+      font-weight: 600;
+      animation: pulse-text 1.5s ease-in-out infinite;
+    }
+
+    .progress-step.completed .step-status {
+      color: #4caf50;
+      font-weight: 600;
+    }
+
+    @keyframes pulse-text {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.6; }
+    }
+
+    .progress-timeline {
+      position: relative;
+      height: 4px;
+      background: #e0e0e0;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .progress-timeline-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #8B1538 0%, #4caf50 100%);
+      transition: width 0.5s ease;
+      border-radius: 2px;
+    }
+
+    .fraud-messages-container {
+      max-height: 400px;
+      overflow-y: auto;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 8px;
+      margin-top: 15px;
+    }
+
+    .fraud-agent-message {
+      background: white;
+      padding: 12px 15px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .fraud-agent-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #8B1538;
+    }
+
+    .fraud-agent-text {
+      font-size: 13px;
+      color: #555;
+      line-height: 1.5;
+    }
+
+    /* Tool Usage Styles */
+    .fraud-tool-usage {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 10px 12px;
+      border-radius: 8px;
+      margin-bottom: 8px;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-left: 4px solid #5a67d8;
+      animation: toolPulse 2s ease-in-out;
+    }
+
+    @keyframes toolPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.8; }
+    }
+
+    .fraud-tool-icon {
+      font-size: 16px;
+      animation: toolSpin 1s ease-in-out;
+    }
+
+    @keyframes toolSpin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .fraud-tool-name {
+      font-weight: 600;
+      font-family: 'Courier New', monospace;
+    }
+
+    .fraud-tool-type-badge {
+      background: rgba(255, 255, 255, 0.3);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
+      margin-left: auto;
+    }
+
+    /* User Message Styles */
+    .fraud-user-message {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 12px 15px;
+      border-radius: 8px 8px 0 8px;
+      margin: 10px 0 10px auto;
+      max-width: 80%;
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+      animation: slideInRight 0.3s ease;
+    }
+
+    @keyframes slideInRight {
+      from {
+        opacity: 0;
+        transform: translateX(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .fraud-user-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .fraud-user-text {
+      font-size: 13px;
+      line-height: 1.5;
+    }
   </style>
 </head>
 
@@ -401,6 +626,62 @@
         </div>
       </div>
 
+      <!-- Fraud Detection Progress Modal -->
+      <div class="modal fade" id="fraudProgressModal" tabindex="-1" role="dialog" aria-labelledby="fraudProgressModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+          <div class="modal-content">
+            <div class="modal-header">
+              <h5 class="modal-title font-weight-normal" id="fraudProgressModalLabel">
+                <i class="material-icons-round" style="vertical-align: middle;">security</i>
+                Fraud Detection Analysis
+              </h5>
+              <button type="button" class="btn-close text-dark" data-bs-dismiss="modal" aria-label="Close" id="fraud-modal-close">
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+            <div class="modal-body" id="fraudProgressModalBody">
+              <!-- Progress tracker will be injected here -->
+            </div>
+            <div class="modal-footer" style="display: block; padding: 0;">
+              <!-- Chat Input Section -->
+              <div id="fraud-chat-section" style="padding: 15px; border-top: 1px solid #e0e0e0; background: #f8f9fa;">
+                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                  <input
+                    type="text"
+                    id="fraud-chat-input"
+                    class="form-control"
+                    placeholder="Ask the fraud detection team a question..."
+                    style="flex: 1;"
+                    disabled
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-primary"
+                    id="fraud-send-chat-btn"
+                    onclick="sendFraudChatMessage()"
+                    disabled
+                  >
+                    <i class="material-icons-round" style="font-size: 16px; vertical-align: middle;">send</i>
+                    Send
+                  </button>
+                </div>
+                <div style="font-size: 11px; color: #666;" id="fraud-chat-hint">
+                  Chat will be enabled shortly. You can ask questions during and after the analysis.
+                </div>
+              </div>
+              <!-- Action Buttons -->
+              <div style="padding: 15px; display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="fraud-close-btn" style="display: none;">Close</button>
+                <a href="#" id="fraud-view-discussion-btn" class="btn btn-primary" target="_blank" style="display: none;">
+                  <i class="material-icons-round" style="font-size: 16px; vertical-align: middle;">forum</i>
+                  View Full Discussion
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </main>
 
@@ -455,6 +736,25 @@
         loadStatistics();
         resetEmailList();
         showSuccess(`LLM processed ${data.total_processed} emails!`);
+      });
+
+      // Listen for agentic fraud detection progress
+      sseClient.on('agentic_message', function(data) {
+        handleFraudProgressMessage(data);
+      });
+
+      sseClient.on('agentic_complete', function(data) {
+        handleFraudComplete(data);
+      });
+
+      // Listen for chat messages
+      sseClient.on('agentic_chat_response', function(data) {
+        handleFraudChatResponse(data);
+      });
+
+      sseClient.on('agentic_chat_user', function(data) {
+        // User messages are already displayed locally
+        console.log('[Fraud Chat] User message broadcasted:', data);
       });
     });
 
@@ -1738,6 +2038,477 @@
       } catch (error) {
         console.error('Error assigning team:', error);
         showNotification('danger', '✗ Failed to assign team to email. Please try again.');
+      }
+    }
+
+    // ============================================
+    // Fraud Detection Progress Tracking
+    // ============================================
+
+    let currentFraudTaskId = null;
+    let fraudProgressModal = null;
+    let fraudMessages = [];
+
+    // Create fraud progress tracker HTML
+    function createFraudProgressTracker() {
+      return `
+        <div class="fraud-progress-tracker" id="fraud-tracker">
+          <div class="progress-tracker-title">
+            <span>🔍</span>
+            <span>Fraud Detection Analysis Progress</span>
+          </div>
+          <div class="progress-steps" id="fraud-progress-steps">
+            <div class="progress-step pending" data-agent="Fraud Investigation Unit">
+              <div class="step-icon">🔍</div>
+              <div class="step-label">Fraud Type Detection</div>
+              <div class="step-status">Pending...</div>
+            </div>
+            <div class="progress-step pending" data-agent="Phishing Analysis">
+              <div class="step-icon">🎣</div>
+              <div class="step-label">Deep Investigation</div>
+              <div class="step-status">Pending...</div>
+            </div>
+            <div class="progress-step pending" data-agent="Database Investigation">
+              <div class="step-icon">💾</div>
+              <div class="step-label">Historical Analysis</div>
+              <div class="step-status">Pending...</div>
+            </div>
+            <div class="progress-step pending" data-agent="Final Decision">
+              <div class="step-icon">⚖️</div>
+              <div class="step-label">Risk Assessment</div>
+              <div class="step-status">Pending...</div>
+            </div>
+          </div>
+          <div class="progress-timeline">
+            <div class="progress-timeline-fill" id="fraud-timeline-fill" style="width: 0%"></div>
+          </div>
+        </div>
+        <div class="fraud-messages-container" id="fraud-messages">
+          <div style="text-align: center; color: #999; padding: 20px;">
+            <i class="material-icons-round" style="font-size: 48px;">hourglass_empty</i>
+            <p>Waiting for analysis to begin...</p>
+          </div>
+        </div>
+      `;
+    }
+
+    // Update fraud progress based on agent role
+    function updateFraudProgress(role, message) {
+      const tracker = document.getElementById('fraud-tracker');
+      if (!tracker) return;
+
+      const steps = tracker.querySelectorAll('.progress-step');
+
+      // Map agent roles to progress steps
+      const roleMapping = {
+        'Fraud Investigation Unit': 0,
+        'Fraud Type Detector': 0,
+        'Phishing Analysis Specialist': 1,
+        'Phishing Analyst': 1,
+        'Database Investigation Agent': 2,
+        'Investigation Specialist': 2,
+        'Quality Assurance Agent': 3,
+        'Fraud Decision Agent': 3,
+        'Final Decision': 3
+      };
+
+      let currentIndex = roleMapping[role];
+      if (currentIndex === undefined) {
+        // Try to match partial role names
+        for (const [key, value] of Object.entries(roleMapping)) {
+          if (role.includes(key) || key.includes(role)) {
+            currentIndex = value;
+            break;
+          }
+        }
+      }
+
+      if (currentIndex === undefined) return;
+
+      // Update steps
+      steps.forEach((step, index) => {
+        step.classList.remove('active', 'pending', 'completed');
+
+        if (index < currentIndex) {
+          step.classList.add('completed');
+          step.querySelector('.step-status').textContent = '✓ Complete';
+        } else if (index === currentIndex) {
+          step.classList.add('active');
+          step.querySelector('.step-status').textContent = 'In Progress...';
+        } else {
+          step.classList.add('pending');
+          step.querySelector('.step-status').textContent = 'Pending...';
+        }
+      });
+
+      // Update timeline
+      const progress = ((currentIndex + 1) / steps.length) * 100;
+      const timeline = document.getElementById('fraud-timeline-fill');
+      if (timeline) {
+        timeline.style.width = `${progress}%`;
+      }
+    }
+
+    // Handle fraud progress messages from SSE
+    function handleFraudProgressMessage(data) {
+      if (!currentFraudTaskId) return;
+
+      // Check if this message is for our current task
+      if (data.task_id && data.task_id !== currentFraudTaskId) return;
+
+      const message = data.message || data.data?.message;
+      if (!message) return;
+
+      console.log('[Fraud Progress] Message:', message);
+
+      // Update progress tracker
+      if (message.role) {
+        updateFraudProgress(message.role, message.text);
+      }
+
+      // Add message to display
+      if (!message.is_thinking && message.text) {
+        addFraudMessage(message);
+      }
+    }
+
+    // Add fraud message to the display
+    function addFraudMessage(message) {
+      const messagesContainer = document.getElementById('fraud-messages');
+      if (!messagesContainer) return;
+
+      // Remove empty state if present
+      if (messagesContainer.querySelector('[style*="text-align: center"]')) {
+        messagesContainer.innerHTML = '';
+      }
+
+      const messageDiv = document.createElement('div');
+
+      // Check if this is a tool usage message
+      if (message.is_tool_usage) {
+        messageDiv.className = 'fraud-tool-usage';
+        messageDiv.innerHTML = `
+          <span class="fraud-tool-icon">${message.icon || '🔧'}</span>
+          <div style="flex: 1;">
+            <div class="fraud-tool-name">${message.tool_name || 'Tool'}</div>
+            <div style="font-size: 11px; opacity: 0.9;">${escapeHtml(message.text)}</div>
+          </div>
+          <span class="fraud-tool-type-badge">${message.tool_type || 'TOOL'}</span>
+        `;
+      } else {
+        // Regular agent message
+        messageDiv.className = 'fraud-agent-message';
+        messageDiv.innerHTML = `
+          <div class="fraud-agent-header">
+            <span>${message.icon || '🤖'}</span>
+            <span>${message.role}</span>
+            ${message.timestamp ? `<span style="margin-left: auto; font-size: 11px; color: #999;">${new Date(message.timestamp).toLocaleTimeString()}</span>` : ''}
+          </div>
+          <div class="fraud-agent-text">${escapeHtml(message.text)}</div>
+        `;
+      }
+
+      messagesContainer.appendChild(messageDiv);
+
+      // Scroll to bottom
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+      // Store message
+      fraudMessages.push(message);
+    }
+
+    // Handle fraud detection complete
+    function handleFraudComplete(data) {
+      if (!currentFraudTaskId) return;
+
+      // Check if this completion is for our current task
+      if (data.task_id && data.task_id !== currentFraudTaskId) return;
+
+      console.log('[Fraud Progress] Complete:', data);
+
+      // Update progress to 100%
+      const timeline = document.getElementById('fraud-timeline-fill');
+      if (timeline) {
+        timeline.style.width = '100%';
+      }
+
+      // Mark all steps as completed
+      const tracker = document.getElementById('fraud-tracker');
+      if (tracker) {
+        const steps = tracker.querySelectorAll('.progress-step');
+        steps.forEach(step => {
+          step.classList.remove('active', 'pending');
+          step.classList.add('completed');
+          step.querySelector('.step-status').textContent = '✓ Complete';
+        });
+      }
+
+      // Add completion message
+      addFraudMessage({
+        role: 'Analysis Complete',
+        icon: '✅',
+        text: 'Fraud detection analysis has been completed successfully.',
+        timestamp: new Date().toISOString()
+      });
+
+      // Show close button and view discussion link
+      document.getElementById('fraud-close-btn').style.display = 'inline-block';
+      const viewBtn = document.getElementById('fraud-view-discussion-btn');
+      viewBtn.style.display = 'inline-block';
+      viewBtn.href = `/pages/agentic-teams.html?task_id=${currentFraudTaskId}&team=fraud`;
+
+      // Reload email list to show updated status
+      setTimeout(() => {
+        resetEmailList();
+        loadStatistics();
+      }, 1000);
+    }
+
+    // Show fraud progress modal
+    function showFraudProgressModal(taskId, emailSubject) {
+      currentFraudTaskId = taskId;
+      fraudMessages = [];
+
+      // Create modal body content
+      const modalBody = document.getElementById('fraudProgressModalBody');
+      modalBody.innerHTML = createFraudProgressTracker();
+
+      // Update modal title with email subject
+      if (emailSubject) {
+        document.getElementById('fraudProgressModalLabel').innerHTML = `
+          <i class="material-icons-round" style="vertical-align: middle;">security</i>
+          Fraud Detection: ${escapeHtml(emailSubject.substring(0, 50))}${emailSubject.length > 50 ? '...' : ''}
+        `;
+      }
+
+      // Hide action buttons initially
+      document.getElementById('fraud-close-btn').style.display = 'none';
+      document.getElementById('fraud-view-discussion-btn').style.display = 'none';
+
+      // Show modal
+      const modalElement = document.getElementById('fraudProgressModal');
+      if (!fraudProgressModal) {
+        fraudProgressModal = new bootstrap.Modal(modalElement);
+      }
+      fraudProgressModal.show();
+
+      // Enable chat after 3 seconds (give time for analysis to start)
+      setTimeout(() => {
+        enableFraudChat();
+      }, 3000);
+
+      // Reset on modal close
+      modalElement.addEventListener('hidden.bs.modal', function () {
+        currentFraudTaskId = null;
+        fraudMessages = [];
+        disableFraudChat();
+      }, { once: true });
+
+      // Add Enter key listener for chat input
+      const chatInput = document.getElementById('fraud-chat-input');
+      chatInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter' && !chatInput.disabled) {
+          sendFraudChatMessage();
+        }
+      });
+    }
+
+    // Enable fraud chat input
+    function enableFraudChat() {
+      const chatInput = document.getElementById('fraud-chat-input');
+      const sendBtn = document.getElementById('fraud-send-chat-btn');
+      const hint = document.getElementById('fraud-chat-hint');
+
+      if (chatInput && sendBtn) {
+        chatInput.disabled = false;
+        sendBtn.disabled = false;
+        chatInput.placeholder = "Ask the fraud detection team a question...";
+        if (hint) {
+          hint.textContent = "💬 Chat is now active! Ask questions during or after the analysis.";
+          hint.style.color = '#28a745';
+        }
+      }
+    }
+
+    // Disable fraud chat input
+    function disableFraudChat() {
+      const chatInput = document.getElementById('fraud-chat-input');
+      const sendBtn = document.getElementById('fraud-send-chat-btn');
+      const hint = document.getElementById('fraud-chat-hint');
+
+      if (chatInput && sendBtn) {
+        chatInput.disabled = true;
+        sendBtn.disabled = true;
+        chatInput.value = '';
+        if (hint) {
+          hint.textContent = "Chat will be enabled shortly. You can ask questions during and after the analysis.";
+          hint.style.color = '#666';
+        }
+      }
+    }
+
+    // Send chat message to fraud detection team
+    async function sendFraudChatMessage() {
+      if (!currentFraudTaskId) return;
+
+      const chatInput = document.getElementById('fraud-chat-input');
+      const message = chatInput.value.trim();
+
+      if (!message) return;
+
+      // Clear input
+      chatInput.value = '';
+      chatInput.disabled = true;
+      document.getElementById('fraud-send-chat-btn').disabled = true;
+
+      // Display user message
+      addFraudUserMessage(message);
+
+      try {
+        // Send message to backend
+        const response = await fetch(`${API_BASE_URL}/agentic/task/${currentFraudTaskId}/chat`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message })
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to send message');
+        }
+
+        const result = await response.json();
+        console.log('[Fraud Chat] Message sent:', result);
+
+        // Re-enable input
+        chatInput.disabled = false;
+        document.getElementById('fraud-send-chat-btn').disabled = false;
+        chatInput.focus();
+
+      } catch (error) {
+        console.error('[Fraud Chat] Error sending message:', error);
+
+        // Show error message
+        addFraudMessage({
+          role: 'System',
+          icon: '⚠️',
+          text: 'Failed to send message. Please try again.',
+          timestamp: new Date().toISOString()
+        });
+
+        // Re-enable input
+        chatInput.disabled = false;
+        document.getElementById('fraud-send-chat-btn').disabled = false;
+      }
+    }
+
+    // Add user message to fraud chat
+    function addFraudUserMessage(messageText) {
+      const messagesContainer = document.getElementById('fraud-messages');
+      if (!messagesContainer) return;
+
+      // Remove empty state if present
+      if (messagesContainer.querySelector('[style*="text-align: center"]')) {
+        messagesContainer.innerHTML = '';
+      }
+
+      const messageDiv = document.createElement('div');
+      messageDiv.className = 'fraud-user-message';
+      messageDiv.innerHTML = `
+        <div class="fraud-user-header">
+          <span>👤</span>
+          <span>You</span>
+          <span style="margin-left: auto; font-size: 11px;">${new Date().toLocaleTimeString()}</span>
+        </div>
+        <div class="fraud-user-text">${escapeHtml(messageText)}</div>
+      `;
+
+      messagesContainer.appendChild(messageDiv);
+
+      // Scroll to bottom
+      messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+      // Store message
+      fraudMessages.push({
+        role: 'User',
+        text: messageText,
+        timestamp: new Date().toISOString(),
+        is_user: true
+      });
+    }
+
+    // Handle chat response from agents
+    function handleFraudChatResponse(data) {
+      if (!currentFraudTaskId) return;
+
+      // Check if this response is for our current task
+      if (data.task_id && data.task_id !== currentFraudTaskId) return;
+
+      const message = data.message || data.data?.message;
+      if (!message) return;
+
+      console.log('[Fraud Chat] Response:', message);
+
+      // Display agent response
+      addFraudMessage(message);
+    }
+
+    // Modified confirmTeamAssignment to show progress modal for fraud team
+    const originalConfirmTeamAssignment = confirmTeamAssignment;
+    async function confirmTeamAssignment() {
+      const { emailId, teamKey, emailSubject } = pendingAssignment;
+      const assignmentMessage = document.getElementById('assignment-message').value.trim();
+
+      try {
+        // Build request body
+        const requestBody = {
+          team: teamKey
+        };
+
+        if (assignmentMessage) {
+          requestBody.assignment_message = assignmentMessage;
+        }
+
+        const response = await fetch(`${API_BASE_URL}/emails/${emailId}/assign-team`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to assign team');
+        }
+
+        const result = await response.json();
+
+        // Hide assignment modal
+        const assignmentModal = bootstrap.Modal.getInstance(document.getElementById('teamAssignmentModal'));
+        assignmentModal.hide();
+
+        // Close email detail modal if open
+        const emailModal = bootstrap.Modal.getInstance(document.getElementById('emailModal'));
+        if (emailModal) {
+          emailModal.hide();
+        }
+
+        // Show fraud progress modal if fraud team
+        if (teamKey === 'fraud') {
+          showFraudProgressModal(result.task_id, emailSubject);
+        } else {
+          // Show success message for other teams
+          alert(`Email assigned to ${getTeamDisplayName(teamKey)} team!\nAgentic workflow started.\nTask ID: ${result.task_id}`);
+
+          // Optionally open the workflow page
+          if (confirm('Would you like to view the agentic workflow discussion?')) {
+            window.open(result.workflow_url, '_blank');
+          }
+        }
+
+        // Reload email list to show updated status
+        resetEmailList();
+
+      } catch (error) {
+        console.error('Error assigning team:', error);
+        alert('Failed to assign team to email. Please try again.');
       }
     }
   </script>
