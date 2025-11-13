@@ -1,0 +1,122 @@
+@if (isOpen && email) {
+  <div class="modal fade show d-block" tabindex="-1" role="dialog" (click)="close()">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document" (click)="$event.stopPropagation()">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title font-weight-normal">Email Details</h5>
+          <button type="button" class="btn-close text-dark" (click)="close()" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <!-- Basic Information -->
+          <div class="mb-3">
+            <strong>Subject:</strong> {{ email.subject }}<br>
+            <strong>From:</strong> {{ email.sender }}<br>
+            <strong>To:</strong> {{ email.recipient }}<br>
+            <strong>Received:</strong> {{ formatDate(email.received_at) }}<br>
+            <strong>Status:</strong>
+            <span class="badge text-white ms-2" [ngClass]="getStatusBadgeClass()">
+              {{ getStatusText() }}
+            </span>
+          </div>
+
+          <!-- Ground Truth Label -->
+          @if (email.label !== null && email.label !== undefined) {
+            <div class="mb-3">
+              <strong>Ground Truth:</strong>
+              <div class="mt-2">
+                <span class="badge badge-sm text-white"
+                      [ngClass]="email.label === 1 ? 'bg-gradient-danger' : 'bg-gradient-success'">
+                  {{ email.label === 1 ? 'PHISHING' : 'LEGITIMATE' }}
+                </span>
+                @if (email.phishing_type) {
+                  <span class="badge badge-sm bg-gradient-secondary ms-2">
+                    Category: {{ email.phishing_type.replace('_', ' ').toUpperCase() }}
+                  </span>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- Email Badges -->
+          @if (email.badges && email.badges.length > 0) {
+            <div class="mb-3">
+              <strong>Categories:</strong>
+              <div class="mt-2">
+                @for (badge of email.badges; track badge) {
+                  <span class="badge badge-sm bg-gradient-info me-1">{{ badge }}</span>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- UI Badges -->
+          @if (email.ui_badges && email.ui_badges.length > 0) {
+            <div class="mb-3">
+              <strong>Status:</strong>
+              <div class="mt-2">
+                @for (badge of email.ui_badges; track badge) {
+                  <span class="badge badge-sm bg-gradient-primary me-1">{{ badge }}</span>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- Email Body -->
+          <div class="mb-3">
+            <strong>Message:</strong>
+            <div class="mt-2 p-3 bg-light rounded">
+              <pre class="mb-0" style="white-space: pre-wrap; font-size: 0.875rem;">{{ email.body }}</pre>
+            </div>
+          </div>
+
+          <!-- Workflow Results -->
+          @if (email.workflow_results && email.workflow_results.length > 0) {
+            <div class="mb-3">
+              <strong>Workflow Results ({{ email.workflow_results.length }}):</strong>
+              <div class="mt-2">
+                @for (result of email.workflow_results; track $index) {
+                  <div class="card mb-2">
+                    <div class="card-body p-2">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted">{{ result.workflow_name }}</small>
+                        <span class="badge badge-sm"
+                              [ngClass]="result.is_phishing_detected ? 'bg-gradient-danger' : 'bg-gradient-success'">
+                          {{ result.is_phishing_detected ? 'Phishing' : 'Safe' }}
+                        </span>
+                      </div>
+                      @if (result.confidence_score) {
+                        <small class="text-muted">Confidence: {{ result.confidence_score }}%</small>
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- Assigned Team -->
+          @if (email.assigned_team) {
+            <div class="mb-3">
+              <strong>Assigned Team:</strong>
+              <span class="badge bg-gradient-info ms-2">{{ email.assigned_team }}</span>
+            </div>
+          }
+
+          <!-- Suggested Team -->
+          @if (email.suggested_team && !email.assigned_team) {
+            <div class="mb-3">
+              <strong>Suggested Team:</strong>
+              <span class="badge bg-gradient-secondary ms-2">{{ email.suggested_team }}</span>
+            </div>
+          }
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="close()">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal-backdrop fade show"></div>
+}

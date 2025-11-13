@@ -1,0 +1,25 @@
+.navbar-main {
+  position: sticky;
+  top: 0.5rem;
+  background-color: rgba(255, 255, 255, 0.8);
+  backdrop-filter: saturate(200%) blur(30px);
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.05);
+  padding: 0.5rem 1rem;
+  margin-bottom: 1rem;
+  z-index: 1020;
+
+  h6 {
+    margin: 0;
+    font-size: 0.875rem;
+    font-weight: 700;
+    color: #344767;
+  }
+}
+
+.shadow-none {
+  box-shadow: none !important;
+}
+
+.border-radius-xl {
+  border-radius: 0.75rem;
+}
