@@ -49,6 +49,28 @@ class InvestmentResearchWorkflow:
         context += "\nPlease address any user questions or concerns in your analysis.\n"
         return context
 
+    async def _notify_tool_usage(
+        self,
+        callback,
+        agent: str,
+        agent_icon: str,
+        tool_name: str,
+        tool_description: str,
+        tool_type: str = "Tool"  # "Tool" or "MCP"
+    ):
+        """Send tool usage notification via callback"""
+        if callback:
+            icon = "🔧" if tool_type == "Tool" else "🔌"
+            await callback({
+                "role": agent,
+                "icon": agent_icon,
+                "text": f"{icon} Using {tool_type}: **{tool_name}** - {tool_description}",
+                "timestamp": datetime.now().isoformat(),
+                "is_tool_usage": True,
+                "tool_name": tool_name,
+                "tool_type": tool_type
+            })
+
     async def analyze_stock(
         self,
         company_or_ticker: str,
@@ -159,6 +181,26 @@ class InvestmentResearchWorkflow:
                 "is_thinking": True
             })
 
+        # Notify about tool usage - Search Financial Data
+        await self._notify_tool_usage(
+            on_progress_callback,
+            "Financial Analyst",
+            "📊",
+            "Financial Data Search",
+            "Searching for financial metrics, P/E ratio, EPS, revenue trends",
+            "Tool"
+        )
+
+        # Notify about tool usage - Company Website Scraper
+        await self._notify_tool_usage(
+            on_progress_callback,
+            "Financial Analyst",
+            "📊",
+            "Company Website Scraper",
+            "Extracting company information and financial data from official website",
+            "Tool"
+        )
+
         # Gather financial data
         tasks = [
             self.search_tools.search_financial_data(company),
@@ -249,6 +291,16 @@ Use specific numbers and metrics where available. Keep your analysis under 600 w
                 "is_thinking": True
             })
 
+        # Notify about tool usage - News Search
+        await self._notify_tool_usage(
+            on_progress_callback,
+            "Research Analyst",
+            "🔍",
+            "News Search API",
+            f"Searching for recent news and market analyses (last 30 days) for {company}",
+            "Tool"
+        )
+
         # Search for recent news and market information
         news_results = await self.search_tools.search_news(company, days=30)
 
@@ -328,6 +380,26 @@ Be specific with dates and sources where available. Keep your summary under 600 
                 "timestamp": datetime.now().isoformat(),
                 "is_thinking": True
             })
+
+        # Notify about tool usage - SEC 10-K Retrieval
+        await self._notify_tool_usage(
+            on_progress_callback,
+            "Filings Analyst",
+            "📋",
+            "SEC EDGAR 10-K API",
+            f"Retrieving annual financial report (10-K filing) for {company}",
+            "Tool"
+        )
+
+        # Notify about tool usage - SEC 10-Q Retrieval
+        await self._notify_tool_usage(
+            on_progress_callback,
+            "Filings Analyst",
+            "📋",
+            "SEC EDGAR 10-Q API",
+            f"Retrieving quarterly financial report (10-Q filing) for {company}",
+            "Tool"
+        )
 
         # Gather SEC filings
         tasks = [
