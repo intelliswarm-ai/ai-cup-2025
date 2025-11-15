@@ -68,7 +68,7 @@ export const assignTeam = createAction(
 
 export const assignTeamSuccess = createAction(
   '[Emails] Assign Team Success',
-  props<{ email: Email }>()
+  props<{ emailId: number; taskId: string; assignedTeam: string }>()
 );
 
 export const assignTeamFailure = createAction(

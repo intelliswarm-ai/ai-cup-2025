@@ -1,6 +1,6 @@
 import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Email } from '../../../../core/models/email.model';
+import { Email, TeamAssignment } from '../../../../core/models/email.model';
 import { Router } from '@angular/router';
 
 @Component({
@@ -15,7 +15,7 @@ export class EmailDetailModalComponent {
   @Input() isOpen = false;
   @Output() closeModal = new EventEmitter<void>();
   @Output() processEmail = new EventEmitter<number>();
-  @Output() assignToTeam = new EventEmitter<{ emailId: number; team: string }>();
+  @Output() assignToTeam = new EventEmitter<TeamAssignment>();
 
   constructor(private router: Router) {}
 
@@ -83,28 +83,15 @@ export class EmailDetailModalComponent {
 
   assignTeam(team: string): void {
     if (this.email) {
-      // Show confirmation with option for message
-      const message = prompt(
-        `Assign this email to ${this.getTeamDisplayName(team)} team?\n\n` +
-        `Email: ${this.email.subject}\n\n` +
-        `Optional: Add specific instructions or questions for the team:`,
-        ''
-      );
+      // Assign to team without popups
+      this.assignToTeam.emit({
+        emailId: this.email.id,
+        team,
+        message: undefined  // Can be enhanced later with a proper modal form
+      });
 
-      // null means cancelled, empty string means no message (but confirmed)
-      if (message !== null) {
-        this.assignToTeam.emit({
-          emailId: this.email.id,
-          team,
-          message: message.trim() || undefined
-        });
-
-        // Show immediate feedback
-        alert(`Email assigned to ${this.getTeamDisplayName(team)} team!\nAgentic workflow will start processing this email.`);
-
-        // Close modal after assignment
-        this.close();
-      }
+      // Close modal - the parent will handle navigation to agentic-teams page
+      this.close();
     }
   }
 }

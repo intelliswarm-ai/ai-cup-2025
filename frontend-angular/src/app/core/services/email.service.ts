@@ -30,10 +30,10 @@ export class EmailService {
     return this.http.post<{ count: number }>(`${this.apiUrl}/process-all`, {});
   }
 
-  assignTeamToEmail(assignment: TeamAssignment): Observable<Email> {
-    return this.http.post<Email>(
+  assignTeamToEmail(assignment: TeamAssignment): Observable<{ status: string; email_id: number; assigned_team: string; task_id: string; workflow_url: string }> {
+    return this.http.post<{ status: string; email_id: number; assigned_team: string; task_id: string; workflow_url: string }>(
       `${this.apiUrl}/${assignment.emailId}/assign-team`,
-      { team: assignment.team, message: assignment.message }
+      { team: assignment.team, assignment_message: assignment.message }
     );
   }
 

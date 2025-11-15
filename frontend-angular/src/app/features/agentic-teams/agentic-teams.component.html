@@ -111,8 +111,8 @@
           </div>
         </div>
 
-        <!-- Team Presentation Panel -->
-        <div class="team-presentation-panel" id="team-presentation-panel" [style.display]="showTeamPresentation ? 'block' : 'none'">
+        <!-- Team Presentation Panel (Read-only View) -->
+        <div class="team-presentation-panel" id="team-presentation-panel" [style.display]="showTeamPresentation && !isEditMode ? 'block' : 'none'">
           <div class="presentation-header">
             <div style="flex: 1;">
               <h3 id="presentation-team-title">{{ getCurrentTeamInfo()?.name || 'Team Members' }}</h3>
@@ -151,6 +151,64 @@
                 </div>
               }
             }
+          </div>
+        </div>
+
+        <!-- Team Configuration Panel (Edit Mode) -->
+        <div class="team-config-panel" id="team-config-panel" [style.display]="isEditMode ? 'block' : 'none'">
+          <div class="team-config-header">
+            <div style="flex: 1;">
+              <h3 id="team-config-title">{{ getCurrentTeamInfo()?.name || 'Team' }} Configuration</h3>
+              <p class="team-config-subtitle">Customize team members and their prompts</p>
+            </div>
+            <button class="btn btn-outline-secondary" (click)="exitEditMode()">
+              <i class="material-icons-round">arrow_back</i> Back to View
+            </button>
+          </div>
+
+          <div class="team-members-list" id="team-members-config">
+            @if (getCurrentTeamInfo(); as teamInfo) {
+              @for (member of teamInfo.members; track member.name; let idx = $index) {
+                <div class="team-member-card" [attr.data-index]="idx">
+                  <div class="member-card-header">
+                    <div class="member-card-title">
+                      <span>{{ member.icon }}</span>
+                      <span>{{ member.name }}</span>
+                    </div>
+                    <div class="member-card-badge" [class.decision-maker]="member.memberType === 'Decision Maker'">
+                      {{ member.memberType }}
+                    </div>
+                  </div>
+
+                  <div class="member-field-group">
+                    <label class="member-field-label">Role</label>
+                    <input type="text" class="member-field-input" [value]="member.role" readonly>
+                  </div>
+
+                  <div class="member-field-group">
+                    <label class="member-field-label">Personality</label>
+                    <textarea class="member-field-textarea" rows="3" readonly>{{ member.personality }}</textarea>
+                  </div>
+
+                  <div class="member-field-group">
+                    <label class="member-field-label">Responsibilities</label>
+                    <textarea class="member-field-textarea" rows="3" readonly>{{ member.responsibilities }}</textarea>
+                  </div>
+
+                  <div class="member-field-group">
+                    <label class="member-field-label">Communication Style</label>
+                    <textarea class="member-field-textarea" rows="2" readonly>{{ member.communicationStyle }}</textarea>
+                  </div>
+                </div>
+              }
+            }
+          </div>
+
+          <div class="team-config-note" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-left: 4px solid #6c757d; border-radius: 4px;">
+            <p style="margin: 0; color: #6c757d;">
+              <i class="material-icons-round" style="font-size: 16px; vertical-align: middle;">info</i>
+              <strong>Note:</strong> This is a read-only view. Team member editing and persistence will be added in a future update.
+            </p>
           </div>
         </div>
 

@@ -1,4 +1,5 @@
 import { inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { Actions, createEffect, ofType } from '@ngrx/effects';
 import { of } from 'rxjs';
 import { map, catchError, switchMap, tap } from 'rxjs/operators';
@@ -81,10 +82,42 @@ export const assignTeam = createEffect(
       ofType(EmailsActions.assignTeam),
       switchMap(({ assignment }) =>
         emailService.assignTeamToEmail(assignment).pipe(
-          map(email => EmailsActions.assignTeamSuccess({ email })),
+          map(response => EmailsActions.assignTeamSuccess({
+            emailId: response.email_id,
+            taskId: response.task_id,
+            assignedTeam: response.assigned_team
+          })),
           catchError(error => of(EmailsActions.assignTeamFailure({ error })))
         )
       )
+    );
+  },
+  { functional: true }
+);
+
+export const navigateToAgenticTeamsAfterAssignment = createEffect(
+  (actions$ = inject(Actions), router = inject(Router)) => {
+    return actions$.pipe(
+      ofType(EmailsActions.assignTeamSuccess),
+      tap(({ emailId, taskId }) => {
+        // Navigate to agentic-teams page to show real-time workflow discussion
+        router.navigate(['/agentic-teams'], {
+          queryParams: {
+            email_id: emailId,
+            task_id: taskId
+          }
+        });
+      })
+    );
+  },
+  { functional: true, dispatch: false }
+);
+
+export const reloadEmailsAfterAssignment = createEffect(
+  (actions$ = inject(Actions)) => {
+    return actions$.pipe(
+      ofType(EmailsActions.assignTeamSuccess),
+      map(() => EmailsActions.loadEmails({ limit: 100, offset: 0, append: false }))
     );
   },
   { functional: true }

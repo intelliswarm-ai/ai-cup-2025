@@ -485,6 +485,124 @@
   }
 }
 
+/* Team Configuration Panel */
+.team-config-panel {
+  padding: 30px;
+  overflow-y: auto;
+  max-height: calc(100vh - 300px);
+}
+
+.team-config-header {
+  margin-bottom: 30px;
+  border-bottom: 2px solid #e0e0e0;
+  padding-bottom: 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  h3 {
+    font-size: 20px;
+    font-weight: 600;
+    margin: 0;
+  }
+}
+
+.team-config-subtitle {
+  color: #666;
+  font-size: 14px;
+  margin-top: 5px;
+}
+
+.team-members-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-bottom: 30px;
+}
+
+.team-member-card {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 12px;
+  padding: 20px;
+  transition: all 0.3s ease;
+
+  &:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+}
+
+.member-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 15px;
+}
+
+.member-card-title {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-weight: 600;
+  font-size: 16px;
+  color: #333;
+
+  span:first-child {
+    font-size: 32px;
+  }
+}
+
+.member-card-badge {
+  padding: 6px 12px;
+  background: #f0f0f0;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+
+  &.decision-maker {
+    background: linear-gradient(195deg, #4caf50 0%, #388e3c 100%);
+    color: white;
+  }
+}
+
+.member-field-group {
+  margin-bottom: 15px;
+}
+
+.member-field-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.member-field-input,
+.member-field-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  background: #f8f9fa;
+
+  &:focus {
+    outline: none;
+    border-color: #e91e63;
+    box-shadow: 0 0 0 3px rgba(233, 30, 99, 0.1);
+    background: white;
+  }
+}
+
+.member-field-textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
 /* Responsive */
 @media (max-width: 1200px) {
   .dashboard-grid {

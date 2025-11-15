@@ -36,6 +36,35 @@ export interface WorkflowResult {
   confidence_score: number;
   risk_indicators: string[];
   created_at: string;
+  result?: {
+    status?: string;
+    email_id?: number;
+    team?: string;
+    team_name?: string;
+    discussion?: {
+      status?: string;
+      team?: string;
+      team_name?: string;
+      email_id?: number;
+      messages: WorkflowMessage[];
+      decision?: {
+        decision_maker?: string;
+        decision_text?: string;
+      };
+      rounds?: number;
+    };
+  };
+}
+
+export interface WorkflowMessage {
+  role: string;
+  icon: string;
+  text: string;
+  timestamp: string;
+  is_decision?: boolean;
+  is_tool_usage?: boolean;
+  is_thinking?: boolean;
+  is_progress?: boolean;
 }
 
 export interface LLMAnalysis {

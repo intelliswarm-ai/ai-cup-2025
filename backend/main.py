@@ -1543,6 +1543,14 @@ async def run_agentic_workflow_background(task_id: str, email_id: int, team: str
                 executed_at=datetime.now()
             )
             db.add(workflow_result)
+
+            # Update email processed status
+            email = db.query(Email).filter(Email.id == email_id).first()
+            if email:
+                email.processed = True
+                email.llm_processed = True
+                logger.info(f"[Task {task_id}] Updated email {email_id} processed status to True")
+
             db.commit()
             logger.info(f"[Task {task_id}] Saved result to database")
         except Exception as db_error:

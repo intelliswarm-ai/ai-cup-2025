@@ -9,6 +9,7 @@ import { Email } from '../../core/models/email.model';
 import { selectAllEmails } from '../../store';
 import * as EmailsActions from '../../store/emails/emails.actions';
 import { EmailService } from '../../core/services/email.service';
+import { SseService } from '../../core/services/sse.service';
 
 interface TeamMember {
   name: string;
@@ -46,6 +47,7 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
   private route = inject(ActivatedRoute);
   private store = inject(Store);
   private emailService = inject(EmailService);
+  private sseService = inject(SseService);
   private destroy$ = new Subject<void>();
   private selectedTeam$ = new BehaviorSubject<string | null>(null);
 
@@ -58,6 +60,7 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
 
   showDirectInteraction: boolean = false;
   showTeamPresentation: boolean = false;
+  isEditMode: boolean = false;
 
   teams: { [key: string]: TeamInfo } = {
     'fraud': {
@@ -207,6 +210,27 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
     // Load emails from store
     this.store.dispatch(EmailsActions.loadEmails({ limit: 100, offset: 0, append: false }));
 
+    // Connect to SSE for real-time updates
+    this.sseService.connect().pipe(
+      takeUntil(this.destroy$)
+    ).subscribe();
+
+    // Listen for agentic workflow messages
+    this.sseService.onEvent('agentic_message').pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(data => {
+      console.log('[SSE] Agentic message:', data);
+      this.handleAgenticMessage(data);
+    });
+
+    // Listen for workflow completion
+    this.sseService.onEvent('agentic_complete').pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(data => {
+      console.log('[SSE] Agentic complete:', data);
+      this.handleAgenticComplete(data);
+    });
+
     // Subscribe to route query parameters
     this.route.queryParams.pipe(
       takeUntil(this.destroy$)
@@ -214,6 +238,21 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
       this.selectedTeam = params['team'] || null;
       this.selectedTeam$.next(this.selectedTeam);
       console.log('Selected team:', this.selectedTeam);
+
+      // Check if email_id is provided in query params
+      const emailId = params['email_id'];
+      if (emailId) {
+        // Wait for emails to load, then select the email
+        this.store.select(selectAllEmails)
+          .pipe(takeUntil(this.destroy$))
+          .subscribe(emails => {
+            const email = emails.find(e => e.id === parseInt(emailId, 10));
+            if (email && this.selectedEmail?.id !== email.id) {
+              console.log('[Query Params] Selecting email:', emailId);
+              this.selectEmail(email);
+            }
+          });
+      }
 
       // Show direct interaction and team presentation when team is selected
       this.updateViewState();
@@ -256,6 +295,41 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
   selectEmail(email: Email): void {
     this.selectedEmail = email;
     this.updateViewState();
+
+    // Load historical messages from workflow_results if available
+    if (email && email.workflow_results && email.workflow_results.length > 0) {
+      console.log(`[selectEmail] Email ${email.id} has ${email.workflow_results.length} workflow results`);
+
+      const workflowResult = email.workflow_results[0];
+
+      if (!workflowResult.result) {
+        console.warn(`[selectEmail] No result field in workflow_result for email ${email.id}`);
+        return;
+      }
+
+      if (!workflowResult.result.discussion) {
+        console.warn(`[selectEmail] No discussion field in result for email ${email.id}`);
+        return;
+      }
+
+      if (!workflowResult.result.discussion.messages) {
+        console.warn(`[selectEmail] No messages array in discussion for email ${email.id}`);
+        return;
+      }
+
+      // Convert workflow messages to discussion messages format
+      this.discussionMessages[email.id] = workflowResult.result.discussion.messages.map((msg) => ({
+        agentName: msg.role,
+        agentIcon: msg.icon,
+        content: msg.text,
+        timestamp: msg.timestamp || 'Earlier',
+        isToolUsage: msg.is_tool_usage || false  // Fixed: was incorrectly using is_decision
+      }));
+
+      console.log(`[selectEmail] Successfully loaded ${this.discussionMessages[email.id].length} historical messages for email ${email.id}`);
+    } else {
+      console.log(`[selectEmail] Email ${email.id} has no workflow results`);
+    }
   }
 
   private updateViewState(): void {
@@ -348,12 +422,10 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
     const query = this.directQuery.trim();
 
     if (!query) {
-      alert('Please enter a request');
       return;
     }
 
     if (!this.selectedTeam || this.selectedTeam === 'all') {
-      alert('Please select a specific team first');
       return;
     }
 
@@ -387,14 +459,10 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
                 }
               });
           }, 500);
-
-          // Show success message
-          alert(`Request submitted successfully!\nThe ${this.getTeamName(this.selectedTeam)} team is now working on your request.`);
         },
         error: (error) => {
           console.error('[Direct Query] Error:', error);
           this.isSubmittingQuery = false;
-          alert(`Failed to submit request: ${error.message || 'Unknown error'}`);
         }
       });
   }
@@ -405,31 +473,23 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
 
   enterEditMode(): void {
     if (!this.selectedTeam || this.selectedTeam === 'all') {
-      alert('Please select a specific team to edit its configuration');
       return;
     }
 
     const teamInfo = this.getCurrentTeamInfo();
     if (!teamInfo) {
-      alert('Team information not available');
       return;
     }
 
-    // Show information about the team configuration
-    const membersList = teamInfo.members
-      .map(m => `• ${m.name} (${m.role})`)
-      .join('\n');
+    // Switch to edit mode
+    this.isEditMode = true;
+    this.showTeamPresentation = false;
+  }
 
-    const message = `Team Configuration: ${teamInfo.name}\n\n` +
-      `Current Team Members:\n${membersList}\n\n` +
-      `This team has ${teamInfo.members.length} members including specialized roles for:\n` +
-      `- Analysis and investigation\n` +
-      `- Technical assessment\n` +
-      `- Decision making and recommendations\n\n` +
-      `Note: Full team customization (adding/removing members, editing prompts) ` +
-      `is available in the vanilla implementation and can be migrated to Angular if needed.`;
-
-    alert(message);
+  exitEditMode(): void {
+    // Switch back to presentation mode
+    this.isEditMode = false;
+    this.showTeamPresentation = true;
   }
 
   getStatusText(email: Email): string {
@@ -453,5 +513,54 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
       return 'For Compliance Team: Submit regulatory queries (e.g., "Review FATCA compliance requirements")';
     }
     return 'Submit your request to the team';
+  }
+
+  private handleAgenticMessage(data: any): void {
+    const emailId = data.email_id;
+    const agentName = data.agent_name || 'Agent';
+    const message = data.message || '';
+
+    if (!emailId) return;
+
+    // Add message to discussion
+    if (!this.discussionMessages[emailId]) {
+      this.discussionMessages[emailId] = [];
+    }
+
+    const newMessage: DiscussionMessage = {
+      agentName: agentName,
+      agentIcon: this.getAgentIcon(agentName),
+      content: message,
+      timestamp: 'Just now',
+      isToolUsage: data.tool_usage || false
+    };
+
+    this.discussionMessages[emailId].push(newMessage);
+  }
+
+  private handleAgenticComplete(data: any): void {
+    const emailId = data.email_id;
+    console.log('[Workflow Complete] Email:', emailId);
+
+    // Reload emails to get updated status
+    this.store.dispatch(EmailsActions.loadEmails({ limit: 100, offset: 0, append: false }));
+  }
+
+  private getAgentIcon(agentName: string): string {
+    const iconMap: { [key: string]: string } = {
+      'Financial Analyst': '📊',
+      'Research Analyst': '🔍',
+      'Filings Analyst': '📋',
+      'Investment Advisor': '💼',
+      'Fraud Detection Specialist': '🔍',
+      'Forensic Analyst': '🧪',
+      'Legal Advisor': '⚖️',
+      'Security Director': '🛡️',
+      'Compliance Officer': '📋',
+      'Legal Counsel': '⚖️',
+      'Auditor': '📊',
+      'Regulatory Liaison': '🏛️'
+    };
+    return iconMap[agentName] || '🤖';
   }
 }

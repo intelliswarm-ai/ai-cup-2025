@@ -84,13 +84,10 @@ export const emailsReducer = createReducer(
   })),
   
   // Assign team
-  on(EmailsActions.assignTeamSuccess, (state, { email }) => {
-    const emails = state.emails.map(e => e.id === email.id ? email : e);
-    return {
-      ...state,
-      emails,
-      selectedEmail: state.selectedEmail?.id === email.id ? email : state.selectedEmail
-    };
+  on(EmailsActions.assignTeamSuccess, (state) => {
+    // Email list will be reloaded by the reloadEmailsAfterAssignment effect
+    // Navigation to agentic-teams page handled by navigateToAgenticTeamsAfterAssignment effect
+    return state;
   }),
   
   // Clear
