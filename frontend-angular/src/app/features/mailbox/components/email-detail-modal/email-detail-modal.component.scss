@@ -41,3 +41,176 @@ pre {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   color: #344767;
 }
+
+/* Fraud Progress Tracker */
+.fraud-progress-tracker {
+  background: white;
+  border-radius: 12px;
+  padding: 25px;
+  margin: 20px 0;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  border-left: 4px solid #8B1538;
+}
+
+.progress-tracker-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.progress-steps {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+}
+
+.progress-step {
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 15px;
+  text-align: center;
+  transition: all 0.3s ease;
+  border: 2px solid transparent;
+
+  &.pending {
+    opacity: 0.5;
+  }
+
+  &.active {
+    background: linear-gradient(195deg, #e3f2fd 0%, #bbdefb 100%);
+    border-color: #2196f3;
+    box-shadow: 0 4px 12px rgba(33, 150, 243, 0.2);
+  }
+
+  &.completed {
+    background: linear-gradient(195deg, #e8f5e9 0%, #c8e6c9 100%);
+    border-color: #4caf50;
+  }
+}
+
+.step-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.step-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.step-status {
+  font-size: 11px;
+  color: #999;
+}
+
+.progress-step.active .step-status {
+  color: #2196f3;
+  font-weight: 600;
+  animation: pulse-text 1.5s ease-in-out infinite;
+}
+
+.progress-step.completed .step-status {
+  color: #4caf50;
+  font-weight: 600;
+}
+
+@keyframes pulse-text {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.progress-timeline {
+  position: relative;
+  height: 4px;
+  background: #e0e0e0;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.progress-timeline-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #8B1538 0%, #4caf50 100%);
+  transition: width 0.5s ease;
+  border-radius: 2px;
+}
+
+/* Fraud Messages Container */
+.fraud-messages-container {
+  max-height: 400px;
+  overflow-y: auto;
+  background: #f8f9fa;
+  border-radius: 10px;
+  padding: 15px;
+  margin: 20px 0;
+}
+
+.fraud-message {
+  background: white;
+  border-radius: 8px;
+  padding: 12px 15px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  border-left: 3px solid #8B1538;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+}
+
+.fraud-message-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.fraud-message-icon {
+  font-size: 18px;
+}
+
+.fraud-message-agent {
+  font-weight: 600;
+  color: #333;
+  flex: 1;
+}
+
+.fraud-message-time {
+  font-size: 11px;
+  color: #999;
+}
+
+.fraud-message-content {
+  font-size: 13px;
+  color: #555;
+  line-height: 1.5;
+}
+
+/* Fraud Chat Input */
+.fraud-chat-input {
+  margin: 20px 0;
+
+  textarea {
+    margin-bottom: 8px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    transition: border-color 0.2s ease;
+
+    &:focus {
+      border-color: #8B1538;
+      box-shadow: 0 0 0 3px rgba(139, 21, 56, 0.1);
+    }
+  }
+
+  small {
+    display: block;
+    font-size: 12px;
+  }
+}

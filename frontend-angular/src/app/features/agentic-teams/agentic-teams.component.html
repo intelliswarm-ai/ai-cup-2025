@@ -123,6 +123,176 @@
             </button>
           </div>
 
+          <!-- Team Tools Section -->
+          @if (getCurrentTeamInfo(); as teamInfo) {
+            <div class="team-tools-section">
+              <div class="tools-header">
+                <i class="material-icons-round">build_circle</i>
+                <h4>Team Equipped Tools</h4>
+                <span class="tools-count">{{ teamInfo.tools.length }} tools configured</span>
+              </div>
+              <div class="tools-list">
+                @for (tool of teamInfo.tools; track $index) {
+                  <div class="tool-card" [class.expanded]="isToolExpanded($index)">
+                    <!-- Tool Header -->
+                    <div class="tool-card-header" (click)="toggleToolExpansion($index)">
+                      <div class="tool-main-info">
+                        <div class="tool-name-row">
+                          <i class="material-icons-round tool-icon">{{ getToolTypeIcon(tool.type) }}</i>
+                          <span class="tool-name">{{ tool.name }}</span>
+                          <span class="tool-status" [class.active]="tool.isActive" [class.inactive]="!tool.isActive">
+                            {{ tool.isActive ? 'Active' : 'Inactive' }}
+                          </span>
+                        </div>
+                        <div class="tool-badges">
+                          <span class="tool-type-badge" [ngClass]="getToolTypeBadgeClass(tool.type)">
+                            {{ tool.type.toUpperCase() }}
+                          </span>
+                          @if (tool.provider) {
+                            <span class="tool-provider">{{ tool.provider }}</span>
+                          }
+                        </div>
+                      </div>
+                      <i class="material-icons-round expand-icon">
+                        {{ isToolExpanded($index) ? 'expand_less' : 'expand_more' }}
+                      </i>
+                    </div>
+
+                    <!-- Tool Details (Expandable) -->
+                    @if (isToolExpanded($index)) {
+                      <div class="tool-card-body">
+                        @if (tool.description) {
+                          <div class="tool-description">
+                            <i class="material-icons-round">info</i>
+                            <p>{{ tool.description }}</p>
+                          </div>
+                        }
+
+                        <!-- Tool Configuration -->
+                        <div class="tool-configuration">
+                          <div class="config-header">
+                            <h5>Configuration</h5>
+                            <div class="config-actions-group">
+                              <button class="btn-test-tool" (click)="testTool(tool, $index); $event.stopPropagation()" [disabled]="isToolTesting($index)">
+                                <i class="material-icons-round">{{ isToolTesting($index) ? 'hourglass_empty' : 'play_arrow' }}</i>
+                                {{ isToolTesting($index) ? 'Testing...' : 'Test Tool' }}
+                              </button>
+                              <button class="btn-edit-config" (click)="toggleToolEdit($index); $event.stopPropagation()">
+                                <i class="material-icons-round">{{ isToolEditing($index) ? 'close' : 'edit' }}</i>
+                                {{ isToolEditing($index) ? 'Cancel' : 'Edit' }}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div class="config-items">
+                            @for (key of getConfigKeys(tool.configuration); track key) {
+                              <div class="config-item">
+                                <span class="config-key">{{ formatConfigKey(key) }}</span>
+                                @if (isToolEditing($index)) {
+                                  <input
+                                    type="text"
+                                    class="config-value-input"
+                                    [value]="getConfigValue(tool.configuration[key])"
+                                    (click)="$event.stopPropagation()" />
+                                } @else {
+                                  <span class="config-value">{{ getConfigValue(tool.configuration[key]) }}</span>
+                                }
+                              </div>
+                            }
+                          </div>
+
+                          @if (isToolEditing($index)) {
+                            <div class="config-actions">
+                              <button class="btn btn-sm btn-primary" (click)="$event.stopPropagation()">
+                                <i class="material-icons-round">save</i> Save Changes
+                              </button>
+                              <button class="btn btn-sm btn-outline-secondary" (click)="toggleToolEdit($index); $event.stopPropagation()">
+                                Cancel
+                              </button>
+                            </div>
+                          }
+                        </div>
+
+                        <!-- Tool Test Results -->
+                        @if (getToolTestResult($index); as testResult) {
+                          <div class="tool-test-results"
+                               [class.success]="testResult.success && !testResult.isWarning"
+                               [class.warning]="testResult.isWarning"
+                               [class.error]="!testResult.success">
+                            <div class="test-results-header">
+                              <div class="test-results-title">
+                                <i class="material-icons-round">
+                                  {{ testResult.isWarning ? 'warning' : (testResult.success ? 'check_circle' : 'error') }}
+                                </i>
+                                <h5>
+                                  {{ testResult.isWarning ? 'Configuration Valid - Needs Setup' : (testResult.success ? 'Test Successful' : 'Test Failed') }}
+                                </h5>
+                              </div>
+                              <div class="test-results-meta">
+                                <span class="test-time">{{ testResult.timestamp }}</span>
+                                <span class="test-response-time">{{ testResult.responseTime }}ms</span>
+                              </div>
+                            </div>
+
+                            @if (testResult.isWarning) {
+                              <div class="test-results-warning-message">
+                                @if (testResult.message || testResult.data?.message) {
+                                  <div class="warning-message-item success">
+                                    <i class="material-icons-round">check_circle</i>
+                                    <span>{{ testResult.message || testResult.data?.message }}</span>
+                                  </div>
+                                }
+                                @if (testResult.data?.analysis_value) {
+                                  <div class="warning-message-item info">
+                                    <i class="material-icons-round">analytics</i>
+                                    <span>{{ testResult.data.analysis_value }}</span>
+                                  </div>
+                                }
+                                @if (testResult.data?.setup_note) {
+                                  <div class="warning-message-item note">
+                                    <i class="material-icons-round">info</i>
+                                    <span>{{ testResult.data.setup_note }}</span>
+                                  </div>
+                                }
+                                @if (testResult.warning) {
+                                  <div class="warning-message-item alert">
+                                    <i class="material-icons-round">warning</i>
+                                    <span>{{ testResult.warning }}</span>
+                                  </div>
+                                }
+                              </div>
+                            }
+
+                            @if (testResult.success && testResult.data && !testResult.isWarning) {
+                              <div class="test-results-data">
+                                <h6>Tool Response:</h6>
+                                <pre><code>{{ testResult.data | json }}</code></pre>
+                              </div>
+                            }
+
+                            @if (testResult.isWarning && testResult.data) {
+                              <div class="test-results-data">
+                                <h6>Technical Details:</h6>
+                                <pre><code>{{ testResult.data | json }}</code></pre>
+                              </div>
+                            }
+
+                            @if (!testResult.success && testResult.error) {
+                              <div class="test-results-error">
+                                <i class="material-icons-round">error</i>
+                                <span>{{ testResult.error }}</span>
+                              </div>
+                            }
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            </div>
+          }
+
           <div class="presentation-members-grid" id="presentation-members-grid">
             @if (getCurrentTeamInfo(); as teamInfo) {
               @for (member of teamInfo.members; track member.name) {
@@ -216,7 +386,7 @@
         <div class="discussion-messages" [style.display]="(selectedEmail && !showDirectInteraction && !showTeamPresentation) ? 'block' : 'none'">
           @if (selectedEmail) {
             <!-- Investment Progress Tracker -->
-            @if (selectedEmail.assigned_team === 'investments' && investmentProgress.currentStep >= 0) {
+            @if (selectedEmail.assigned_team === 'investments') {
               <div class="investment-progress-tracker">
                 <div class="progress-tracker-title">
                   <span>📊</span>
@@ -242,7 +412,7 @@
             }
 
             <!-- Fraud Progress Tracker -->
-            @if (selectedEmail.assigned_team === 'fraud' && fraudProgress.currentStep >= 0) {
+            @if (selectedEmail.assigned_team === 'fraud') {
               <div class="investment-progress-tracker">
                 <div class="progress-tracker-title">
                   <span>🔍</span>

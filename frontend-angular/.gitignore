@@ -44,3 +44,6 @@ Thumbs.db
 # Visual regression test artifacts
 /visual-regression-history
 /visual-regression-results
+
+# Documentation folder
+/docs

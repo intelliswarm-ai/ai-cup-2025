@@ -126,6 +126,65 @@
             </div>
           }
 
+          <!-- Fraud Detection Progress Tracker -->
+          @if (showFraudProgress) {
+            <div class="fraud-progress-tracker">
+              <div class="progress-tracker-title">
+                <span>🔍</span>
+                <span>Fraud Detection Analysis Progress</span>
+              </div>
+              <div class="progress-steps">
+                @for (step of fraudProgressSteps; track step.label) {
+                  <div class="progress-step" [ngClass]="step.status">
+                    <div class="step-icon">{{ step.icon }}</div>
+                    <div class="step-label">{{ step.label }}</div>
+                    <div class="step-status">
+                      @if (step.status === 'completed') {
+                        ✓ Complete
+                      } @else if (step.status === 'active') {
+                        In Progress...
+                      } @else {
+                        Pending...
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+              <div class="progress-timeline">
+                <div class="progress-timeline-fill" [style.width.%]="fraudProgressPercent"></div>
+              </div>
+            </div>
+
+            <!-- Fraud Analysis Messages -->
+            <div class="fraud-messages-container">
+              @if (fraudMessages.length === 0) {
+                <div style="text-align: center; color: #999; padding: 20px;">
+                  <i class="material-icons-round" style="font-size: 48px;">hourglass_empty</i>
+                  <p>Waiting for analysis to begin...</p>
+                </div>
+              } @else {
+                @for (message of fraudMessages; track $index) {
+                  <div class="fraud-message">
+                    <div class="fraud-message-header">
+                      <span class="fraud-message-icon">{{ message.icon }}</span>
+                      <span class="fraud-message-agent">{{ message.agentName }}</span>
+                      <span class="fraud-message-time">{{ message.timestamp }}</span>
+                    </div>
+                    <div class="fraud-message-content">{{ message.content }}</div>
+                  </div>
+                }
+              }
+            </div>
+
+            <!-- Chat Input for Fraud Discussion -->
+            <div class="fraud-chat-input">
+              <textarea class="form-control"
+                        rows="2"
+                        placeholder="Ask the fraud detection team a question..."></textarea>
+              <small class="text-muted">💬 Chat is now active! Ask questions during or after the analysis.</small>
+            </div>
+          }
+
           <!-- Email Content with Keywords -->
           @if (email.enriched && email.enriched_data && email.enriched_data.enriched_keywords && email.enriched_data.enriched_keywords.length > 0) {
             <div class="mb-3">

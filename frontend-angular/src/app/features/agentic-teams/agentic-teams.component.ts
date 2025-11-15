@@ -31,11 +31,34 @@ interface DiscussionMessage {
   isDecision?: boolean;
 }
 
+interface Tool {
+  name: string;
+  type: 'mcp' | 'proprietary' | 'public' | 'api';
+  description?: string;
+  provider?: string;
+  isActive: boolean;
+  configuration: {
+    [key: string]: string | number | boolean;
+  };
+}
+
+interface ToolTestResult {
+  success: boolean;
+  isWarning?: boolean;
+  data?: any;
+  error?: string;
+  warning?: string;
+  message?: string;
+  timestamp: string;
+  responseTime?: number;
+}
+
 interface TeamInfo {
   name: string;
   key: string;
   badge: string;
   members: TeamMember[];
+  tools: Tool[];
 }
 
 @Component({
@@ -63,12 +86,17 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
   showDirectInteraction: boolean = false;
   showTeamPresentation: boolean = false;
   isEditMode: boolean = false;
+  expandedToolIndex: number | null = null;
+  editingToolIndex: number | null = null;
+  testingToolIndex: number | null = null;
+  toolTestResults: { [key: number]: ToolTestResult } = {};
 
   teams: { [key: string]: TeamInfo } = {
     'fraud': {
       name: 'Fraud Investigation Unit',
       key: 'fraud',
       badge: 'team-fraud',
+      tools: [],  // Will be loaded from backend
       members: [
         {
           name: 'Fraud Detection Specialist',
@@ -112,6 +140,7 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
       name: 'Compliance & Regulatory Affairs',
       key: 'compliance',
       badge: 'team-compliance',
+      tools: [],  // Will be loaded from backend
       members: [
         {
           name: 'Compliance Officer',
@@ -155,6 +184,7 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
       name: 'Investment Research Team',
       key: 'investments',
       badge: 'team-investments',
+      tools: [],  // Will be loaded from backend
       members: [
         {
           name: 'Financial Analyst',
@@ -286,6 +316,16 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
       // Show direct interaction and team presentation when team is selected
       this.updateViewState();
     });
+
+    // Subscribe to team changes to load tools dynamically
+    this.selectedTeam$.pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(teamKey => {
+      if (teamKey && teamKey !== 'all') {
+        console.log(`[selectedTeam$] Team changed to: ${teamKey}, loading tools...`);
+        this.loadTeamTools(teamKey);
+      }
+    });
   }
 
   ngOnDestroy(): void {
@@ -323,6 +363,16 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
 
   selectEmail(email: Email): void {
     this.selectedEmail = email;
+
+    // Auto-select team from email if not already selected
+    if (email.assigned_team && !this.selectedTeam) {
+      console.log(`[selectEmail] Auto-selecting team '${email.assigned_team}' from email ${email.id}`);
+      this.selectedTeam = email.assigned_team;
+      this.selectedTeam$.next(this.selectedTeam);
+      // Load tools for the auto-selected team
+      this.loadTeamTools(email.assigned_team);
+    }
+
     this.updateViewState();
 
     // Reset progress trackers for new email
@@ -588,6 +638,163 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
     // Switch back to presentation mode
     this.isEditMode = false;
     this.showTeamPresentation = true;
+  }
+
+  // Tool management methods
+  toggleToolExpansion(index: number): void {
+    if (this.expandedToolIndex === index) {
+      this.expandedToolIndex = null;
+    } else {
+      this.expandedToolIndex = index;
+      this.editingToolIndex = null; // Close editing when expanding another
+    }
+  }
+
+  isToolExpanded(index: number): boolean {
+    return this.expandedToolIndex === index;
+  }
+
+  toggleToolEdit(index: number): void {
+    if (this.editingToolIndex === index) {
+      this.editingToolIndex = null;
+    } else {
+      this.editingToolIndex = index;
+    }
+  }
+
+  isToolEditing(index: number): boolean {
+    return this.editingToolIndex === index;
+  }
+
+  getToolTypeBadgeClass(type: string): string {
+    const badges = {
+      'mcp': 'tool-type-mcp',
+      'proprietary': 'tool-type-proprietary',
+      'public': 'tool-type-public',
+      'api': 'tool-type-api'
+    };
+    return badges[type as keyof typeof badges] || 'tool-type-default';
+  }
+
+  getToolTypeIcon(type: string): string {
+    const icons = {
+      'mcp': 'extension',
+      'proprietary': 'lock',
+      'public': 'public',
+      'api': 'api'
+    };
+    return icons[type as keyof typeof icons] || 'settings';
+  }
+
+  getConfigKeys(config: { [key: string]: string | number | boolean }): string[] {
+    return Object.keys(config);
+  }
+
+  getConfigValue(value: string | number | boolean): string {
+    if (typeof value === 'boolean') {
+      return value ? 'enabled' : 'disabled';
+    }
+    return String(value);
+  }
+
+  async testTool(tool: Tool, index: number): Promise<void> {
+    console.log(`[Tool Test] Testing tool: ${tool.name} (${tool.type})`);
+
+    this.testingToolIndex = index;
+    const startTime = Date.now();
+
+    try {
+      // Call backend API to actually test the tool
+      const response = await fetch('http://localhost:8000/api/tools/test', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          tool_name: tool.name,
+          tool_type: tool.type,
+          configuration: tool.configuration,
+          provider: tool.provider
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      const responseTime = Date.now() - startTime;
+
+      // Check if this is a warning (e.g., configured but needs auth, not deployed)
+      const isWarning = result.data?.is_warning || result.data?.status === 'configured' || result.data?.status === 'authentication_required' || result.data?.status === 'not_deployed';
+
+      this.toolTestResults[index] = {
+        success: true,
+        isWarning: isWarning,
+        data: result.data || result,
+        message: result.data?.message,
+        warning: result.data?.warning,
+        timestamp: new Date().toLocaleTimeString(),
+        responseTime
+      };
+
+      console.log(`[Tool Test] ${isWarning ? 'Warning' : 'Success'} for ${tool.name}:`, result);
+    } catch (error: any) {
+      const responseTime = Date.now() - startTime;
+      this.toolTestResults[index] = {
+        success: false,
+        error: error.message || 'Tool test failed',
+        timestamp: new Date().toLocaleTimeString(),
+        responseTime
+      };
+      console.error(`[Tool Test] Error for ${tool.name}:`, error);
+    } finally {
+      this.testingToolIndex = null;
+    }
+  }
+
+  isToolTesting(index: number): boolean {
+    return this.testingToolIndex === index;
+  }
+
+  getToolTestResult(index: number): ToolTestResult | null {
+    return this.toolTestResults[index] || null;
+  }
+
+  async loadTeamTools(teamKey: string): Promise<void> {
+    if (!teamKey || teamKey === 'all') {
+      return;
+    }
+
+    console.log(`[loadTeamTools] Loading tools for team: ${teamKey}`);
+
+    try {
+      const response = await fetch(`http://localhost:8000/api/teams/${teamKey}/tools`);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      // Update the team's tools with the loaded data
+      if (this.teams[teamKey]) {
+        this.teams[teamKey].tools = result.tools || [];
+        console.log(`[loadTeamTools] Loaded ${result.tools?.length || 0} tools for team ${teamKey}:`, result.tools);
+      }
+    } catch (error: any) {
+      console.error(`[loadTeamTools] Error loading tools for team ${teamKey}:`, error);
+      // Keep empty array on error
+      if (this.teams[teamKey]) {
+        this.teams[teamKey].tools = [];
+      }
+    }
+  }
+
+  formatConfigKey(key: string): string {
+    return key.split('_').map(word =>
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
   }
 
   getStatusText(email: Email): string {
