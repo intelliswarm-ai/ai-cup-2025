@@ -21,8 +21,8 @@
           <li class="nav-item">
             <a class="nav-link text-white"
                [routerLink]="[item.route]"
-               routerLinkActive="active bg-gradient-primary"
-               [routerLinkActiveOptions]="{exact: false}">
+               [queryParams]="item.queryParams || {}"
+               [ngClass]="{'active bg-gradient-primary': isLinkActive(item)}">
               <div class="text-white text-center me-2 d-flex align-items-center justify-content-center">
                 <i class="material-icons-round opacity-10">{{ item.icon }}</i>
               </div>

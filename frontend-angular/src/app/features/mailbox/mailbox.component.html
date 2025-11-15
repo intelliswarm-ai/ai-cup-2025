@@ -73,7 +73,7 @@
           <h6>Email Inbox</h6>
         </div>
         <div class="card-body px-0 pb-2">
-          <div class="px-4">
+          <div class="email-list-container px-4" (scroll)="onScroll($event)">
             @if (loading$ | async) {
               <div class="text-center py-4">
                 <div class="spinner-border text-primary" role="status">
@@ -145,5 +145,7 @@
     [email]="selectedEmail$ | async"
     [isOpen]="isModalOpen"
     (closeModal)="closeModal()"
+    (processEmail)="processEmail($event)"
+    (assignToTeam)="assignTeamToEmail($event)"
   />
 </div>

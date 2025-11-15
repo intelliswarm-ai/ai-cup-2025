@@ -3,7 +3,9 @@ export interface Email {
   subject: string;
   sender: string;
   recipient: string;
-  body: string;
+  body?: string;  // Legacy field for compatibility
+  body_text?: string;  // Actual field from API
+  body_html?: string;  // HTML version from API
   received_at: string;
   processed: boolean;
   is_phishing: boolean;
@@ -15,10 +17,16 @@ export interface Email {
   phishing_type: string | null;
   suggested_team: string | null;
   assigned_team: string | null;
+  team_assigned_at?: string | null;
+  agentic_task_id?: string | null;
   badges: string[];
   ui_badges: string[];
   workflow_results: WorkflowResult[];
   llm_analysis?: LLMAnalysis;
+  enriched_data?: EnrichedData;
+  summary?: string | null;
+  call_to_actions?: string[];
+  quick_reply_drafts?: QuickReplyDrafts;
 }
 
 export interface WorkflowResult {
@@ -66,4 +74,37 @@ export interface TeamAssignment {
   emailId: number;
   team: string;
   message?: string;
+}
+
+export interface EnrichedData {
+  enriched_keywords?: EnrichedKeyword[];
+  relevant_pages?: string[];
+  sender_employee?: EmployeeInfo;
+  recipient_employee?: EmployeeInfo;
+}
+
+export interface EnrichedKeyword {
+  keyword: string;
+  wiki_page: string;
+  confidence: number;
+  context: string;
+}
+
+export interface EmployeeInfo {
+  employee_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  mobile: string;
+  department: string;
+  designation: string;
+  city: string;
+  country: string;
+}
+
+export interface QuickReplyDrafts {
+  formal?: string;
+  friendly?: string;
+  brief?: string;
 }

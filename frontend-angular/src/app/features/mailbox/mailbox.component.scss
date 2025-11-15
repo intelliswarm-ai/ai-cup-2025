@@ -1,3 +1,8 @@
+.email-list-container {
+  // No max-height to allow full email list display (matching vanilla)
+  overflow-x: hidden;
+}
+
 .email-card {
   cursor: pointer;
   transition: transform 0.2s, box-shadow 0.2s;

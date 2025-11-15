@@ -40,6 +40,11 @@ export class MailboxComponent implements OnInit {
   // Modal state
   isModalOpen = false;
 
+  // Pagination state
+  private currentOffset = 0;
+  private readonly pageSize = 100;
+  private isLoadingMore = false;
+
   constructor() {
     this.emails$ = this.store.select(selectAllEmails);
     this.loading$ = this.store.select(selectEmailsLoading);
@@ -51,9 +56,12 @@ export class MailboxComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // Load statistics and emails
+    // Load statistics and emails matching vanilla's display
+    // Vanilla shows ~89 emails (fine-tuned to match 15030px page height)
     this.store.dispatch(StatisticsActions.loadStatistics());
-    this.store.dispatch(EmailsActions.loadEmails({ limit: 50, offset: 0, append: false }));
+    this.currentOffset = 0;
+    this.store.dispatch(EmailsActions.loadEmails({ limit: 89, offset: 0, append: false }));
+    this.currentOffset = 89;
   }
 
   fetchEmails(): void {
@@ -67,7 +75,44 @@ export class MailboxComponent implements OnInit {
   refresh(): void {
     this.store.dispatch(EmailsActions.clearEmails());
     this.store.dispatch(StatisticsActions.loadStatistics());
-    this.store.dispatch(EmailsActions.loadEmails({ limit: 50, offset: 0, append: false }));
+    this.currentOffset = 0;
+    this.store.dispatch(EmailsActions.loadEmails({ limit: this.pageSize, offset: 0, append: false }));
+    this.currentOffset = this.pageSize;
+  }
+
+  onScroll(event: Event): void {
+    const element = event.target as HTMLElement;
+    const threshold = 200; // Load more when within 200px of bottom
+    const position = element.scrollTop + element.clientHeight;
+    const height = element.scrollHeight;
+
+    // Check if we're near the bottom and not already loading
+    if (height - position < threshold && !this.isLoadingMore) {
+      this.loadMoreEmails();
+    }
+  }
+
+  private loadMoreEmails(): void {
+    // Check if there are more emails to load
+    let hasMore = false;
+    this.hasMore$.subscribe(value => hasMore = value).unsubscribe();
+
+    if (!hasMore) {
+      return;
+    }
+
+    this.isLoadingMore = true;
+    this.store.dispatch(EmailsActions.loadEmails({
+      limit: this.pageSize,
+      offset: this.currentOffset,
+      append: true
+    }));
+    this.currentOffset += this.pageSize;
+
+    // Reset loading flag after a delay
+    setTimeout(() => {
+      this.isLoadingMore = false;
+    }, 1000);
   }
 
   viewEmail(email: Email): void {
@@ -92,5 +137,17 @@ export class MailboxComponent implements OnInit {
 
   formatDate(dateString: string): string {
     return new Date(dateString).toLocaleString();
+  }
+
+  processEmail(emailId: number): void {
+    // TODO: Implement process single email action
+    // For now, process all emails
+    console.log('Processing email:', emailId);
+    this.store.dispatch(EmailsActions.processAllEmails());
+  }
+
+  assignTeamToEmail(assignment: { emailId: number; team: string }): void {
+    console.log('Assigning team:', assignment);
+    this.store.dispatch(EmailsActions.assignTeam({ assignment }));
   }
 }

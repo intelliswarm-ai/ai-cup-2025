@@ -17,6 +17,7 @@ import {
 } from '../../store';
 import { loadStatistics } from '../../store/statistics/statistics.actions';
 import * as EmailsActions from '../../store/emails/emails.actions';
+import { PageStateService } from '../../core/services/page-state.service';
 
 // Register Chart.js components
 Chart.register(...registerables);
@@ -167,8 +168,13 @@ Chart.register(...registerables);
               <div class="card-body p-3">
                 <div class="d-flex flex-column gap-3">
                   <button class="btn btn-primary w-100" (click)="fetchEmails()">
-                    <i class="material-icons-round">download</i> Start Fetcher
+                    <i class="material-icons-round">download</i> <span>Start Fetcher</span>
                   </button>
+                  @if (fetcherRunning) {
+                    <div class="text-sm text-center" style="padding: 8px; background: #e3f2fd; border-radius: 4px;">
+                      <strong>Fetching:</strong> <span>{{ fetchProgress }}</span>
+                    </div>
+                  }
                   <button class="btn btn-success w-100" (click)="processAll()">
                     <i class="material-icons-round">play_arrow</i> Process All
                   </button>
@@ -222,6 +228,7 @@ Chart.register(...registerables);
 })
 export class DashboardComponent implements OnInit, AfterViewInit {
   private store = inject(Store);
+  private pageState = inject(PageStateService);
 
   @ViewChild('distributionChart') distributionChartRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('workflowChart') workflowChartRef!: ElementRef<HTMLCanvasElement>;
@@ -236,6 +243,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   unreadCount$: Observable<number>;
   phishingCount$: Observable<number>;
   fraudDetected$: Observable<number>;
+
+  // Fetcher status
+  fetcherRunning = false;
+  fetchProgress = 'Batch 0, 0 emails';
 
   constructor() {
     this.statistics$ = this.store.select(selectStatistics);
@@ -258,6 +269,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.statistics$.subscribe(stats => {
       if (stats) {
         this.updateCharts(stats);
+        // Update last refresh timestamp
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString();
+        this.pageState.setLastUpdate(`(Updated: ${timeStr})`);
       }
     });
   }

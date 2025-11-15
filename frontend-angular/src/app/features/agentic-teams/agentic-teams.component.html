@@ -1,0 +1,195 @@
+<div class="container-fluid py-4">
+  <div class="dashboard-grid">
+    <!-- Left Panel: Email Queue -->
+    <div class="email-queue">
+      @if (teamEmails$ | async; as emails) {
+        <div class="email-queue-header">
+          @if (selectedTeam && selectedTeam !== 'all' && getCurrentTeamInfo(); as teamInfo) {
+            {{ teamInfo.name }}
+          } @else {
+            Email Queue
+          }
+          <span style="float: right; font-size: 14px; color: #666;">
+            <span id="queue-count">{{ emails.length }}</span> emails
+          </span>
+        </div>
+        <div id="email-queue-container">
+          @for (email of emails; track email.id) {
+            <div class="email-card"
+                 [class.active]="selectedEmail?.id === email.id"
+                 [class.processing]="getStatusClass(email) === 'status-processing'"
+                 [class.completed]="getStatusClass(email) === 'status-completed'"
+                 (click)="selectEmail(email)">
+              <div class="email-status-indicator">
+                <span class="status-indicator" [ngClass]="getStatusClass(email)"></span>
+                {{ getStatusText(email) }}
+              </div>
+              <div class="email-id">#{{ email.id }}</div>
+              <div class="email-subject">{{ email.subject }}</div>
+              <div class="email-meta">
+                <span>From: {{ email.sender }}</span>
+              </div>
+              @if (email.assigned_team) {
+                <span class="team-badge" [style.background]="getTeamColor(email.assigned_team)">
+                  {{ getTeamName(email.assigned_team) }}
+                </span>
+              }
+            </div>
+          }
+
+          @if (emails.length === 0) {
+            <div style="padding: 40px; text-align: center; color: #999;">
+              <i class="material-icons-round" style="font-size: 48px; margin-bottom: 16px;">inbox</i>
+              <p>No emails for this team</p>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- Right Panel: Team Discussion -->
+    <div class="discussion-panel">
+      <div class="discussion-header">
+        <div style="flex: 1;">
+          <div class="discussion-title" id="discussion-team">
+            {{ selectedEmail ? (getCurrentTeamInfo()?.name || 'Team Discussion') : 'Select an email to view team discussion' }}
+          </div>
+          <div class="discussion-subtitle" id="discussion-subject">
+            {{ selectedEmail?.subject || '' }}
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill"
+                 [style.width.%]="selectedEmail ? getProgressPercent(selectedEmail) : 0"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-container" id="chat-container">
+        <!-- Empty State -->
+        <div class="empty-state" id="empty-state" [style.display]="(!selectedEmail && !showDirectInteraction && !showTeamPresentation) ? 'flex' : 'none'">
+          <div class="empty-state-icon">💬</div>
+          <h3>No Discussion Selected</h3>
+          <p>Select an email from the queue to watch the virtual team discuss and decide</p>
+        </div>
+
+        <!-- Direct Interaction Panel -->
+        <div class="direct-interaction-panel" id="direct-interaction-panel" [style.display]="showDirectInteraction ? 'block' : 'none'">
+          <div class="interaction-header">
+            <div style="flex: 1;">
+              <h3 id="interaction-team-title">Ask the Team Directly</h3>
+              <p class="interaction-subtitle">Submit a request directly to the team without an email</p>
+            </div>
+          </div>
+
+          <div class="interaction-form-container">
+            <div class="form-group mb-3">
+              <label for="direct-query-input" class="form-label">Your Request</label>
+              <textarea
+                id="direct-query-input"
+                class="form-control"
+                rows="4"
+                [(ngModel)]="directQuery"
+                placeholder="e.g., I want a complete analysis for stock Apple"></textarea>
+              <small class="form-text text-muted">
+                {{ getQueryHint() }}
+              </small>
+            </div>
+
+            <div class="interaction-actions">
+              <button class="btn btn-primary" (click)="submitDirectQuery()" [disabled]="isSubmittingQuery">
+                @if (isSubmittingQuery) {
+                  <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                  Submitting...
+                } @else {
+                  <i class="material-icons-round">send</i> Submit to Team
+                }
+              </button>
+              <button class="btn btn-outline-secondary" (click)="clearDirectQuery()" [disabled]="isSubmittingQuery">
+                <i class="material-icons-round">clear</i> Clear
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Team Presentation Panel -->
+        <div class="team-presentation-panel" id="team-presentation-panel" [style.display]="showTeamPresentation ? 'block' : 'none'">
+          <div class="presentation-header">
+            <div style="flex: 1;">
+              <h3 id="presentation-team-title">{{ getCurrentTeamInfo()?.name || 'Team Members' }}</h3>
+              <p class="presentation-subtitle">Meet the experts who will analyze your emails</p>
+            </div>
+            <button class="btn btn-primary" (click)="enterEditMode()">
+              <i class="material-icons-round">edit</i> Edit Team
+            </button>
+          </div>
+
+          <div class="presentation-members-grid" id="presentation-members-grid">
+            @if (getCurrentTeamInfo(); as teamInfo) {
+              @for (member of teamInfo.members; track member.name) {
+                <div class="member-card">
+                  <div class="member-header">
+                    <div class="member-icon">{{ member.icon }}</div>
+                    <div>
+                      <div class="member-name">{{ member.name }}</div>
+                      <div class="member-type">{{ member.memberType }}</div>
+                    </div>
+                  </div>
+                  <div class="member-details">
+                    <div class="member-section">
+                      <strong>Personality</strong>
+                      <p>{{ member.personality }}</p>
+                    </div>
+                    <div class="member-section">
+                      <strong>Responsibilities</strong>
+                      <p>{{ member.responsibilities }}</p>
+                    </div>
+                    <div class="member-section">
+                      <strong>Communication Style</strong>
+                      <p>{{ member.communicationStyle }}</p>
+                    </div>
+                  </div>
+                </div>
+              }
+            }
+          </div>
+        </div>
+
+        <!-- Email Discussion -->
+        <div class="discussion-messages" [style.display]="(selectedEmail && !showDirectInteraction && !showTeamPresentation) ? 'block' : 'none'">
+          @if (selectedEmail) {
+            @for (message of getEmailDiscussion(selectedEmail.id); track $index) {
+              <div class="chat-message" [class.tool-usage-message]="message.isToolUsage">
+                <div class="message-header">
+                  <span class="agent-avatar">{{ message.agentIcon }}</span>
+                  <div style="flex: 1;">
+                    <div class="agent-name">{{ message.agentName }}</div>
+                    <div class="message-timestamp">{{ message.timestamp }}</div>
+                  </div>
+                </div>
+                <div class="message-content">{{ message.content }}</div>
+              </div>
+            }
+          }
+        </div>
+      </div>
+
+      <!-- Chat Input Container -->
+      @if (selectedEmail) {
+        <div class="chat-input-container">
+          <div class="chat-input-wrapper">
+            <textarea
+              id="chat-message-input"
+              rows="2"
+              [(ngModel)]="chatMessage"
+              placeholder="Ask a follow-up question to the team..."
+              (keypress)="handleChatKeypress($event)"></textarea>
+            <button class="chat-send-btn" (click)="sendChatMessage()">
+              <i class="material-icons-round">send</i>
+              Send
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</div>

@@ -43,4 +43,11 @@ export class EmailService {
       { message }
     );
   }
+
+  submitDirectQuery(team: string, query: string): Observable<{ task_id: string; email_id: number }> {
+    return this.http.post<{ task_id: string; email_id: number }>(
+      `${environment.apiUrl}/agentic/direct-query`,
+      { team, query }
+    );
+  }
 }

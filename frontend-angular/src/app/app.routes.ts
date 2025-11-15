@@ -18,13 +18,13 @@ export const routes: Routes = [
   },
   {
     path: 'daily-inbox-digest',
-    redirectTo: '/dashboard',
-    pathMatch: 'full'
+    loadComponent: () => import('./features/daily-inbox-digest/daily-inbox-digest.component')
+      .then(m => m.DailyInboxDigestComponent)
   },
   {
     path: 'agentic-teams',
-    redirectTo: '/dashboard',
-    pathMatch: 'full'
+    loadComponent: () => import('./features/agentic-teams/agentic-teams.component')
+      .then(m => m.AgenticTeamsComponent)
   }
   // Future routes (to be added during migration):
   // Will be replaced with actual components once migrated

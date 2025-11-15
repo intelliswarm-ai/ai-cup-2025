@@ -1,12 +1,26 @@
 {
   "name": "frontend-angular",
   "version": "0.0.0",
+  "type": "module",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "test:visual": "node visual-comparison.js",
+    "test:visual:all": "node visual-comparison.js --all",
+    "test:visual:comprehensive": "node comprehensive-visual-tests.js",
+    "test:visual:page": "node run-regression-tests.js page",
+    "test:visual:list": "node run-regression-tests.js list",
+    "test:visual:check": "node check-servers.js",
+    "test:visual:legacy": "node visual-regression-test.js",
+    "test:visual:virtual-teams": "node visual-regression-virtual-teams.js",
+    "test:interactive": "node interactive-test.js",
+    "test:interactive:page": "node interactive-test.js --page",
+    "test:interactive:enhanced": "node interactive-test-enhanced.js",
+    "test:interactive:enhanced:page": "node interactive-test-enhanced.js --page=",
+    "test:interactive:discover": "node interactive-test-enhanced.js --discover"
   },
   "private": true,
   "dependencies": {
@@ -41,6 +55,9 @@
     "karma-coverage": "~2.2.0",
     "karma-jasmine": "~5.1.0",
     "karma-jasmine-html-reporter": "~2.1.0",
+    "pixelmatch": "^7.1.0",
+    "playwright": "^1.56.1",
+    "pngjs": "^7.0.0",
     "typescript": "~5.5.2"
   }
 }
