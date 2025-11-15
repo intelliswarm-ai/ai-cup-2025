@@ -832,6 +832,225 @@ async def get_statistics(db: Session = Depends(get_db)):
         "llm_processed": len(all_emails)
     }
 
+@app.get("/api/dashboard/enriched-stats")
+async def get_enriched_dashboard_stats(db: Session = Depends(get_db)):
+    """
+    Get enriched statistics for dashboard including:
+    - Email analysis stats
+    - Workflow execution stats
+    - Team assignment stats
+    - Tool usage stats
+    - Time saved estimation
+    """
+    from tool_framework import get_tool_registry
+    from sqlalchemy import func
+
+    # === EMAIL ANALYSIS STATS ===
+    total_emails = db.query(Email).count()
+    processed_emails = db.query(Email).filter(Email.processed == True).count()
+    phishing_emails = db.query(Email).filter(Email.is_phishing == True).count()
+    legitimate_emails = db.query(Email).filter(
+        Email.processed == True,
+        Email.is_phishing == False
+    ).count()
+    llm_processed_emails = db.query(Email).filter(Email.llm_processed == True).count()
+    enriched_emails = db.query(Email).filter(Email.enriched == True).count()
+    wiki_enriched = db.query(Email).filter(Email.wiki_enriched == True).count()
+    phone_enriched = db.query(Email).filter(Email.phone_enriched == True).count()
+
+    # Badge breakdown
+    all_emails = db.query(Email).filter(Email.llm_processed == True).all()
+    badge_breakdown = {
+        "MEETING": 0,
+        "RISK": 0,
+        "EXTERNAL": 0,
+        "AUTOMATED": 0,
+        "VIP": 0,
+        "FOLLOW_UP": 0,
+        "NEWSLETTER": 0,
+        "FINANCE": 0
+    }
+
+    for email in all_emails:
+        if email.badges:
+            for badge in email.badges:
+                if badge in badge_breakdown:
+                    badge_breakdown[badge] += 1
+
+    # === WORKFLOW EXECUTION STATS ===
+    all_workflow_results = db.query(WorkflowResult).all()
+
+    workflow_stats_dict = {}
+    for result in all_workflow_results:
+        if result.workflow_name not in workflow_stats_dict:
+            workflow_stats_dict[result.workflow_name] = {
+                "total_executions": 0,
+                "phishing_detected": 0,
+                "confidence_scores": [],
+                "email_ids": []
+            }
+
+        workflow_stats_dict[result.workflow_name]["total_executions"] += 1
+        if result.is_phishing_detected:
+            workflow_stats_dict[result.workflow_name]["phishing_detected"] += 1
+        if result.confidence_score is not None:
+            workflow_stats_dict[result.workflow_name]["confidence_scores"].append(result.confidence_score)
+        workflow_stats_dict[result.workflow_name]["email_ids"].append(result.email_id)
+
+    workflows_summary = []
+    for workflow_name, stats in workflow_stats_dict.items():
+        avg_confidence = sum(stats["confidence_scores"]) / len(stats["confidence_scores"]) if stats["confidence_scores"] else 0
+
+        # Get ground truth for these emails
+        unique_email_ids = list(set(stats["email_ids"]))
+        ground_truth_phishing = db.query(Email).filter(
+            Email.id.in_(unique_email_ids),
+            Email.label == 1  # 1 = phishing in ground truth
+        ).count()
+        ground_truth_legitimate = len(unique_email_ids) - ground_truth_phishing
+
+        workflows_summary.append({
+            "workflow_name": workflow_name,
+            "total_executions": stats["total_executions"],
+            "phishing_detected": stats["phishing_detected"],
+            "safe_detected": stats["total_executions"] - stats["phishing_detected"],
+            "avg_confidence": round(avg_confidence, 1),
+            "ground_truth_phishing": ground_truth_phishing,
+            "ground_truth_legitimate": ground_truth_legitimate
+        })
+
+    # === TEAM ASSIGNMENT STATS ===
+    team_stats = db.query(
+        Email.assigned_team,
+        func.count(Email.id).label('assigned_count')
+    ).filter(Email.assigned_team.isnot(None)).group_by(Email.assigned_team).all()
+
+    team_assignments = {stat.assigned_team: stat.assigned_count for stat in team_stats}
+
+    suggested_team_stats = db.query(
+        Email.suggested_team,
+        func.count(Email.id).label('suggested_count')
+    ).filter(Email.suggested_team.isnot(None)).group_by(Email.suggested_team).all()
+
+    team_suggestions = {stat.suggested_team: stat.suggested_count for stat in suggested_team_stats}
+
+    # === TOOL USAGE STATS ===
+    registry = get_tool_registry()
+    all_tools = registry.get_all_tools()
+
+    tools_summary = {
+        "total_tools": len(all_tools),
+        "available_tools": len([t for t in all_tools if t.is_available()]),
+        "unavailable_tools": len([t for t in all_tools if not t.is_available()]),
+        "tools_by_type": {},
+        "tools_by_team": {}
+    }
+
+    # Count tools by type
+    for tool in all_tools:
+        metadata = tool.get_metadata()
+        tool_type = metadata.tool_type.value
+        if tool_type not in tools_summary["tools_by_type"]:
+            tools_summary["tools_by_type"][tool_type] = 0
+        tools_summary["tools_by_type"][tool_type] += 1
+
+    # Get team tool assignments from registry config
+    try:
+        team_assignments_config = registry.get_team_assignments()
+        for team_key, tool_names in team_assignments_config.items():
+            tools_summary["tools_by_team"][team_key] = len(tool_names)
+    except:
+        pass
+
+    # === TIME SAVED ESTIMATION ===
+    # Time estimates (in minutes):
+    # - Manual email review: 2-3 min per email → average 2.5 min
+    # - Phishing detection: 5 min per phishing email
+    # - Summary generation: 3-4 min per email → average 3.5 min
+    # - Quick reply draft: 5 min per response
+    # - Team routing: 2 min per assignment
+    # - Wiki enrichment: 3 min per email
+    # - Daily digest: Saves 15-20 email checks/day at 2.5 min each
+    #   Average person checks email 15 times/day = 37.5 min/day
+    #   With digest, 1 check/day = 2.5 min/day
+    #   Savings = 35 min/day per active user
+
+    emails_with_summaries = db.query(Email).filter(Email.summary.isnot(None)).count()
+    emails_with_replies = db.query(Email).filter(Email.quick_reply_drafts.isnot(None)).count()
+    emails_with_team_assignment = db.query(Email).filter(Email.assigned_team.isnot(None)).count()
+
+    # Estimate daily digest usage based on LLM processed emails
+    # Assume digest is generated once per day when there are processed emails
+    days_with_activity = max(1, llm_processed_emails // 10)  # Rough estimate: 10 emails per day average
+    daily_digest_time_saved = days_with_activity * 35  # 35 min saved per day
+
+    time_saved_minutes = (
+        (processed_emails * 2.5) +  # Email review time
+        (phishing_emails * 5) +      # Phishing detection time
+        (emails_with_summaries * 3.5) +  # Summary generation time
+        (emails_with_replies * 5) +  # Quick reply draft time
+        (emails_with_team_assignment * 2) +  # Team routing time
+        (enriched_emails * 3) +  # Wiki enrichment time
+        daily_digest_time_saved  # Daily inbox digest time savings
+    )
+
+    time_saved_hours = round(time_saved_minutes / 60, 1)
+    time_saved_days = round(time_saved_hours / 8, 1)  # 8-hour workday
+
+    # === RESPONSE ===
+    return {
+        "email_analysis": {
+            "total_emails": total_emails,
+            "processed_emails": processed_emails,
+            "unprocessed_emails": total_emails - processed_emails,
+            "phishing_detected": phishing_emails,
+            "legitimate_emails": legitimate_emails,
+            "phishing_rate": round((phishing_emails / processed_emails * 100), 1) if processed_emails > 0 else 0,
+            "llm_processed": llm_processed_emails,
+            "enriched_emails": enriched_emails,
+            "wiki_enriched": wiki_enriched,
+            "phone_enriched": phone_enriched,
+            "badge_breakdown": badge_breakdown,
+            "emails_with_summaries": emails_with_summaries,
+            "emails_with_replies": emails_with_replies
+        },
+        "workflow_execution": {
+            "total_workflow_executions": sum([w["total_executions"] for w in workflows_summary]),
+            "workflows": workflows_summary
+        },
+        "team_assignments": {
+            "total_assigned": sum(team_assignments.values()) if team_assignments else 0,
+            "total_suggested": sum(team_suggestions.values()) if team_suggestions else 0,
+            "assignments_by_team": team_assignments,
+            "suggestions_by_team": team_suggestions
+        },
+        "tools_usage": tools_summary,
+        "time_saved": {
+            "total_minutes": round(time_saved_minutes, 1),
+            "total_hours": time_saved_hours,
+            "total_days": time_saved_days,
+            "breakdown": {
+                "email_review": round(processed_emails * 2.5, 1),
+                "phishing_detection": round(phishing_emails * 5, 1),
+                "summary_generation": round(emails_with_summaries * 3.5, 1),
+                "reply_drafting": round(emails_with_replies * 5, 1),
+                "team_routing": round(emails_with_team_assignment * 2, 1),
+                "wiki_enrichment": round(enriched_emails * 3, 1),
+                "daily_digest": round(daily_digest_time_saved, 1)
+            },
+            "calculations": {
+                "email_review": {"count": processed_emails, "rate": 2.5, "unit": "emails"},
+                "phishing_detection": {"count": phishing_emails, "rate": 5, "unit": "phishing emails"},
+                "summary_generation": {"count": emails_with_summaries, "rate": 3.5, "unit": "summaries"},
+                "reply_drafting": {"count": emails_with_replies, "rate": 5, "unit": "drafts"},
+                "team_routing": {"count": emails_with_team_assignment, "rate": 2, "unit": "assignments"},
+                "wiki_enrichment": {"count": enriched_emails, "rate": 3, "unit": "enrichments"},
+                "daily_digest": {"count": days_with_activity, "rate": 35, "unit": "days"}
+            },
+            "daily_digest_days": days_with_activity
+        }
+    }
+
 @app.get("/api/workflows")
 async def get_workflows():
     """Get available workflows"""
@@ -2441,26 +2660,268 @@ async def test_api_tool(tool_name: str, config: dict, provider: str):
         # Other HTTP errors
         return {
             "status": "api_error",
-            "endpoint": url,
             "response_code": e.response.status_code,
             "error": e.response.text[:200],
             "note": "API endpoint exists but returned an error. Check parameters or documentation."
         }
-    except httpx.ConnectError:
+    except httpx.ConnectError as e:
         return {
             "status": "unreachable",
-            "endpoint": url,
             "message": "Cannot connect to API endpoint",
             "warning": "Check if endpoint URL is correct and network accessible",
-            "note": "This may indicate a network issue or incorrect URL",
+            "error": str(e),
             "is_warning": True
         }
     except Exception as e:
         return {
             "status": "error",
-            "endpoint": url,
-            "error": str(e)
+            "error": str(e),
+            "note": "Tool test encountered an error"
         }
+
+
+# ============================================================================
+# TOOL REGISTRY ENDPOINTS - Plugin Architecture
+# ============================================================================
+
+@app.get("/api/tools/registry")
+async def get_tool_registry_info():
+    """
+    Get complete tool registry information
+
+    Returns all tools, their metadata, and registry statistics
+    """
+    try:
+        from tool_framework import get_tool_registry
+
+        registry = get_tool_registry()
+        return registry.to_dict()
+
+    except Exception as e:
+        logger.error(f"Error getting tool registry: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/tools/registry/stats")
+async def get_registry_stats():
+    """
+    Get tool registry statistics
+
+    Returns:
+        Statistics about tools, assignments, and availability
+    """
+    try:
+        from tool_framework import get_tool_registry
+
+        registry = get_tool_registry()
+        return registry.get_registry_stats()
+
+    except Exception as e:
+        logger.error(f"Error getting registry stats: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/tools/search/capability/{capability}")
+async def search_tools_by_capability(capability: str):
+    """
+    Search for tools by capability
+
+    Args:
+        capability: Capability to search for (search, scrape, analyze, etc.)
+
+    Returns:
+        List of tools with that capability
+    """
+    try:
+        from tool_framework import get_tool_registry, ToolCapability
+
+        registry = get_tool_registry()
+
+        # Convert string to ToolCapability enum
+        try:
+            cap_enum = ToolCapability[capability.upper()]
+        except KeyError:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid capability. Valid options: {[c.value for c in ToolCapability]}"
+            )
+
+        tools = registry.search_by_capability(cap_enum)
+
+        return {
+            "capability": capability,
+            "tool_count": len(tools),
+            "tools": [tool.to_dict() for tool in tools]
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error searching tools by capability: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/tools/search/category/{category}")
+async def search_tools_by_category(category: str):
+    """
+    Search for tools by category
+
+    Args:
+        category: Category to search for (fraud, investment, compliance, etc.)
+
+    Returns:
+        List of tools in that category
+    """
+    try:
+        from tool_framework import get_tool_registry
+
+        registry = get_tool_registry()
+        tools = registry.search_by_category(category)
+
+        return {
+            "category": category,
+            "tool_count": len(tools),
+            "tools": [tool.to_dict() for tool in tools]
+        }
+
+    except Exception as e:
+        logger.error(f"Error searching tools by category: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/tools/{tool_name}")
+async def get_tool_details(tool_name: str):
+    """
+    Get detailed information about a specific tool
+
+    Args:
+        tool_name: Name of the tool
+
+    Returns:
+        Tool details including metadata, methods, and configuration
+    """
+    try:
+        from tool_framework import get_tool_registry
+
+        registry = get_tool_registry()
+        tool = registry.get_tool(tool_name)
+
+        if not tool:
+            raise HTTPException(status_code=404, detail=f"Tool '{tool_name}' not found")
+
+        tool_dict = tool.to_dict()
+
+        # Add validation info
+        validation = tool.validate_config()
+        tool_dict["validation"] = validation
+
+        # Add test example if available
+        test_example = tool.get_test_example()
+        if test_example:
+            tool_dict["test_example"] = test_example
+
+        return tool_dict
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting tool details: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/tools/registry/assign")
+async def assign_tools_to_team(request: dict):
+    """
+    Assign tools to a team
+
+    Request body:
+        {
+            "team_key": "fraud",
+            "tool_names": ["Tool 1", "Tool 2"]
+        }
+
+    Returns:
+        Success message with assignment details
+    """
+    try:
+        from tool_framework import get_tool_registry
+
+        team_key = request.get("team_key")
+        tool_names = request.get("tool_names", [])
+
+        if not team_key:
+            raise HTTPException(status_code=400, detail="team_key is required")
+
+        registry = get_tool_registry()
+
+        # Validate that all tools exist
+        invalid_tools = []
+        for tool_name in tool_names:
+            if not registry.get_tool(tool_name):
+                invalid_tools.append(tool_name)
+
+        if invalid_tools:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid tools: {', '.join(invalid_tools)}"
+            )
+
+        # Assign tools
+        registry.assign_tools_to_team(team_key, tool_names)
+
+        return {
+            "success": True,
+            "team": team_key,
+            "tool_count": len(tool_names),
+            "tools": tool_names
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error assigning tools: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/tools/{tool_name}/readiness")
+async def get_tool_readiness(tool_name: str):
+    """
+    Get detailed readiness status for a tool.
+    Shows what's configured and what's missing so users can see if tool is ready before using it.
+
+    Args:
+        tool_name: Name of the tool
+
+    Returns:
+        Detailed readiness information including:
+        - is_ready: Whether tool is ready to use
+        - is_active: Current active status
+        - status_message: Human-readable status
+        - required: Required environment variables (configured vs missing)
+        - optional: Optional environment variables (configured vs missing)
+        - dependencies: Other requirements (MCP, database, etc.)
+    """
+    try:
+        from tool_framework import get_tool_registry
+
+        registry = get_tool_registry()
+        tool = registry.get_tool(tool_name)
+
+        if not tool:
+            raise HTTPException(status_code=404, detail=f"Tool '{tool_name}' not found")
+
+        readiness = tool.get_readiness_status()
+
+        return {
+            "tool_name": tool_name,
+            "readiness": readiness
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting tool readiness: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/api/events")

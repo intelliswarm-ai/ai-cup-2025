@@ -91,6 +91,11 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
   testingToolIndex: number | null = null;
   toolTestResults: { [key: number]: ToolTestResult } = {};
 
+  // Tools Editor
+  isEditingTools: boolean = false;
+  registryTools: any[] = [];
+  loadingRegistry: boolean = false;
+
   teams: { [key: string]: TeamInfo } = {
     'fraud': {
       name: 'Fraud Investigation Unit',
@@ -797,6 +802,34 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
     ).join(' ');
   }
 
+  getEnvVariableForTool(tool: Tool): string {
+    // Map tool providers/names to their environment variable names
+    const provider = tool.provider || '';
+    const toolName = tool.name || '';
+
+    if (provider.includes('Serper') || toolName.includes('Serper')) {
+      return 'SERPER_API_KEY';
+    } else if (provider.includes('Browserless') || toolName.includes('Browserless')) {
+      return 'BROWSERLESS_API_KEY';
+    } else if (provider.includes('SEC-API') || toolName.includes('SEC')) {
+      return 'SEC_API_KEY';
+    } else if (provider.includes('IPGeolocation') || toolName.includes('IP Geolocation')) {
+      return 'IPGEOLOCATION_API_KEY';
+    } else if (provider.includes('AbstractAPI') || toolName.includes('Email Validation')) {
+      return 'ABSTRACTAPI_EMAIL_KEY';
+    } else if (tool.type === 'mcp') {
+      return 'MCP_ENABLED';
+    } else {
+      // Generic fallback - try to extract from configuration
+      const apiKeyField = tool.configuration?.['api_key'];
+      if (typeof apiKeyField === 'string' && apiKeyField.includes('not_configured')) {
+        // Try to infer from provider name
+        return `${provider.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_API_KEY`;
+      }
+      return 'API_KEY';
+    }
+  }
+
   getStatusText(email: Email): string {
     if (!email.processed) return 'Pending';
     if (email.workflow_results && email.workflow_results.length > 0) return 'Completed';
@@ -827,11 +860,17 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
 
     if (!emailId) return;
 
+    console.log('[Progress] Received message from agent:', agentName, 'for team:', this.selectedEmail?.assigned_team);
+
     // Update progress trackers based on team and agent
     if (this.selectedEmail?.assigned_team === 'investments') {
+      console.log('[Progress] Updating investment progress for:', agentName);
       this.updateInvestmentProgress(agentName);
+      console.log('[Progress] Current step:', this.investmentProgress.currentStep, 'Steps:', this.investmentProgress.steps.map(s => s.agent + ':' + s.status));
     } else if (this.selectedEmail?.assigned_team === 'fraud') {
+      console.log('[Progress] Updating fraud progress for:', agentName);
       this.updateFraudProgress(agentName);
+      console.log('[Progress] Current step:', this.fraudProgress.currentStep, 'Steps:', this.fraudProgress.steps.map(s => s.agent + ':' + s.status));
     }
 
     // Add message to discussion
@@ -855,6 +894,15 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
     const emailId = data.email_id;
     console.log('[Workflow Complete] Email:', emailId);
 
+    // Mark all steps as completed when workflow finishes
+    if (this.selectedEmail?.assigned_team === 'investments') {
+      this.investmentProgress.steps.forEach(step => step.status = 'completed');
+      this.investmentProgress.currentStep = this.investmentProgress.steps.length - 1;
+    } else if (this.selectedEmail?.assigned_team === 'fraud') {
+      this.fraudProgress.steps.forEach(step => step.status = 'completed');
+      this.fraudProgress.currentStep = this.fraudProgress.steps.length - 1;
+    }
+
     // Reload emails to get updated status
     this.store.dispatch(EmailsActions.loadEmails({ limit: 100, offset: 0, append: false }));
   }
@@ -875,5 +923,122 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
       'Regulatory Liaison': '🏛️'
     };
     return iconMap[agentName] || '🤖';
+  }
+
+  // Tools Editor Methods
+  async toggleToolsEditor() {
+    this.isEditingTools = !this.isEditingTools;
+
+    if (this.isEditingTools) {
+      // Load all tools from registry when opening
+      this.loadingRegistry = true;
+      try {
+        const response = await fetch('http://localhost:8000/api/tools/registry');
+        const data = await response.json();
+        // Filter out example/demo tools
+        this.registryTools = (data.tools || []).filter((tool: any) =>
+          !tool.name.toLowerCase().includes('example') &&
+          !tool.name.toLowerCase().includes('demo')
+        );
+      } catch (error) {
+        console.error('Error loading tools registry:', error);
+        this.registryTools = [];
+      } finally {
+        this.loadingRegistry = false;
+      }
+    }
+  }
+
+  getAssignedToolNames(): string[] {
+    const teamInfo = this.getCurrentTeamInfo();
+    return teamInfo?.tools.map(t => t.name) || [];
+  }
+
+  getAvailableToolNames(): string[] {
+    const assignedNames = this.getAssignedToolNames();
+    return this.registryTools
+      .filter(tool => !assignedNames.includes(tool.name))
+      .map(tool => tool.name);
+  }
+
+  isToolAssigned(toolName: string): boolean {
+    const assignedNames = this.getAssignedToolNames();
+
+    // Direct name match
+    if (assignedNames.includes(toolName)) {
+      return true;
+    }
+
+    // Check if a similar tool is already assigned (by provider)
+    const registryTool = this.registryTools.find(t => t.name === toolName);
+    if (registryTool && registryTool.provider) {
+      const teamInfo = this.getCurrentTeamInfo();
+      if (teamInfo) {
+        // Check if any assigned tool has the same provider
+        return teamInfo.tools.some(tool =>
+          tool.provider && tool.provider.toLowerCase() === registryTool.provider.toLowerCase()
+        );
+      }
+    }
+
+    return false;
+  }
+
+  async addToolToTeam(toolName: string) {
+    if (!this.selectedTeam) return;
+
+    try {
+      // Add tool to team assignment
+      const currentTools = this.getAssignedToolNames();
+      const newTools = [...currentTools, toolName];
+
+      const response = await fetch('http://localhost:8000/api/tools/registry/assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          team_key: this.selectedTeam,
+          tool_names: newTools
+        })
+      });
+
+      if (response.ok) {
+        // Reload team tools
+        this.loadTeamTools(this.selectedTeam);
+        console.log(`Added ${toolName} to ${this.selectedTeam} team`);
+      } else {
+        console.error('Failed to add tool to team');
+      }
+    } catch (error) {
+      console.error('Error adding tool to team:', error);
+    }
+  }
+
+  async removeToolFromTeam(toolName: string) {
+    if (!this.selectedTeam) return;
+
+    try {
+      // Remove tool from team assignment
+      const currentTools = this.getAssignedToolNames();
+      const newTools = currentTools.filter(t => t !== toolName);
+
+      const response = await fetch('http://localhost:8000/api/tools/registry/assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          team_key: this.selectedTeam,
+          tool_names: newTools
+        })
+      });
+
+      if (response.ok) {
+        // Reload team tools
+        this.loadTeamTools(this.selectedTeam);
+        console.log(`Removed ${toolName} from ${this.selectedTeam} team`);
+      } else {
+        console.error('Failed to remove tool from team');
+      }
+    } catch (error) {
+      console.error('Error removing tool from team:', error);
+    }
   }
 }

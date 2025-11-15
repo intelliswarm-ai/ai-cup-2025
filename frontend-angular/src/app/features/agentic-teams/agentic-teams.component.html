@@ -127,11 +127,116 @@
           @if (getCurrentTeamInfo(); as teamInfo) {
             <div class="team-tools-section">
               <div class="tools-header">
-                <i class="material-icons-round">build_circle</i>
-                <h4>Team Equipped Tools</h4>
-                <span class="tools-count">{{ teamInfo.tools.length }} tools configured</span>
+                <div class="tools-header-left">
+                  <i class="material-icons-round">build_circle</i>
+                  <h4>Team Equipped Tools</h4>
+                  @if (!isEditingTools) {
+                    <span class="tools-count">{{ teamInfo.tools.length }} tools configured</span>
+                  }
+                </div>
+                <button class="btn-edit-tools" (click)="toggleToolsEditor()" [class.editing]="isEditingTools">
+                  <i class="material-icons-round">{{ isEditingTools ? 'close' : 'settings' }}</i>
+                  {{ isEditingTools ? 'Done' : 'Edit Tools' }}
+                </button>
               </div>
-              <div class="tools-list">
+
+              @if (isEditingTools) {
+                <!-- Tools Editor Inline View -->
+                <div class="tools-editor-inline">
+                  <!-- Currently Assigned Section -->
+                  <div class="tools-editor-section assigned-section">
+                    <h5>
+                      <i class="material-icons-round">check_circle</i>
+                      Currently Assigned ({{ getAssignedToolNames().length }})
+                    </h5>
+                    @if (loadingRegistry) {
+                      <div class="loading-inline">
+                        <i class="material-icons-round spinning">hourglass_empty</i>
+                        Loading tools...
+                      </div>
+                    } @else {
+                      <div class="tools-grid-inline">
+                        @for (tool of registryTools; track tool.name) {
+                          @if (isToolAssigned(tool.name)) {
+                            <div class="tool-card-inline assigned">
+                              <div class="tool-card-inline-header">
+                                <div class="tool-info">
+                                  <i class="material-icons-round">{{ getToolTypeIcon(tool.type) }}</i>
+                                  <span class="tool-name">{{ tool.name }}</span>
+                                  @if (tool.readiness?.is_ready) {
+                                    <span class="status-dot ready" title="Ready to use"></span>
+                                  } @else {
+                                    <span class="status-dot not-ready" title="Needs configuration"></span>
+                                  }
+                                </div>
+                                <button class="btn-remove-inline" (click)="removeToolFromTeam(tool.name)" title="Remove from team">
+                                  <i class="material-icons-round">remove_circle</i>
+                                </button>
+                              </div>
+                              <p class="tool-desc-inline">{{ tool.description }}</p>
+                              @if (!tool.readiness?.is_ready) {
+                                <div class="tool-warning-inline">
+                                  <i class="material-icons-round">warning</i>
+                                  <span>{{ tool.readiness?.status_message }}</span>
+                                </div>
+                              }
+                            </div>
+                          }
+                        }
+                      </div>
+                    }
+                  </div>
+
+                  <!-- Available Tools Section -->
+                  <div class="tools-editor-section available-section">
+                    <h5>
+                      <i class="material-icons-round">add_circle</i>
+                      Available Tools ({{ getAvailableToolNames().length }})
+                    </h5>
+                    @if (loadingRegistry) {
+                      <div class="loading-inline">
+                        <i class="material-icons-round spinning">hourglass_empty</i>
+                        Loading tools...
+                      </div>
+                    } @else {
+                      <div class="tools-grid-inline">
+                        @for (tool of registryTools; track tool.name) {
+                          @if (!isToolAssigned(tool.name)) {
+                            <div class="tool-card-inline available">
+                              <div class="tool-card-inline-header">
+                                <div class="tool-info">
+                                  <i class="material-icons-round">{{ getToolTypeIcon(tool.type) }}</i>
+                                  <span class="tool-name">{{ tool.name }}</span>
+                                  @if (tool.readiness?.is_ready) {
+                                    <span class="status-dot ready" title="Ready to use"></span>
+                                  } @else {
+                                    <span class="status-dot not-ready" title="Needs configuration"></span>
+                                  }
+                                </div>
+                                <button class="btn-add-inline"
+                                        (click)="addToolToTeam(tool.name)"
+                                        [disabled]="!tool.readiness?.is_ready"
+                                        [title]="tool.readiness?.is_ready ? 'Add to team' : 'Configure first'">
+                                  <i class="material-icons-round">add_circle</i>
+                                </button>
+                              </div>
+                              <p class="tool-desc-inline">{{ tool.description }}</p>
+                              @if (!tool.readiness?.is_ready) {
+                                <div class="tool-warning-inline">
+                                  <i class="material-icons-round">warning</i>
+                                  <span>{{ tool.readiness?.status_message }}</span>
+                                </div>
+                              }
+                            </div>
+                          }
+                        }
+                      </div>
+                    }
+                  </div>
+                </div>
+              } @else {
+                <!-- Regular Tools List View -->
+                <div class="tools-list">
                 @for (tool of teamInfo.tools; track $index) {
                   <div class="tool-card" [class.expanded]="isToolExpanded($index)">
                     <!-- Tool Header -->
@@ -260,6 +365,47 @@
                                     <span>{{ testResult.warning }}</span>
                                   </div>
                                 }
+
+                                <!-- API Key Setup Instructions -->
+                                @if (testResult.data?.response_code === 401 || testResult.data?.response_code === 403 || !tool.isActive) {
+                                  <div class="api-key-setup">
+                                    <div class="setup-header">
+                                      <i class="material-icons-round">key</i>
+                                      <h6>API Key Required</h6>
+                                    </div>
+                                    <div class="setup-instructions">
+                                      <p><strong>To enable this tool, add your API key to the .env file:</strong></p>
+                                      <div class="setup-steps">
+                                        <div class="setup-step">
+                                          <span class="step-number">1</span>
+                                          <div class="step-content">
+                                            <p>Open the <code>.env</code> file in the project root directory</p>
+                                          </div>
+                                        </div>
+                                        <div class="setup-step">
+                                          <span class="step-number">2</span>
+                                          <div class="step-content">
+                                            <p>Add the following environment variable:</p>
+                                            <code class="env-variable">{{ getEnvVariableForTool(tool) }}=your_api_key_here</code>
+                                          </div>
+                                        </div>
+                                        <div class="setup-step">
+                                          <span class="step-number">3</span>
+                                          <div class="step-content">
+                                            <p>Restart the backend service:</p>
+                                            <code class="command">docker-compose restart backend</code>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      @if (tool.configuration && tool.configuration['api_endpoint']) {
+                                        <div class="setup-note">
+                                          <i class="material-icons-round">info</i>
+                                          <p>Get your API key from: <strong>{{ tool.provider }}</strong></p>
+                                        </div>
+                                      }
+                                    </div>
+                                  </div>
+                                }
                               </div>
                             }
 
@@ -290,6 +436,7 @@
                   </div>
                 }
               </div>
+              }
             </div>
           }
 

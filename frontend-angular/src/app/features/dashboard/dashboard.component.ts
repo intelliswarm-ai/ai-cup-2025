@@ -3,8 +3,9 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { Observable, Subject } from 'rxjs';
-import { takeUntil } from 'rxjs/operators';
+import { takeUntil, debounceTime, filter } from 'rxjs/operators';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
+import { HttpClient } from '@angular/common/http';
 
 import { StatsCardComponent } from './components/stats-card.component';
 import { Statistics } from '../../core/models';
@@ -24,6 +25,20 @@ import { EmailService } from '../../core/services/email.service';
 
 // Register Chart.js components
 Chart.register(...registerables);
+
+// Configure smoother animations globally
+Chart.defaults.animation = {
+  duration: 400,
+  easing: 'easeInOutQuart'
+};
+
+interface EnrichedStats {
+  email_analysis: any;
+  workflow_execution: any;
+  team_assignments: any;
+  tools_usage: any;
+  time_saved: any;
+}
 
 @Component({
   selector: 'app-dashboard',
@@ -94,102 +109,223 @@ Chart.register(...registerables);
         </div>
       </div>
 
-      <!-- Charts Row -->
-      @if (statistics$ | async; as stats) {
+      <!-- Time Saved Highlight (Hero Section) -->
+      @if (enrichedStats) {
         <div class="row mt-4">
-          <div class="col-lg-6 col-md-6 mb-md-0 mb-4">
-            <div class="card">
-              <div class="card-header pb-0">
-                <div class="row">
-                  <div class="col-lg-6 col-7">
-                    <h6>Email Distribution</h6>
-                    <p class="text-sm mb-0">
-                      <i class="fa fa-check text-info" aria-hidden="true"></i>
-                      <span class="font-weight-bold ms-1">{{ getDetectionRate(stats) }}%</span> detection rate
-                    </p>
+          <div class="col-12">
+            <div class="card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white;">
+              <div class="card-body p-4">
+                <div class="row align-items-center">
+                  <div class="col-lg-3 text-center">
+                    <i class="material-icons-round" style="font-size: 72px; opacity: 0.9;">schedule</i>
+                  </div>
+                  <div class="col-lg-9">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                      <h3 class="text-white mb-0">Total Time Saved</h3>
+                      <p class="text-white-50 mb-0" style="font-size: 0.875rem;">
+                        <i class="material-icons-round" style="font-size: 1rem; vertical-align: middle;">info</i>
+                        View breakdown in "Time Saved Breakdown" chart below
+                      </p>
+                    </div>
+                    <div class="row">
+                      <div class="col-md-4">
+                        <h2 class="text-white fw-bold mb-0">{{ enrichedStats.time_saved.total_hours }} hrs</h2>
+                        <p class="text-white-50 mb-0">Total Hours Saved</p>
+                      </div>
+                      <div class="col-md-4">
+                        <h2 class="text-white fw-bold mb-0">{{ enrichedStats.time_saved.total_days }} days</h2>
+                        <p class="text-white-50 mb-0">Work Days Saved</p>
+                      </div>
+                      <div class="col-md-4">
+                        <h2 class="text-white fw-bold mb-0">{{ enrichedStats.time_saved.total_minutes }} min</h2>
+                        <p class="text-white-50 mb-0">Total Minutes</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Charts Row 1: Email Distribution & Workflow Detection -->
+      <div class="row mt-4">
+        <div class="col-lg-6 col-md-6 mb-4">
+          <div class="card h-100">
+            <div class="card-header pb-0">
+              <h6>Email Distribution</h6>
+              @if (statistics$ | async; as stats) {
+                <p class="text-sm mb-0">
+                  <i class="fa fa-check text-info" aria-hidden="true"></i>
+                  <span class="font-weight-bold ms-1">{{ getDetectionRate(stats) }}%</span> detection rate
+                </p>
+              }
+            </div>
+            <div class="card-body p-3">
+              <canvas #distributionChart height="320"></canvas>
+            </div>
+          </div>
+        </div>
+        <div class="col-lg-6 col-md-6 mb-4">
+          <div class="card h-100">
+            <div class="card-header pb-0">
+              <h6>Workflow Detection Results</h6>
+              <p class="text-sm mb-0">
+                @if (enrichedStats) {
+                  <i class="fa fa-cogs text-primary" aria-hidden="true"></i>
+                  <span class="font-weight-bold ms-1">{{ enrichedStats.workflow_execution.total_workflow_executions }}</span> total executions
+                }
+              </p>
+            </div>
+            <div class="card-body p-3">
+              <canvas #workflowChart height="320"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts Row 2: Time Saved Breakdown & Email Categories -->
+      @if (enrichedStats) {
+        <div class="row mt-4">
+          <div class="col-lg-8 col-md-6 mb-md-0 mb-4">
+            <div class="card">
+              <div class="card-header pb-0">
+                <h6>Time Saved Breakdown</h6>
+                <p class="text-sm mb-0">
+                  <i class="fa fa-arrow-up text-success" aria-hidden="true"></i>
+                  <span class="font-weight-bold ms-1">Minutes saved</span> by automation category
+                </p>
+              </div>
               <div class="card-body p-3">
-                <canvas #distributionChart height="300"></canvas>
+                <canvas #timeSavedChart height="300"></canvas>
               </div>
             </div>
           </div>
-          <div class="col-lg-6 col-md-6">
+          <div class="col-lg-4 col-md-6">
             <div class="card">
               <div class="card-header pb-0">
-                <h6 class="mb-0">Workflow Detection Results</h6>
+                <h6>Email Categories</h6>
+                <p class="text-sm mb-0">Smart categorization distribution</p>
               </div>
               <div class="card-body p-3">
-                <canvas #workflowChart height="300"></canvas>
+                <canvas #badgeChart height="300"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+      }
+
+      <!-- Charts Row 3: Team Assignments & Tools Status -->
+      @if (enrichedStats) {
+        <div class="row mt-4">
+          <div class="col-lg-7 col-md-6 mb-md-0 mb-4">
+            <div class="card">
+              <div class="card-header pb-0">
+                <h6>Agentic Team Assignments</h6>
+                <p class="text-sm mb-0">
+                  <i class="fa fa-users text-primary" aria-hidden="true"></i>
+                  <span class="font-weight-bold ms-1">{{ enrichedStats.team_assignments.total_assigned }}</span> emails assigned to specialized teams
+                </p>
+              </div>
+              <div class="card-body p-3">
+                <canvas #teamAssignmentsChart height="280"></canvas>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-5 col-md-6">
+            <div class="card">
+              <div class="card-header pb-0">
+                <h6>Tools Status</h6>
+                <p class="text-sm mb-0">
+                  <i class="fa fa-tools text-info" aria-hidden="true"></i>
+                  <span class="font-weight-bold ms-1">{{ enrichedStats.tools_usage.total_tools }}</span> total tools in registry
+                </p>
+              </div>
+              <div class="card-body p-3">
+                <canvas #toolsChart height="280"></canvas>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Processing Status & Quick Actions -->
+        <!-- Platform Highlights Row -->
         <div class="row mt-4">
-          <div class="col-lg-8 col-md-6 mb-md-0 mb-4">
-            <div class="card">
-              <div class="card-header pb-0">
-                <h6>Processing Status</h6>
-              </div>
-              <div class="card-body px-0 pb-2">
-                <div class="px-4">
-                  <div class="progress-wrapper">
-                    <div class="progress-info">
-                      <div class="progress-percentage">
-                        <span class="text-sm font-weight-bold">{{ getProcessingPercentage(stats) }}% processed</span>
-                      </div>
-                    </div>
-                    <div class="progress">
-                      <div class="progress-bar bg-gradient-primary" role="progressbar"
-                           [attr.aria-valuenow]="getProcessingPercentage(stats)"
-                           aria-valuemin="0"
-                           aria-valuemax="100"
-                           [style.width.%]="getProcessingPercentage(stats)"></div>
-                    </div>
-                  </div>
-                  <div class="mt-4">
-                    <p class="text-sm mb-2"><strong>Ready to start?</strong></p>
-                    <ol class="text-sm">
-                      <li>Check MailPit has emails: <a href="http://localhost:8025" target="_blank">http://localhost:8025</a></li>
-                      <li>Fetch emails from MailPit to database</li>
-                      <li>Run phishing detection workflows</li>
-                      <li>View results in the Mailbox</li>
-                    </ol>
-                  </div>
+          <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card text-center">
+              <div class="card-body p-3">
+                <div class="icon bg-gradient-info mx-auto mb-3">
+                  <i class="material-icons-round">summarize</i>
                 </div>
+                <h5 class="fw-bold">{{ enrichedStats.email_analysis.emails_with_summaries }}</h5>
+                <p class="text-sm mb-0">AI Summaries Generated</p>
               </div>
             </div>
           </div>
-          <div class="col-lg-4 col-md-6">
-            <div class="card h-100">
-              <div class="card-header pb-0">
-                <h6>Quick Actions</h6>
-              </div>
+          <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card text-center">
               <div class="card-body p-3">
-                <div class="d-flex flex-column gap-3">
+                <div class="icon bg-gradient-success mx-auto mb-3">
+                  <i class="material-icons-round">reply</i>
+                </div>
+                <h5 class="fw-bold">{{ enrichedStats.email_analysis.emails_with_replies }}</h5>
+                <p class="text-sm mb-0">Quick Reply Drafts</p>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card text-center">
+              <div class="card-body p-3">
+                <div class="icon bg-gradient-warning mx-auto mb-3">
+                  <i class="material-icons-round">psychology</i>
+                </div>
+                <h5 class="fw-bold">{{ enrichedStats.workflow_execution.total_workflow_executions }}</h5>
+                <p class="text-sm mb-0">Workflow Executions</p>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-3 col-md-6 mb-4">
+            <div class="card text-center">
+              <div class="card-body p-3">
+                <div class="icon bg-gradient-dark mx-auto mb-3">
+                  <i class="material-icons-round">auto_awesome</i>
+                </div>
+                <h5 class="fw-bold">{{ enrichedStats.email_analysis.enriched_emails }}</h5>
+                <p class="text-sm mb-0">Wiki Enriched Emails</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Actions Row (Compact) -->
+        <div class="row mt-2">
+          <div class="col-12">
+            <div class="card">
+              <div class="card-body p-3">
+                <div class="d-flex justify-content-center gap-3 flex-wrap">
                   <button
-                    [class]="fetcherRunning ? 'btn btn-danger w-100' : 'btn btn-primary w-100'"
+                    [class]="fetcherRunning ? 'btn btn-danger' : 'btn btn-primary'"
                     (click)="toggleFetcher()"
                     [disabled]="fetcherToggling">
                     <i class="material-icons-round">{{ fetcherRunning ? 'stop' : 'download' }}</i>
                     <span>{{ fetcherRunning ? 'Stop Fetcher' : 'Start Fetcher' }}</span>
                   </button>
                   @if (fetcherRunning) {
-                    <div class="text-sm text-center" style="padding: 8px; background: #e3f2fd; border-radius: 4px;">
-                      <strong>Fetching:</strong> <span>{{ fetchProgress }}</span>
-                    </div>
+                    <span class="badge bg-info d-flex align-items-center px-3">
+                      <strong>Fetching:</strong>&nbsp;{{ fetchProgress }}
+                    </span>
                   }
-                  <button class="btn btn-success w-100" (click)="processAll()">
+                  <button class="btn btn-success" (click)="processAll()">
                     <i class="material-icons-round">play_arrow</i> Process All
                   </button>
-                  <button class="btn btn-info w-100" (click)="refresh()">
+                  <button class="btn btn-info" (click)="refresh()">
                     <i class="material-icons-round">refresh</i> Refresh
                   </button>
-                  <a routerLink="/mailbox" class="btn btn-outline-primary w-100">
+                  <a routerLink="/mailbox" class="btn btn-outline-primary">
                     <i class="material-icons-round">email</i> View Mailbox
+                  </a>
+                  <a routerLink="/agentic-teams" class="btn btn-outline-secondary">
+                    <i class="material-icons-round">groups</i> Agentic Teams
                   </a>
                 </div>
               </div>
@@ -238,12 +374,21 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
   private pageState = inject(PageStateService);
   private sseService = inject(SseService);
   private emailService = inject(EmailService);
+  private http = inject(HttpClient);
 
   @ViewChild('distributionChart') distributionChartRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('workflowChart') workflowChartRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('timeSavedChart') timeSavedChartRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('badgeChart') badgeChartRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('teamAssignmentsChart') teamAssignmentsChartRef!: ElementRef<HTMLCanvasElement>;
+  @ViewChild('toolsChart') toolsChartRef!: ElementRef<HTMLCanvasElement>;
 
   private distributionChart?: Chart;
   private workflowChart?: Chart;
+  private timeSavedChart?: Chart;
+  private badgeChart?: Chart;
+  private teamAssignmentsChart?: Chart;
+  private toolsChart?: Chart;
   private destroy$ = new Subject<void>();
 
   // Observable streams from store
@@ -253,6 +398,14 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
   unreadCount$: Observable<number>;
   phishingCount$: Observable<number>;
   fraudDetected$: Observable<number>;
+
+  // Enriched statistics
+  enrichedStats: EnrichedStats | null = null;
+  enrichedLoading = false;
+  private enrichedChartsUpdating = false;
+
+  // Time saved calculation details for tooltips
+  private timeSavedCalculations: any = {};
 
   // Fetcher status
   fetcherRunning = false;
@@ -272,11 +425,33 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
     // Dispatch action to load statistics
     this.store.dispatch(loadStatistics());
 
+    // Load enriched statistics (includes workflow stats)
+    this.loadEnrichedStats();
+
     // Connect to SSE for real-time updates
     this.connectSSE();
+  }
 
-    // Load workflow statistics once on initial page load
-    this.loadWorkflowStats();
+  private loadEnrichedStats(): void {
+    this.enrichedLoading = true;
+    this.http.get<EnrichedStats>('http://localhost:8000/api/dashboard/enriched-stats')
+      .subscribe({
+        next: (stats) => {
+          this.enrichedStats = stats;
+          this.enrichedLoading = false;
+
+          // Update charts (wait for chart initialization if needed)
+          setTimeout(() => {
+            if (this.workflowChart) {
+              this.updateEnrichedCharts(stats);
+            }
+          }, 300);
+        },
+        error: (error) => {
+          console.error('[Dashboard] Error loading enriched stats:', error);
+          this.enrichedLoading = false;
+        }
+      });
   }
 
   ngOnDestroy(): void {
@@ -288,16 +463,25 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
   ngAfterViewInit(): void {
     this.initCharts();
 
-    // Update charts when statistics change
-    this.statistics$.subscribe(stats => {
-      if (stats) {
-        this.updateCharts(stats);
-        // Update last refresh timestamp
-        const now = new Date();
-        const timeStr = now.toLocaleTimeString();
-        this.pageState.setLastUpdate(`(Updated: ${timeStr})`);
-      }
+    // Update charts when statistics change (with debouncing to prevent trembling)
+    this.statistics$.pipe(
+      filter(stats => stats !== null), // Filter out null values
+      debounceTime(150), // Debounce rapid updates
+      takeUntil(this.destroy$)
+    ).subscribe(stats => {
+      this.updateCharts(stats);
+      // Update last refresh timestamp
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString();
+      this.pageState.setLastUpdate(`(Updated: ${timeStr})`);
     });
+
+    // If enriched stats are already loaded, update charts
+    if (this.enrichedStats) {
+      setTimeout(() => {
+        this.updateEnrichedCharts(this.enrichedStats!);
+      }, 200);
+    }
   }
 
   private connectSSE(): void {
@@ -359,6 +543,7 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
     ).subscribe(() => {
       console.log('[Dashboard SSE] Statistics updated');
       this.store.dispatch(loadStatistics());
+      this.loadEnrichedStats(); // Reload enriched stats too
     });
   }
 
@@ -452,6 +637,11 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private initCharts(): void {
+    // Check if chart elements are available
+    if (!this.distributionChartRef || !this.workflowChartRef) {
+      return;
+    }
+
     // Email Distribution Doughnut Chart
     const distributionConfig: ChartConfiguration<'doughnut'> = {
       type: 'doughnut',
@@ -490,23 +680,39 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
       }
     };
 
-    // Workflow Results Bar Chart
+    // Workflow Results Bar Chart (Stacked)
     const workflowConfig: ChartConfiguration<'bar'> = {
       type: 'bar',
       data: {
         labels: ['URL Analysis', 'Sender Analysis', 'Content Analysis'],
         datasets: [{
-          label: 'Phishing Detected',
+          label: 'Detected: Phishing',
           data: [0, 0, 0],
           backgroundColor: 'rgba(139, 21, 56, 0.85)',    // Burgundy
           borderColor: 'rgba(139, 21, 56, 1)',
-          borderWidth: 2
+          borderWidth: 2,
+          stack: 'detected'
         }, {
-          label: 'Safe',
+          label: 'Detected: Legitimate',
           data: [0, 0, 0],
           backgroundColor: 'rgba(107, 142, 111, 0.85)',  // Mild Sage Green
           borderColor: 'rgba(107, 142, 111, 1)',
-          borderWidth: 2
+          borderWidth: 2,
+          stack: 'detected'
+        }, {
+          label: 'Ground Truth: Phishing',
+          data: [0, 0, 0],
+          backgroundColor: 'rgba(184, 85, 27, 0.75)',    // Bronze/Orange
+          borderColor: 'rgba(184, 85, 27, 1)',
+          borderWidth: 2,
+          stack: 'ground_truth'
+        }, {
+          label: 'Ground Truth: Legitimate',
+          data: [0, 0, 0],
+          backgroundColor: 'rgba(103, 126, 175, 0.75)',  // Blue
+          borderColor: 'rgba(103, 126, 175, 1)',
+          borderWidth: 2,
+          stack: 'ground_truth'
         }]
       },
       options: {
@@ -526,9 +732,10 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
         },
         scales: {
           y: {
+            stacked: true,
             beginAtZero: true,
             ticks: {
-              stepSize: 1,
+              stepSize: 10,
               color: '#5B5550',
               font: {
                 family: 'Roboto',
@@ -540,6 +747,7 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
             }
           },
           x: {
+            stacked: true,
             ticks: {
               color: '#5B5550',
               font: {
@@ -560,6 +768,11 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   private updateCharts(stats: Statistics): void {
+    // Initialize charts if they don't exist yet
+    if (!this.distributionChart && this.distributionChartRef) {
+      this.initCharts();
+    }
+
     // Update distribution chart
     if (this.distributionChart) {
       const legitimate = stats.legitimate_emails || 0;
@@ -569,7 +782,6 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
       this.distributionChart.data.datasets[0].data = [legitimate, phishing, pending];
       this.distributionChart.update();
     }
-    // Note: workflow chart is updated separately by loadWorkflowStats()
   }
 
   getDetectionRate(stats: Statistics): number {
@@ -590,5 +802,357 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
 
   refresh(): void {
     this.store.dispatch(loadStatistics());
+    this.loadEnrichedStats();
+  }
+
+  private updateEnrichedCharts(stats: EnrichedStats): void {
+    // Prevent simultaneous updates
+    if (this.enrichedChartsUpdating) return;
+    this.enrichedChartsUpdating = true;
+
+    // Update Workflow Chart from enriched stats
+    if (this.workflowChart && stats.workflow_execution && stats.workflow_execution.workflows) {
+      const workflows = stats.workflow_execution.workflows;
+
+      // Filter to main workflows (not agentic ones)
+      const mainWorkflows = workflows.filter((w: any) =>
+        w.workflow_name.startsWith('ML:') ||
+        w.workflow_name.includes('Analysis')
+      ).slice(0, 5); // Limit to top 5 workflows
+
+      if (mainWorkflows.length > 0) {
+        this.workflowChart.data.labels = mainWorkflows.map((w: any) =>
+          w.workflow_name.replace('ML: ', '').replace(' Analysis', '')
+        );
+
+        // Detected results
+        this.workflowChart.data.datasets[0].data = mainWorkflows.map((w: any) => w.phishing_detected || 0);
+        this.workflowChart.data.datasets[1].data = mainWorkflows.map((w: any) => w.safe_detected || 0);
+
+        // Ground truth (if available and chart has 4 datasets)
+        if (this.workflowChart.data.datasets.length >= 4) {
+          this.workflowChart.data.datasets[2].data = mainWorkflows.map((w: any) => w.ground_truth_phishing || 0);
+          this.workflowChart.data.datasets[3].data = mainWorkflows.map((w: any) => w.ground_truth_legitimate || 0);
+        }
+
+        this.workflowChart.update();
+      }
+    }
+
+    // Update Time Saved Chart (Bar chart)
+    if (this.timeSavedChartRef && !this.timeSavedChart) {
+      this.initTimeSavedChart();
+    }
+    if (this.timeSavedChart && stats.time_saved) {
+      const breakdown = stats.time_saved.breakdown;
+      const calculations = stats.time_saved.calculations;
+
+      // Update chart data
+      this.timeSavedChart.data.datasets[0].data = [
+        breakdown.email_review || 0,
+        breakdown.phishing_detection || 0,
+        breakdown.summary_generation || 0,
+        breakdown.reply_drafting || 0,
+        breakdown.team_routing || 0,
+        breakdown.wiki_enrichment || 0,
+        breakdown.daily_digest || 0
+      ];
+
+      // Store calculation details for tooltips
+      if (calculations) {
+        this.timeSavedCalculations = [
+          calculations.email_review,
+          calculations.phishing_detection,
+          calculations.summary_generation,
+          calculations.reply_drafting,
+          calculations.team_routing,
+          calculations.wiki_enrichment,
+          calculations.daily_digest
+        ];
+      }
+
+      this.timeSavedChart.update();
+    }
+
+    // Update Badge Chart (Doughnut chart)
+    if (this.badgeChartRef && !this.badgeChart) {
+      this.initBadgeChart();
+    }
+    if (this.badgeChart && stats.email_analysis && stats.email_analysis.badge_breakdown) {
+      const badges = stats.email_analysis.badge_breakdown;
+      this.badgeChart.data.datasets[0].data = Object.values(badges);
+      this.badgeChart.update();
+    }
+
+    // Update Team Assignments Chart (Bar chart)
+    if (this.teamAssignmentsChartRef && !this.teamAssignmentsChart) {
+      this.initTeamAssignmentsChart();
+    }
+    if (this.teamAssignmentsChart && stats.team_assignments) {
+      const assignments = stats.team_assignments.assignments_by_team || {};
+      this.teamAssignmentsChart.data.labels = Object.keys(assignments);
+      this.teamAssignmentsChart.data.datasets[0].data = Object.values(assignments);
+      this.teamAssignmentsChart.update();
+    }
+
+    // Update Tools Chart (Doughnut chart)
+    if (this.toolsChartRef && !this.toolsChart) {
+      this.initToolsChart();
+    }
+    if (this.toolsChart && stats.tools_usage) {
+      this.toolsChart.data.datasets[0].data = [
+        stats.tools_usage.available_tools || 0,
+        stats.tools_usage.unavailable_tools || 0
+      ];
+      this.toolsChart.update();
+    }
+
+    // Reset flag after a brief delay to allow new updates
+    setTimeout(() => {
+      this.enrichedChartsUpdating = false;
+    }, 200);
+  }
+
+  private initTimeSavedChart(): void {
+    if (!this.timeSavedChartRef) return;
+
+    const config: ChartConfiguration<'bar'> = {
+      type: 'bar',
+      data: {
+        labels: ['Email Review', 'Phishing Detection', 'Summary Gen', 'Reply Drafting', 'Team Routing', 'Wiki Enrich', 'Daily Digest'],
+        datasets: [{
+          label: 'Minutes Saved',
+          data: [0, 0, 0, 0, 0, 0, 0],
+          backgroundColor: [
+            'rgba(103, 126, 175, 0.85)',
+            'rgba(139, 21, 56, 0.85)',
+            'rgba(107, 142, 111, 0.85)',
+            'rgba(184, 85, 27, 0.85)',
+            'rgba(146, 111, 165, 0.85)',
+            'rgba(200, 150, 90, 0.85)',
+            'rgba(220, 180, 100, 0.85)'  // Gold for Daily Digest
+          ],
+          borderColor: [
+            'rgba(103, 126, 175, 1)',
+            'rgba(139, 21, 56, 1)',
+            'rgba(107, 142, 111, 1)',
+            'rgba(184, 85, 27, 1)',
+            'rgba(146, 111, 165, 1)',
+            'rgba(200, 150, 90, 1)',
+            'rgba(220, 180, 100, 1)'
+          ],
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            padding: 12,
+            titleFont: {
+              size: 14,
+              weight: 'bold'
+            },
+            bodyFont: {
+              size: 13
+            },
+            callbacks: {
+              title: (context: any) => {
+                return context[0].label;
+              },
+              label: (context: any) => {
+                const value = context.parsed.y;
+                return `Time Saved: ${value.toFixed(1)} minutes`;
+              },
+              afterLabel: (context: any) => {
+                const calc = this.timeSavedCalculations[context.dataIndex];
+                if (calc) {
+                  return [
+                    '',
+                    `Calculation:`,
+                    `${calc.count} ${calc.unit} × ${calc.rate} min`,
+                    `= ${(calc.count * calc.rate).toFixed(1)} minutes`
+                  ];
+                }
+                return '';
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: {
+              color: '#5B5550',
+              font: {
+                family: 'Roboto',
+                size: 11
+              }
+            }
+          },
+          x: {
+            ticks: {
+              color: '#5B5550',
+              font: {
+                family: 'Roboto',
+                size: 10
+              }
+            }
+          }
+        }
+      }
+    };
+
+    this.timeSavedChart = new Chart(this.timeSavedChartRef.nativeElement, config);
+  }
+
+  private initBadgeChart(): void {
+    if (!this.badgeChartRef) return;
+
+    const config: ChartConfiguration<'doughnut'> = {
+      type: 'doughnut',
+      data: {
+        labels: ['Meeting', 'Risk', 'External', 'Automated', 'VIP', 'Follow Up', 'Newsletter', 'Finance'],
+        datasets: [{
+          data: [0, 0, 0, 0, 0, 0, 0, 0],
+          backgroundColor: [
+            'rgba(103, 126, 175, 0.85)',
+            'rgba(139, 21, 56, 0.85)',
+            'rgba(184, 85, 27, 0.85)',
+            'rgba(107, 142, 111, 0.85)',
+            'rgba(200, 150, 90, 0.85)',
+            'rgba(146, 111, 165, 0.85)',
+            'rgba(150, 180, 200, 0.85)',
+            'rgba(180, 130, 150, 0.85)'
+          ],
+          borderColor: [
+            'rgba(103, 126, 175, 1)',
+            'rgba(139, 21, 56, 1)',
+            'rgba(184, 85, 27, 1)',
+            'rgba(107, 142, 111, 1)',
+            'rgba(200, 150, 90, 1)',
+            'rgba(146, 111, 165, 1)',
+            'rgba(150, 180, 200, 1)',
+            'rgba(180, 130, 150, 1)'
+          ],
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              font: {
+                family: 'Roboto',
+                size: 11
+              },
+              color: '#5B5550'
+            }
+          }
+        }
+      }
+    };
+
+    this.badgeChart = new Chart(this.badgeChartRef.nativeElement, config);
+  }
+
+  private initTeamAssignmentsChart(): void {
+    if (!this.teamAssignmentsChartRef) return;
+
+    const config: ChartConfiguration<'bar'> = {
+      type: 'bar',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'Emails Assigned',
+          data: [],
+          backgroundColor: 'rgba(107, 142, 111, 0.85)',
+          borderColor: 'rgba(107, 142, 111, 1)',
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'y',
+        plugins: {
+          legend: {
+            display: false
+          }
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            ticks: {
+              color: '#5B5550',
+              font: {
+                family: 'Roboto',
+                size: 11
+              }
+            }
+          },
+          y: {
+            ticks: {
+              color: '#5B5550',
+              font: {
+                family: 'Roboto',
+                size: 11
+              }
+            }
+          }
+        }
+      }
+    };
+
+    this.teamAssignmentsChart = new Chart(this.teamAssignmentsChartRef.nativeElement, config);
+  }
+
+  private initToolsChart(): void {
+    if (!this.toolsChartRef) return;
+
+    const config: ChartConfiguration<'doughnut'> = {
+      type: 'doughnut',
+      data: {
+        labels: ['Available Tools', 'Needs Configuration'],
+        datasets: [{
+          data: [0, 0],
+          backgroundColor: [
+            'rgba(107, 142, 111, 0.85)',
+            'rgba(184, 85, 27, 0.85)'
+          ],
+          borderColor: [
+            'rgba(107, 142, 111, 1)',
+            'rgba(184, 85, 27, 1)'
+          ],
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            position: 'bottom',
+            labels: {
+              font: {
+                family: 'Roboto',
+                size: 12
+              },
+              color: '#5B5550'
+            }
+          }
+        }
+      }
+    };
+
+    this.toolsChart = new Chart(this.toolsChartRef.nativeElement, config);
   }
 }
