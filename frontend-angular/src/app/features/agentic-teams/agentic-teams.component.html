@@ -215,17 +215,83 @@
         <!-- Email Discussion -->
         <div class="discussion-messages" [style.display]="(selectedEmail && !showDirectInteraction && !showTeamPresentation) ? 'block' : 'none'">
           @if (selectedEmail) {
+            <!-- Investment Progress Tracker -->
+            @if (selectedEmail.assigned_team === 'investments' && investmentProgress.currentStep >= 0) {
+              <div class="investment-progress-tracker">
+                <div class="progress-tracker-title">
+                  <span>📊</span>
+                  <span>Investment Analysis Progress</span>
+                </div>
+                <div class="progress-steps">
+                  @for (step of investmentProgress.steps; track $index) {
+                    <div class="progress-step" [class]="step.status">
+                      <div class="step-icon">{{ step.icon }}</div>
+                      <div class="step-label">{{ step.label }}</div>
+                      <div class="step-status">
+                        @if (step.status === 'completed') { Completed }
+                        @else if (step.status === 'active') { In Progress... }
+                        @else { Pending... }
+                      </div>
+                    </div>
+                  }
+                </div>
+                <div class="progress-timeline">
+                  <div class="progress-timeline-fill" [style.width.%]="getInvestmentProgressPercent()"></div>
+                </div>
+              </div>
+            }
+
+            <!-- Fraud Progress Tracker -->
+            @if (selectedEmail.assigned_team === 'fraud' && fraudProgress.currentStep >= 0) {
+              <div class="investment-progress-tracker">
+                <div class="progress-tracker-title">
+                  <span>🔍</span>
+                  <span>Fraud Detection Progress</span>
+                </div>
+                <div class="progress-steps">
+                  @for (step of fraudProgress.steps; track $index) {
+                    <div class="progress-step" [class]="step.status">
+                      <div class="step-icon">{{ step.icon }}</div>
+                      <div class="step-label">{{ step.label }}</div>
+                      <div class="step-status">
+                        @if (step.status === 'completed') { Completed }
+                        @else if (step.status === 'active') { In Progress... }
+                        @else { Pending... }
+                      </div>
+                    </div>
+                  }
+                </div>
+                <div class="progress-timeline">
+                  <div class="progress-timeline-fill" [style.width.%]="getFraudProgressPercent()"></div>
+                </div>
+              </div>
+            }
+
+            <!-- Discussion Messages -->
             @for (message of getEmailDiscussion(selectedEmail.id); track $index) {
-              <div class="chat-message" [class.tool-usage-message]="message.isToolUsage">
-                <div class="message-header">
-                  <span class="agent-avatar">{{ message.agentIcon }}</span>
-                  <div style="flex: 1;">
-                    <div class="agent-name">{{ message.agentName }}</div>
-                    <div class="message-timestamp">{{ message.timestamp }}</div>
+              @if (message.isDecision) {
+                <!-- Decision Panel for final decisions -->
+                <div class="decision-panel">
+                  <div class="decision-title">{{ message.agentName }}</div>
+                  <div class="decision-details">
+                    <div class="message-text" [innerHTML]="parseMarkdown(message.content)"></div>
                   </div>
                 </div>
-                <div class="message-content">{{ message.content }}</div>
-              </div>
+              } @else {
+                <!-- Regular Chat Message -->
+                <div class="chat-message" [class.tool-usage-message]="message.isToolUsage">
+                  <div class="message-header">
+                    <span class="agent-avatar">{{ message.agentIcon }}</span>
+                    <div style="flex: 1;">
+                      <div class="agent-name">{{ message.agentName }}</div>
+                      <div class="message-timestamp">{{ message.timestamp }}</div>
+                    </div>
+                  </div>
+                  <div class="message-content">
+                    <div class="message-text" [innerHTML]="parseMarkdown(message.content)"></div>
+                  </div>
+                </div>
+              }
             }
           }
         </div>

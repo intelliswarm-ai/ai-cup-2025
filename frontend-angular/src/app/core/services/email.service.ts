@@ -50,4 +50,31 @@ export class EmailService {
       { team, query }
     );
   }
+
+  // Fetcher control
+  startFetcher(): Observable<{ status: string; message: string }> {
+    return this.http.post<{ status: string; message: string }>(
+      `${environment.apiUrl}/fetcher/start`,
+      {}
+    );
+  }
+
+  stopFetcher(): Observable<{ status: string; message: string }> {
+    return this.http.post<{ status: string; message: string }>(
+      `${environment.apiUrl}/fetcher/stop`,
+      {}
+    );
+  }
+
+  getFetcherStatus(): Observable<{ running: boolean; current_batch?: number; total_fetched?: number }> {
+    return this.http.get<{ running: boolean; current_batch?: number; total_fetched?: number }>(
+      `${environment.apiUrl}/fetcher/status`
+    );
+  }
+
+  // Get emails for workflow stats (limited to 100 most recent)
+  getRecentEmailsForWorkflowStats(): Observable<Email[]> {
+    const params = new HttpParams().set('limit', '100').set('offset', '0');
+    return this.http.get<Email[]>(this.apiUrl, { params });
+  }
 }

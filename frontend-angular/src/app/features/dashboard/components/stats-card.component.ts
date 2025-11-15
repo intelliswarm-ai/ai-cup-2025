@@ -111,13 +111,13 @@ import { CommonModule } from '@angular/common';
       line-height: 1.375;
     }
 
-    /* Material Dashboard gradients */
+    /* Professional Banking Theme gradients */
     .bg-gradient-dark {
       background-image: linear-gradient(195deg, #42424a 0%, #191919 100%);
     }
 
     .bg-gradient-primary {
-      background-image: linear-gradient(195deg, #EC407A 0%, #D81B60 100%);
+      background-image: linear-gradient(195deg, #8B1538 0%, #6B0F2A 100%);
     }
 
     .bg-gradient-success {
@@ -142,7 +142,7 @@ import { CommonModule } from '@angular/common';
     }
 
     .shadow-primary {
-      box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.14), 0 7px 10px -5px rgba(233, 30, 99, 0.4);
+      box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.14), 0 7px 10px -5px rgba(139, 21, 56, 0.4);
     }
 
     .shadow-success {

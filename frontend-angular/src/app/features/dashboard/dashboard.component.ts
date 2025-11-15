@@ -1,8 +1,9 @@
-import { Component, OnInit, AfterViewInit, ViewChild, ElementRef, inject } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, ElementRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { Store } from '@ngrx/store';
-import { Observable } from 'rxjs';
+import { Observable, Subject } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import { Chart, ChartConfiguration, registerables } from 'chart.js';
 
 import { StatsCardComponent } from './components/stats-card.component';
@@ -18,6 +19,8 @@ import {
 import { loadStatistics } from '../../store/statistics/statistics.actions';
 import * as EmailsActions from '../../store/emails/emails.actions';
 import { PageStateService } from '../../core/services/page-state.service';
+import { SseService } from '../../core/services/sse.service';
+import { EmailService } from '../../core/services/email.service';
 
 // Register Chart.js components
 Chart.register(...registerables);
@@ -167,8 +170,12 @@ Chart.register(...registerables);
               </div>
               <div class="card-body p-3">
                 <div class="d-flex flex-column gap-3">
-                  <button class="btn btn-primary w-100" (click)="fetchEmails()">
-                    <i class="material-icons-round">download</i> <span>Start Fetcher</span>
+                  <button
+                    [class]="fetcherRunning ? 'btn btn-danger w-100' : 'btn btn-primary w-100'"
+                    (click)="toggleFetcher()"
+                    [disabled]="fetcherToggling">
+                    <i class="material-icons-round">{{ fetcherRunning ? 'stop' : 'download' }}</i>
+                    <span>{{ fetcherRunning ? 'Stop Fetcher' : 'Start Fetcher' }}</span>
                   </button>
                   @if (fetcherRunning) {
                     <div class="text-sm text-center" style="padding: 8px; background: #e3f2fd; border-radius: 4px;">
@@ -226,15 +233,18 @@ Chart.register(...registerables);
     }
   `]
 })
-export class DashboardComponent implements OnInit, AfterViewInit {
+export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
   private store = inject(Store);
   private pageState = inject(PageStateService);
+  private sseService = inject(SseService);
+  private emailService = inject(EmailService);
 
   @ViewChild('distributionChart') distributionChartRef!: ElementRef<HTMLCanvasElement>;
   @ViewChild('workflowChart') workflowChartRef!: ElementRef<HTMLCanvasElement>;
 
   private distributionChart?: Chart;
   private workflowChart?: Chart;
+  private destroy$ = new Subject<void>();
 
   // Observable streams from store
   statistics$: Observable<Statistics | null>;
@@ -247,6 +257,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   // Fetcher status
   fetcherRunning = false;
   fetchProgress = 'Batch 0, 0 emails';
+  fetcherToggling = false;
 
   constructor() {
     this.statistics$ = this.store.select(selectStatistics);
@@ -260,6 +271,18 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   ngOnInit(): void {
     // Dispatch action to load statistics
     this.store.dispatch(loadStatistics());
+
+    // Connect to SSE for real-time updates
+    this.connectSSE();
+
+    // Load workflow statistics once on initial page load
+    this.loadWorkflowStats();
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+    this.sseService.disconnect();
   }
 
   ngAfterViewInit(): void {
@@ -273,6 +296,157 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         const now = new Date();
         const timeStr = now.toLocaleTimeString();
         this.pageState.setLastUpdate(`(Updated: ${timeStr})`);
+      }
+    });
+  }
+
+  private connectSSE(): void {
+    console.log('[Dashboard] Connecting to SSE...');
+    this.sseService.connect().pipe(
+      takeUntil(this.destroy$)
+    ).subscribe();
+
+    // Handle fetch_started event
+    this.sseService.onEvent('fetch_started').pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(() => {
+      console.log('[Dashboard SSE] Fetch started');
+      this.fetcherRunning = true;
+    });
+
+    // Handle emails_fetched event (batch progress)
+    this.sseService.onEvent('emails_fetched').pipe(
+      takeUntil(this.destroy$)
+    ).subscribe((data: any) => {
+      console.log(`[Dashboard SSE] Batch ${data.batch}: ${data.fetched_in_batch} emails (Total: ${data.total_fetched})`);
+      this.fetchProgress = `Batch ${data.batch}, ${data.total_fetched} emails fetched`;
+      // Reload statistics to get updated counts
+      this.store.dispatch(loadStatistics());
+    });
+
+    // Handle fetch_completed event
+    this.sseService.onEvent('fetch_completed').pipe(
+      takeUntil(this.destroy$)
+    ).subscribe((data: any) => {
+      console.log(`[Dashboard SSE] Fetch completed: ${data.total_fetched} total emails in ${data.batches} batches`);
+      this.fetcherRunning = false;
+      this.fetchProgress = 'Batch 0, 0 emails';
+      // Reload statistics
+      this.store.dispatch(loadStatistics());
+    });
+
+    // Handle fetch_stopped event
+    this.sseService.onEvent('fetch_stopped').pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(() => {
+      console.log('[Dashboard SSE] Fetch stopped');
+      this.fetcherRunning = false;
+      this.fetchProgress = 'Batch 0, 0 emails';
+    });
+
+    // Handle fetch_error event
+    this.sseService.onEvent('fetch_error').pipe(
+      takeUntil(this.destroy$)
+    ).subscribe((data: any) => {
+      console.error('[Dashboard SSE] Fetch error:', data.message);
+      this.fetcherRunning = false;
+      this.fetchProgress = 'Batch 0, 0 emails';
+    });
+
+    // Handle statistics_updated event
+    this.sseService.onEvent('statistics_updated').pipe(
+      takeUntil(this.destroy$)
+    ).subscribe(() => {
+      console.log('[Dashboard SSE] Statistics updated');
+      this.store.dispatch(loadStatistics());
+    });
+  }
+
+  toggleFetcher(): void {
+    if (this.fetcherToggling) {
+      return;
+    }
+
+    this.fetcherToggling = true;
+
+    if (this.fetcherRunning) {
+      // Stop fetcher
+      console.log('[Dashboard] Stopping email fetcher...');
+      this.emailService.stopFetcher().subscribe({
+        next: (result) => {
+          console.log('[Dashboard] Fetcher stopped:', result);
+          this.fetcherToggling = false;
+        },
+        error: (error) => {
+          console.error('[Dashboard] Error stopping fetcher:', error);
+          this.fetcherToggling = false;
+        }
+      });
+    } else {
+      // Start fetcher
+      console.log('[Dashboard] Starting email fetcher...');
+      this.emailService.startFetcher().subscribe({
+        next: (result) => {
+          console.log('[Dashboard] Fetcher started:', result);
+          this.fetcherToggling = false;
+        },
+        error: (error) => {
+          console.error('[Dashboard] Error starting fetcher:', error);
+          this.fetcherToggling = false;
+        }
+      });
+    }
+  }
+
+  private loadWorkflowStats(): void {
+    console.log('[Dashboard] Loading workflow stats for 100 most recent emails...');
+
+    this.emailService.getRecentEmailsForWorkflowStats().subscribe({
+      next: (emails) => {
+        console.log(`[Dashboard] Processing ${emails.length} emails for workflow stats`);
+
+        // Count detections by workflow
+        const workflowStats = {
+          'URL Analysis': { phishing: 0, safe: 0 },
+          'Sender Analysis': { phishing: 0, safe: 0 },
+          'Content Analysis': { phishing: 0, safe: 0 }
+        };
+
+        // Process emails
+        emails.forEach(email => {
+          if (email.workflow_results && email.workflow_results.length > 0) {
+            email.workflow_results.forEach(result => {
+              const workflow = result.workflow_name;
+              if (workflowStats[workflow as keyof typeof workflowStats]) {
+                if (result.is_phishing_detected) {
+                  workflowStats[workflow as keyof typeof workflowStats].phishing++;
+                } else {
+                  workflowStats[workflow as keyof typeof workflowStats].safe++;
+                }
+              }
+            });
+          }
+        });
+
+        console.log('[Dashboard] Workflow stats:', workflowStats);
+
+        // Update workflow chart
+        if (this.workflowChart) {
+          this.workflowChart.data.datasets[0].data = [
+            workflowStats['URL Analysis'].phishing,
+            workflowStats['Sender Analysis'].phishing,
+            workflowStats['Content Analysis'].phishing
+          ];
+          this.workflowChart.data.datasets[1].data = [
+            workflowStats['URL Analysis'].safe,
+            workflowStats['Sender Analysis'].safe,
+            workflowStats['Content Analysis'].safe
+          ];
+          this.workflowChart.update();
+        }
+      },
+      error: (error) => {
+        console.error('[Dashboard] Error loading workflow stats:', error);
       }
     });
   }
@@ -395,15 +569,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       this.distributionChart.data.datasets[0].data = [legitimate, phishing, pending];
       this.distributionChart.update();
     }
-
-    // Update workflow chart - placeholder data for now
-    if (this.workflowChart) {
-      // In a real app, you'd get this data from the API
-      // For now, using placeholder data
-      this.workflowChart.data.datasets[0].data = [0, 0, 0];
-      this.workflowChart.data.datasets[1].data = [0, 0, 0];
-      this.workflowChart.update();
-    }
+    // Note: workflow chart is updated separately by loadWorkflowStats()
   }
 
   getDetectionRate(stats: Statistics): number {
@@ -416,10 +582,6 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     if (!stats || !stats.total_emails || stats.total_emails === 0) return 0;
     const processed = stats.processed_emails || 0;
     return Math.round((processed / stats.total_emails) * 100);
-  }
-
-  fetchEmails(): void {
-    this.store.dispatch(EmailsActions.fetchEmailsFromMailpit());
   }
 
   processAll(): void {

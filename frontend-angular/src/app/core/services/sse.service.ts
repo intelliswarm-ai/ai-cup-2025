@@ -66,7 +66,11 @@ export class SseService {
     if (!this.eventSource) return;
 
     const eventTypes = [
+      'fetch_started',
       'emails_fetched',
+      'fetch_completed',
+      'fetch_stopped',
+      'fetch_error',
       'email_processed',
       'email_enriched',
       'agentic_message',

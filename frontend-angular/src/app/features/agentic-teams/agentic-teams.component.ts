@@ -10,6 +10,7 @@ import { selectAllEmails } from '../../store';
 import * as EmailsActions from '../../store/emails/emails.actions';
 import { EmailService } from '../../core/services/email.service';
 import { SseService } from '../../core/services/sse.service';
+import { marked } from 'marked';
 
 interface TeamMember {
   name: string;
@@ -27,6 +28,7 @@ interface DiscussionMessage {
   content: string;
   timestamp: string;
   isToolUsage?: boolean;
+  isDecision?: boolean;
 }
 
 interface TeamInfo {
@@ -196,7 +198,34 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
 
   private discussionMessages: { [emailId: number]: DiscussionMessage[] } = {};
 
+  // Progress tracker state
+  investmentProgress = {
+    currentStep: -1,
+    steps: [
+      { agent: 'Financial Analyst', icon: '📊', label: 'Financial Analysis', status: 'pending' },
+      { agent: 'Research Analyst', icon: '🔍', label: 'Market Research', status: 'pending' },
+      { agent: 'Filings Analyst', icon: '📄', label: 'SEC Filings Review', status: 'pending' },
+      { agent: 'Investment Advisor', icon: '💼', label: 'Final Recommendation', status: 'pending' }
+    ]
+  };
+
+  fraudProgress = {
+    currentStep: -1,
+    steps: [
+      { agent: 'Transaction Analyst', icon: '👤', label: 'Transaction Pattern Analysis', status: 'pending' },
+      { agent: 'Risk Analyst', icon: '📊', label: 'Fraud Risk Assessment', status: 'pending' },
+      { agent: 'Investigation Specialist', icon: '🔍', label: 'Evidence Review', status: 'pending' },
+      { agent: 'Fraud Decision Agent', icon: '⚖️', label: 'Final Decision', status: 'pending' }
+    ]
+  };
+
   constructor() {
+    // Configure marked for markdown rendering
+    marked.setOptions({
+      breaks: true,
+      gfm: true
+    });
+
     // Combine selected team and emails observables
     this.teamEmails$ = combineLatest([
       this.store.select(selectAllEmails),
@@ -296,6 +325,9 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
     this.selectedEmail = email;
     this.updateViewState();
 
+    // Reset progress trackers for new email
+    this.resetProgressTrackers();
+
     // Load historical messages from workflow_results if available
     if (email && email.workflow_results && email.workflow_results.length > 0) {
       console.log(`[selectEmail] Email ${email.id} has ${email.workflow_results.length} workflow results`);
@@ -323,7 +355,8 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
         agentIcon: msg.icon,
         content: msg.text,
         timestamp: msg.timestamp || 'Earlier',
-        isToolUsage: msg.is_tool_usage || false  // Fixed: was incorrectly using is_decision
+        isToolUsage: msg.is_tool_usage || false,
+        isDecision: msg.is_decision || false
       }));
 
       console.log(`[selectEmail] Successfully loaded ${this.discussionMessages[email.id].length} historical messages for email ${email.id}`);
@@ -372,6 +405,71 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
     if (!email.processed) return 0;
     if (email.workflow_results && email.workflow_results.length > 0) return 100;
     return 50;
+  }
+
+  // Markdown parsing
+  parseMarkdown(text: string): string {
+    try {
+      return marked.parse(text) as string;
+    } catch (error) {
+      console.error('[Markdown] Parse error:', error);
+      return text.replace(/\n/g, '<br>');
+    }
+  }
+
+  // Progress tracker methods
+  resetProgressTrackers(): void {
+    this.investmentProgress.currentStep = -1;
+    this.investmentProgress.steps.forEach(step => step.status = 'pending');
+
+    this.fraudProgress.currentStep = -1;
+    this.fraudProgress.steps.forEach(step => step.status = 'pending');
+  }
+
+  updateInvestmentProgress(role: string): void {
+    const agentIndex = this.investmentProgress.steps.findIndex(step => step.agent === role);
+    if (agentIndex === -1) return;
+
+    this.investmentProgress.currentStep = agentIndex;
+
+    // Update step statuses
+    this.investmentProgress.steps.forEach((step, index) => {
+      if (index < agentIndex) {
+        step.status = 'completed';
+      } else if (index === agentIndex) {
+        step.status = 'active';
+      } else {
+        step.status = 'pending';
+      }
+    });
+  }
+
+  updateFraudProgress(role: string): void {
+    const agentIndex = this.fraudProgress.steps.findIndex(step => step.agent === role);
+    if (agentIndex === -1) return;
+
+    this.fraudProgress.currentStep = agentIndex;
+
+    // Update step statuses
+    this.fraudProgress.steps.forEach((step, index) => {
+      if (index < agentIndex) {
+        step.status = 'completed';
+      } else if (index === agentIndex) {
+        step.status = 'active';
+      } else {
+        step.status = 'pending';
+      }
+    });
+  }
+
+  getInvestmentProgressPercent(): number {
+    if (this.investmentProgress.currentStep === -1) return 0;
+    return ((this.investmentProgress.currentStep + 1) / this.investmentProgress.steps.length) * 100;
+  }
+
+  getFraudProgressPercent(): number {
+    if (this.fraudProgress.currentStep === -1) return 0;
+    return ((this.fraudProgress.currentStep + 1) / this.fraudProgress.steps.length) * 100;
   }
 
   getEmailDiscussion(emailId: number): DiscussionMessage[] {
@@ -522,6 +620,13 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
 
     if (!emailId) return;
 
+    // Update progress trackers based on team and agent
+    if (this.selectedEmail?.assigned_team === 'investments') {
+      this.updateInvestmentProgress(agentName);
+    } else if (this.selectedEmail?.assigned_team === 'fraud') {
+      this.updateFraudProgress(agentName);
+    }
+
     // Add message to discussion
     if (!this.discussionMessages[emailId]) {
       this.discussionMessages[emailId] = [];
@@ -532,7 +637,8 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
       agentIcon: this.getAgentIcon(agentName),
       content: message,
       timestamp: 'Just now',
-      isToolUsage: data.tool_usage || false
+      isToolUsage: data.tool_usage || false,
+      isDecision: data.is_decision || false
     };
 
     this.discussionMessages[emailId].push(newMessage);
