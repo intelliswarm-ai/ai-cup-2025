@@ -1,0 +1,237 @@
+<div class="container-fluid py-4">
+  <!-- Filter Section -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h6 class="mb-0">Filter by Categories</h6>
+            <div>
+              <button class="btn btn-sm btn-outline-secondary" (click)="selectAllCategories()">
+                <i class="material-icons-round" style="font-size: 16px;">check_box</i> Select All
+              </button>
+              <button class="btn btn-sm btn-outline-secondary" (click)="deselectAllCategories()">
+                <i class="material-icons-round" style="font-size: 16px;">check_box_outline_blank</i> Deselect All
+              </button>
+            </div>
+          </div>
+          <div class="d-flex flex-wrap gap-2">
+            @for (category of availableCategories; track category) {
+              <label class="category-filter-checkbox">
+                <input
+                  type="checkbox"
+                  [checked]="isCategorySelected(category)"
+                  (change)="toggleCategory(category)">
+                <span [class]="'badge-pill ' + badgeClasses[category]">
+                  <i class="material-icons-round">{{ badgeIcons[category] }}</i>
+                  {{ category }}
+                  <span class="badge-count">{{ stats.badge_counts[category] || 0 }}</span>
+                </span>
+              </label>
+            }
+            @if (availableCategories.length === 0) {
+              <p class="text-muted mb-0">No categories available</p>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Stats Row -->
+  <div class="row mb-4">
+    <div class="col-md-4">
+      <div class="badge-pill badge-meeting" style="font-size: 1rem; padding: 12px 20px;">
+        <i class="material-icons-round" style="font-size: 1.2rem;">event</i>
+        <span>{{ stats.total_today }}</span> Today
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="badge-pill badge-meeting" style="font-size: 1rem; padding: 12px 20px;">
+        <i class="material-icons-round" style="font-size: 1.2rem;">event</i>
+        <span>{{ stats.badge_counts['MEETING'] || 0 }}</span> Meeting
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="badge-pill badge-risk" style="font-size: 1rem; padding: 12px 20px;">
+        <i class="material-icons-round" style="font-size: 1.2rem;">shield</i>
+        <span>{{ stats.badge_counts['RISK'] || 0 }}</span> Risk Resp
+      </div>
+    </div>
+  </div>
+
+  <!-- All Call-to-Action Items Section -->
+  <div class="row mb-4">
+    <div class="col-12">
+      <div class="card cta-section">
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <h5 class="mb-0">
+            <i class="material-icons-round" style="font-size: 24px; vertical-align: middle; color: #ff9800;">task_alt</i>
+            All Call-to-Action Items
+          </h5>
+          <span class="badge bg-warning text-dark">{{ allCallToActions.length }}</span>
+        </div>
+        <div>
+          @if (allCallToActions.length > 0) {
+            <ul class="cta-list">
+              @for (cta of allCallToActions; track cta.email_id) {
+                <li class="cta-item" (click)="handleCTA(cta)">
+                  <div class="cta-icon">
+                    <i class="material-icons-round">{{ badgeIcons[cta.category] }}</i>
+                  </div>
+                  <div class="cta-content">
+                    <div class="cta-subject">{{ cta.subject }}</div>
+                    <div class="cta-action">
+                      <strong>Action:</strong> {{ cta.cta_text }}
+                    </div>
+                  </div>
+                  <div class="cta-category">
+                    <span [class]="'badge-pill ' + badgeClasses[cta.category]">
+                      {{ cta.category }}
+                    </span>
+                  </div>
+                </li>
+              }
+            </ul>
+          } @else {
+            <p class="text-center text-muted">No call-to-action items found</p>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Email Groups -->
+  <div id="digest-container">
+    @for (category of getFilteredCategories(); track category) {
+      <div class="email-group">
+        <div class="email-group-header">
+          <div [class]="'badge-pill ' + badgeClasses[category]" style="font-size: 1rem; padding: 10px 16px;">
+            <i class="material-icons-round">{{ badgeIcons[category] }}</i>
+            {{ category }}
+          </div>
+          <span class="text-muted ms-2">{{ getEmailsForCategory(category).length }} emails</span>
+        </div>
+
+        @for (email of getEmailsForCategory(category); track email.id) {
+          <div class="email-card-compact" (click)="viewEmail(email)">
+            <div class="d-flex justify-content-between align-items-start mb-2">
+              <div class="flex-grow-1">
+                <div class="email-subject">{{ email.subject }}</div>
+                <div class="email-meta">
+                  <span class="email-sender">{{ email.sender }}</span>
+                  <span class="text-muted"> • {{ formatDate(email.received_at) }}</span>
+                </div>
+              </div>
+              <div class="email-badges">
+                @for (badge of email.badges; track badge) {
+                  <span [class]="'badge-pill ' + badgeClasses[badge]">
+                    <i class="material-icons-round">{{ badgeIcons[badge] }}</i>
+                  </span>
+                }
+              </div>
+            </div>
+
+            <ul class="email-summary-bullets">
+              @for (point of email.summary; track $index) {
+                <li>{{ point }}</li>
+              }
+            </ul>
+
+            @if (email.has_cta) {
+              <div class="email-cta mt-2">
+                <button class="btn btn-sm btn-primary" (click)="handleCTA({
+                  email_id: email.id,
+                  subject: email.subject,
+                  cta_text: email.cta_text || '',
+                  cta_type: email.cta_type || 'action',
+                  category: category
+                }); $event.stopPropagation()">
+                  <i class="material-icons-round" style="font-size: 14px;">arrow_forward</i>
+                  {{ email.cta_text }}
+                </button>
+              </div>
+            }
+          </div>
+        }
+      </div>
+    }
+
+    @if (getFilteredCategories().length === 0) {
+      <p class="text-center text-muted">No emails match the selected filters</p>
+    }
+  </div>
+</div>
+
+<!-- Email Details Modal -->
+@if (showEmailModal && selectedEmail) {
+  <div class="modal fade show" style="display: block; background: rgba(0,0,0,0.5);"
+       tabindex="-1" role="dialog" (click)="closeModal()">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document" (click)="$event.stopPropagation()">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title font-weight-normal">{{ selectedEmail.subject }}</h5>
+          <button type="button" class="btn-close text-dark" (click)="closeModal()" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <strong>Subject:</strong> {{ selectedEmail.subject }}<br>
+            <strong>From:</strong> {{ selectedEmail.sender }}<br>
+            @if (selectedEmail.recipient) {
+              <strong>To:</strong> {{ selectedEmail.recipient }}<br>
+            }
+            <strong>Received:</strong> {{ formatDate(selectedEmail.received_at) }}<br>
+            @if (selectedEmail.processed !== undefined) {
+              <strong>Status:</strong>
+              @if (!selectedEmail.processed) {
+                <span class="badge bg-warning text-dark">Pending</span>
+              } @else if (selectedEmail.is_phishing) {
+                <span class="badge bg-danger">Phishing</span>
+              } @else {
+                <span class="badge bg-success">Safe</span>
+              }
+            }
+          </div>
+
+          <div class="mb-3">
+            <strong>Categories:</strong>
+            <div class="mt-2">
+              @for (badge of selectedEmail.badges; track badge) {
+                <span [class]="'badge-pill ' + badgeClasses[badge] + ' me-1'">
+                  <i class="material-icons-round">{{ badgeIcons[badge] }}</i>
+                  {{ badge }}
+                </span>
+              }
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <strong>Summary:</strong>
+            <ul class="email-summary-bullets mt-2">
+              @for (point of selectedEmail.summary; track $index) {
+                <li>{{ point }}</li>
+              }
+            </ul>
+          </div>
+
+          @if (selectedEmail.body_text) {
+            <div class="mb-3">
+              <h6>Email Content:</h6>
+              <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; max-height: 300px; overflow-y: auto;">
+                <pre style="white-space: pre-wrap; font-size: 0.875rem; margin: 0;">{{ selectedEmail.body_text }}</pre>
+              </div>
+            </div>
+          }
+
+          @if (selectedEmail.has_cta) {
+            <div class="alert alert-warning mb-0">
+              <strong>Action Required:</strong> {{ selectedEmail.cta_text }}
+            </div>
+          }
+        </div>
+      </div>
+    </div>
+  </div>
+}

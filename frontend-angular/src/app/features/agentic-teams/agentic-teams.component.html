@@ -1,0 +1,636 @@
+<div class="container-fluid py-4">
+  <div class="dashboard-grid">
+    <!-- Left Panel: Email Queue -->
+    <div class="email-queue">
+      @if (teamEmails$ | async; as emails) {
+        <div class="email-queue-header">
+          @if (selectedTeam && selectedTeam !== 'all' && getCurrentTeamInfo(); as teamInfo) {
+            {{ teamInfo.name }}
+          } @else {
+            Email Queue
+          }
+          <span style="float: right; font-size: 14px; color: #666;">
+            <span id="queue-count">{{ emails.length }}</span> emails
+          </span>
+        </div>
+        <div id="email-queue-container">
+          @for (email of emails; track email.id) {
+            <div class="email-card"
+                 [class.active]="selectedEmail?.id === email.id"
+                 [class.processing]="getStatusClass(email) === 'status-processing'"
+                 [class.completed]="getStatusClass(email) === 'status-completed'"
+                 (click)="selectEmail(email)">
+              <div class="email-status-indicator">
+                <span class="status-indicator" [ngClass]="getStatusClass(email)"></span>
+                {{ getStatusText(email) }}
+              </div>
+              <div class="email-id">#{{ email.id }}</div>
+              <div class="email-subject">{{ email.subject }}</div>
+              <div class="email-meta">
+                <span>From: {{ email.sender }}</span>
+              </div>
+              @if (email.assigned_team) {
+                <span class="team-badge" [style.background]="getTeamColor(email.assigned_team)">
+                  {{ getTeamName(email.assigned_team) }}
+                </span>
+              }
+            </div>
+          }
+
+          @if (emails.length === 0) {
+            <div style="padding: 40px; text-align: center; color: #999;">
+              <i class="material-icons-round" style="font-size: 48px; margin-bottom: 16px;">inbox</i>
+              <p>No emails for this team</p>
+            </div>
+          }
+        </div>
+      }
+    </div>
+
+    <!-- Right Panel: Team Discussion -->
+    <div class="discussion-panel">
+      <div class="discussion-header">
+        <div style="flex: 1;">
+          <div class="discussion-title" id="discussion-team">
+            {{ selectedEmail ? (getCurrentTeamInfo()?.name || 'Team Discussion') : 'Select an email to view team discussion' }}
+          </div>
+          <div class="discussion-subtitle" id="discussion-subject">
+            {{ selectedEmail?.subject || '' }}
+          </div>
+          <div class="progress-bar">
+            <div class="progress-fill"
+                 [style.width.%]="selectedEmail ? getProgressPercent(selectedEmail) : 0"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="chat-container" id="chat-container">
+        <!-- Empty State -->
+        <div class="empty-state" id="empty-state" [style.display]="(!selectedEmail && !showDirectInteraction && !showTeamPresentation) ? 'flex' : 'none'">
+          <div class="empty-state-icon">💬</div>
+          <h3>No Discussion Selected</h3>
+          <p>Select an email from the queue to watch the virtual team discuss and decide</p>
+        </div>
+
+        <!-- Direct Interaction Panel -->
+        <div class="direct-interaction-panel" id="direct-interaction-panel" [style.display]="showDirectInteraction ? 'block' : 'none'">
+          <div class="interaction-header">
+            <div style="flex: 1;">
+              <h3 id="interaction-team-title">Ask the Team Directly</h3>
+              <p class="interaction-subtitle">Submit a request directly to the team without an email</p>
+            </div>
+          </div>
+
+          <div class="interaction-form-container">
+            <div class="form-group mb-3">
+              <label for="direct-query-input" class="form-label">Your Request</label>
+              <textarea
+                id="direct-query-input"
+                class="form-control"
+                rows="4"
+                [(ngModel)]="directQuery"
+                placeholder="e.g., I want a complete analysis for stock Apple"></textarea>
+              <small class="form-text text-muted">
+                {{ getQueryHint() }}
+              </small>
+            </div>
+
+            <div class="interaction-actions">
+              <button class="btn btn-primary" (click)="submitDirectQuery()" [disabled]="isSubmittingQuery">
+                @if (isSubmittingQuery) {
+                  <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                  Submitting...
+                } @else {
+                  <i class="material-icons-round">send</i> Submit to Team
+                }
+              </button>
+              <button class="btn btn-outline-secondary" (click)="clearDirectQuery()" [disabled]="isSubmittingQuery">
+                <i class="material-icons-round">clear</i> Clear
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Team Presentation Panel (Read-only View) -->
+        <div class="team-presentation-panel" id="team-presentation-panel" [style.display]="showTeamPresentation && !isEditMode ? 'block' : 'none'">
+          <div class="presentation-header">
+            <div style="flex: 1;">
+              <h3 id="presentation-team-title">{{ getCurrentTeamInfo()?.name || 'Team Members' }}</h3>
+              <p class="presentation-subtitle">Meet the experts who will analyze your emails</p>
+            </div>
+            <button class="btn btn-primary" (click)="enterEditMode()">
+              <i class="material-icons-round">edit</i> Edit Team
+            </button>
+          </div>
+
+          <!-- Team Tools Section -->
+          @if (getCurrentTeamInfo(); as teamInfo) {
+            <div class="team-tools-section">
+              <div class="tools-header">
+                <div class="tools-header-left">
+                  <i class="material-icons-round">build_circle</i>
+                  <h4>Team Equipped Tools</h4>
+                  @if (!isEditingTools) {
+                    <span class="tools-count">{{ teamInfo.tools.length }} tools configured</span>
+                  }
+                </div>
+                <button class="btn-edit-tools" (click)="toggleToolsEditor()" [class.editing]="isEditingTools">
+                  <i class="material-icons-round">{{ isEditingTools ? 'close' : 'settings' }}</i>
+                  {{ isEditingTools ? 'Done' : 'Edit Tools' }}
+                </button>
+              </div>
+
+              @if (isEditingTools) {
+                <!-- Tools Editor Inline View -->
+                <div class="tools-editor-inline">
+                  <!-- Currently Assigned Section -->
+                  <div class="tools-editor-section assigned-section">
+                    <h5>
+                      <i class="material-icons-round">check_circle</i>
+                      Currently Assigned ({{ getAssignedToolNames().length }})
+                    </h5>
+                    @if (loadingRegistry) {
+                      <div class="loading-inline">
+                        <i class="material-icons-round spinning">hourglass_empty</i>
+                        Loading tools...
+                      </div>
+                    } @else {
+                      <div class="tools-grid-inline">
+                        @for (tool of registryTools; track tool.name) {
+                          @if (isToolAssigned(tool.name)) {
+                            <div class="tool-card-inline assigned">
+                              <div class="tool-card-inline-header">
+                                <div class="tool-info">
+                                  <i class="material-icons-round">{{ getToolTypeIcon(tool.type) }}</i>
+                                  <span class="tool-name">{{ tool.name }}</span>
+                                  @if (tool.readiness?.is_ready) {
+                                    <span class="status-dot ready" title="Ready to use"></span>
+                                  } @else {
+                                    <span class="status-dot not-ready" title="Needs configuration"></span>
+                                  }
+                                </div>
+                                <button class="btn-remove-inline" (click)="removeToolFromTeam(tool.name)" title="Remove from team">
+                                  <i class="material-icons-round">remove_circle</i>
+                                </button>
+                              </div>
+                              <p class="tool-desc-inline">{{ tool.description }}</p>
+                              @if (!tool.readiness?.is_ready) {
+                                <div class="tool-warning-inline">
+                                  <i class="material-icons-round">warning</i>
+                                  <span>{{ tool.readiness?.status_message }}</span>
+                                </div>
+                              }
+                            </div>
+                          }
+                        }
+                      </div>
+                    }
+                  </div>
+
+                  <!-- Available Tools Section -->
+                  <div class="tools-editor-section available-section">
+                    <h5>
+                      <i class="material-icons-round">add_circle</i>
+                      Available Tools ({{ getAvailableToolNames().length }})
+                    </h5>
+                    @if (loadingRegistry) {
+                      <div class="loading-inline">
+                        <i class="material-icons-round spinning">hourglass_empty</i>
+                        Loading tools...
+                      </div>
+                    } @else {
+                      <div class="tools-grid-inline">
+                        @for (tool of registryTools; track tool.name) {
+                          @if (!isToolAssigned(tool.name)) {
+                            <div class="tool-card-inline available">
+                              <div class="tool-card-inline-header">
+                                <div class="tool-info">
+                                  <i class="material-icons-round">{{ getToolTypeIcon(tool.type) }}</i>
+                                  <span class="tool-name">{{ tool.name }}</span>
+                                  @if (tool.readiness?.is_ready) {
+                                    <span class="status-dot ready" title="Ready to use"></span>
+                                  } @else {
+                                    <span class="status-dot not-ready" title="Needs configuration"></span>
+                                  }
+                                </div>
+                                <button class="btn-add-inline"
+                                        (click)="addToolToTeam(tool.name)"
+                                        [disabled]="!tool.readiness?.is_ready"
+                                        [title]="tool.readiness?.is_ready ? 'Add to team' : 'Configure first'">
+                                  <i class="material-icons-round">add_circle</i>
+                                </button>
+                              </div>
+                              <p class="tool-desc-inline">{{ tool.description }}</p>
+                              @if (!tool.readiness?.is_ready) {
+                                <div class="tool-warning-inline">
+                                  <i class="material-icons-round">warning</i>
+                                  <span>{{ tool.readiness?.status_message }}</span>
+                                </div>
+                              }
+                            </div>
+                          }
+                        }
+                      </div>
+                    }
+                  </div>
+                </div>
+              } @else {
+                <!-- Regular Tools List View -->
+                <div class="tools-list">
+                @for (tool of teamInfo.tools; track $index) {
+                  <div class="tool-card" [class.expanded]="isToolExpanded($index)">
+                    <!-- Tool Header -->
+                    <div class="tool-card-header" (click)="toggleToolExpansion($index)">
+                      <div class="tool-main-info">
+                        <div class="tool-name-row">
+                          <i class="material-icons-round tool-icon">{{ getToolTypeIcon(tool.type) }}</i>
+                          <span class="tool-name">{{ tool.name }}</span>
+                          <span class="tool-status" [class.active]="tool.isActive" [class.inactive]="!tool.isActive">
+                            {{ tool.isActive ? 'Active' : 'Inactive' }}
+                          </span>
+                        </div>
+                        <div class="tool-badges">
+                          <span class="tool-type-badge" [ngClass]="getToolTypeBadgeClass(tool.type)">
+                            {{ tool.type.toUpperCase() }}
+                          </span>
+                          @if (tool.provider) {
+                            <span class="tool-provider">{{ tool.provider }}</span>
+                          }
+                        </div>
+                      </div>
+                      <i class="material-icons-round expand-icon">
+                        {{ isToolExpanded($index) ? 'expand_less' : 'expand_more' }}
+                      </i>
+                    </div>
+
+                    <!-- Tool Details (Expandable) -->
+                    @if (isToolExpanded($index)) {
+                      <div class="tool-card-body">
+                        @if (tool.description) {
+                          <div class="tool-description">
+                            <i class="material-icons-round">info</i>
+                            <p>{{ tool.description }}</p>
+                          </div>
+                        }
+
+                        <!-- Tool Configuration -->
+                        <div class="tool-configuration">
+                          <div class="config-header">
+                            <h5>Configuration</h5>
+                            <div class="config-actions-group">
+                              <button class="btn-test-tool" (click)="testTool(tool, $index); $event.stopPropagation()" [disabled]="isToolTesting($index)">
+                                <i class="material-icons-round">{{ isToolTesting($index) ? 'hourglass_empty' : 'play_arrow' }}</i>
+                                {{ isToolTesting($index) ? 'Testing...' : 'Test Tool' }}
+                              </button>
+                              <button class="btn-edit-config" (click)="toggleToolEdit($index); $event.stopPropagation()">
+                                <i class="material-icons-round">{{ isToolEditing($index) ? 'close' : 'edit' }}</i>
+                                {{ isToolEditing($index) ? 'Cancel' : 'Edit' }}
+                              </button>
+                            </div>
+                          </div>
+
+                          <div class="config-items">
+                            @for (key of getConfigKeys(tool.configuration); track key) {
+                              <div class="config-item">
+                                <span class="config-key">{{ formatConfigKey(key) }}</span>
+                                @if (isToolEditing($index)) {
+                                  <input
+                                    type="text"
+                                    class="config-value-input"
+                                    [value]="getConfigValue(tool.configuration[key])"
+                                    (click)="$event.stopPropagation()" />
+                                } @else {
+                                  <span class="config-value">{{ getConfigValue(tool.configuration[key]) }}</span>
+                                }
+                              </div>
+                            }
+                          </div>
+
+                          @if (isToolEditing($index)) {
+                            <div class="config-actions">
+                              <button class="btn btn-sm btn-primary" (click)="$event.stopPropagation()">
+                                <i class="material-icons-round">save</i> Save Changes
+                              </button>
+                              <button class="btn btn-sm btn-outline-secondary" (click)="toggleToolEdit($index); $event.stopPropagation()">
+                                Cancel
+                              </button>
+                            </div>
+                          }
+                        </div>
+
+                        <!-- Tool Test Results -->
+                        @if (getToolTestResult($index); as testResult) {
+                          <div class="tool-test-results"
+                               [class.success]="testResult.success && !testResult.isWarning"
+                               [class.warning]="testResult.isWarning"
+                               [class.error]="!testResult.success">
+                            <div class="test-results-header">
+                              <div class="test-results-title">
+                                <i class="material-icons-round">
+                                  {{ testResult.isWarning ? 'warning' : (testResult.success ? 'check_circle' : 'error') }}
+                                </i>
+                                <h5>
+                                  {{ testResult.isWarning ? 'Configuration Valid - Needs Setup' : (testResult.success ? 'Test Successful' : 'Test Failed') }}
+                                </h5>
+                              </div>
+                              <div class="test-results-meta">
+                                <span class="test-time">{{ testResult.timestamp }}</span>
+                                <span class="test-response-time">{{ testResult.responseTime }}ms</span>
+                              </div>
+                            </div>
+
+                            @if (testResult.isWarning) {
+                              <div class="test-results-warning-message">
+                                @if (testResult.message || testResult.data?.message) {
+                                  <div class="warning-message-item success">
+                                    <i class="material-icons-round">check_circle</i>
+                                    <span>{{ testResult.message || testResult.data?.message }}</span>
+                                  </div>
+                                }
+                                @if (testResult.data?.analysis_value) {
+                                  <div class="warning-message-item info">
+                                    <i class="material-icons-round">analytics</i>
+                                    <span>{{ testResult.data.analysis_value }}</span>
+                                  </div>
+                                }
+                                @if (testResult.data?.setup_note) {
+                                  <div class="warning-message-item note">
+                                    <i class="material-icons-round">info</i>
+                                    <span>{{ testResult.data.setup_note }}</span>
+                                  </div>
+                                }
+                                @if (testResult.warning) {
+                                  <div class="warning-message-item alert">
+                                    <i class="material-icons-round">warning</i>
+                                    <span>{{ testResult.warning }}</span>
+                                  </div>
+                                }
+
+                                <!-- API Key Setup Instructions -->
+                                @if (testResult.data?.response_code === 401 || testResult.data?.response_code === 403 || !tool.isActive) {
+                                  <div class="api-key-setup">
+                                    <div class="setup-header">
+                                      <i class="material-icons-round">key</i>
+                                      <h6>API Key Required</h6>
+                                    </div>
+                                    <div class="setup-instructions">
+                                      <p><strong>To enable this tool, add your API key to the .env file:</strong></p>
+                                      <div class="setup-steps">
+                                        <div class="setup-step">
+                                          <span class="step-number">1</span>
+                                          <div class="step-content">
+                                            <p>Open the <code>.env</code> file in the project root directory</p>
+                                          </div>
+                                        </div>
+                                        <div class="setup-step">
+                                          <span class="step-number">2</span>
+                                          <div class="step-content">
+                                            <p>Add the following environment variable:</p>
+                                            <code class="env-variable">{{ getEnvVariableForTool(tool) }}=your_api_key_here</code>
+                                          </div>
+                                        </div>
+                                        <div class="setup-step">
+                                          <span class="step-number">3</span>
+                                          <div class="step-content">
+                                            <p>Restart the backend service:</p>
+                                            <code class="command">docker-compose restart backend</code>
+                                          </div>
+                                        </div>
+                                      </div>
+                                      @if (tool.configuration && tool.configuration['api_endpoint']) {
+                                        <div class="setup-note">
+                                          <i class="material-icons-round">info</i>
+                                          <p>Get your API key from: <strong>{{ tool.provider }}</strong></p>
+                                        </div>
+                                      }
+                                    </div>
+                                  </div>
+                                }
+                              </div>
+                            }
+
+                            @if (testResult.success && testResult.data && !testResult.isWarning) {
+                              <div class="test-results-data">
+                                <h6>Tool Response:</h6>
+                                <pre><code>{{ testResult.data | json }}</code></pre>
+                              </div>
+                            }
+
+                            @if (testResult.isWarning && testResult.data) {
+                              <div class="test-results-data">
+                                <h6>Technical Details:</h6>
+                                <pre><code>{{ testResult.data | json }}</code></pre>
+                              </div>
+                            }
+
+                            @if (!testResult.success && testResult.error) {
+                              <div class="test-results-error">
+                                <i class="material-icons-round">error</i>
+                                <span>{{ testResult.error }}</span>
+                              </div>
+                            }
+                          </div>
+                        }
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+              }
+            </div>
+          }
+
+          <div class="presentation-members-grid" id="presentation-members-grid">
+            @if (getCurrentTeamInfo(); as teamInfo) {
+              @for (member of teamInfo.members; track member.name) {
+                <div class="member-card">
+                  <div class="member-header">
+                    <div class="member-icon">{{ member.icon }}</div>
+                    <div>
+                      <div class="member-name">{{ member.name }}</div>
+                      <div class="member-type">{{ member.memberType }}</div>
+                    </div>
+                  </div>
+                  <div class="member-details">
+                    <div class="member-section">
+                      <strong>Personality</strong>
+                      <p>{{ member.personality }}</p>
+                    </div>
+                    <div class="member-section">
+                      <strong>Responsibilities</strong>
+                      <p>{{ member.responsibilities }}</p>
+                    </div>
+                    <div class="member-section">
+                      <strong>Communication Style</strong>
+                      <p>{{ member.communicationStyle }}</p>
+                    </div>
+                  </div>
+                </div>
+              }
+            }
+          </div>
+        </div>
+
+        <!-- Team Configuration Panel (Edit Mode) -->
+        <div class="team-config-panel" id="team-config-panel" [style.display]="isEditMode ? 'block' : 'none'">
+          <div class="team-config-header">
+            <div style="flex: 1;">
+              <h3 id="team-config-title">{{ getCurrentTeamInfo()?.name || 'Team' }} Configuration</h3>
+              <p class="team-config-subtitle">Customize team members and their prompts</p>
+            </div>
+            <button class="btn btn-outline-secondary" (click)="exitEditMode()">
+              <i class="material-icons-round">arrow_back</i> Back to View
+            </button>
+          </div>
+
+          <div class="team-members-list" id="team-members-config">
+            @if (getCurrentTeamInfo(); as teamInfo) {
+              @for (member of teamInfo.members; track member.name; let idx = $index) {
+                <div class="team-member-card" [attr.data-index]="idx">
+                  <div class="member-card-header">
+                    <div class="member-card-title">
+                      <span>{{ member.icon }}</span>
+                      <span>{{ member.name }}</span>
+                    </div>
+                    <div class="member-card-badge" [class.decision-maker]="member.memberType === 'Decision Maker'">
+                      {{ member.memberType }}
+                    </div>
+                  </div>
+
+                  <div class="member-field-group">
+                    <label class="member-field-label">Role</label>
+                    <input type="text" class="member-field-input" [value]="member.role" readonly>
+                  </div>
+
+                  <div class="member-field-group">
+                    <label class="member-field-label">Personality</label>
+                    <textarea class="member-field-textarea" rows="3" readonly>{{ member.personality }}</textarea>
+                  </div>
+
+                  <div class="member-field-group">
+                    <label class="member-field-label">Responsibilities</label>
+                    <textarea class="member-field-textarea" rows="3" readonly>{{ member.responsibilities }}</textarea>
+                  </div>
+
+                  <div class="member-field-group">
+                    <label class="member-field-label">Communication Style</label>
+                    <textarea class="member-field-textarea" rows="2" readonly>{{ member.communicationStyle }}</textarea>
+                  </div>
+                </div>
+              }
+            }
+          </div>
+
+          <div class="team-config-note" style="margin-top: 20px; padding: 15px; background: #f8f9fa; border-left: 4px solid #6c757d; border-radius: 4px;">
+            <p style="margin: 0; color: #6c757d;">
+              <i class="material-icons-round" style="font-size: 16px; vertical-align: middle;">info</i>
+              <strong>Note:</strong> This is a read-only view. Team member editing and persistence will be added in a future update.
+            </p>
+          </div>
+        </div>
+
+        <!-- Email Discussion -->
+        <div class="discussion-messages" [style.display]="(selectedEmail && !showDirectInteraction && !showTeamPresentation) ? 'block' : 'none'">
+          @if (selectedEmail) {
+            <!-- Investment Progress Tracker -->
+            @if (selectedEmail.assigned_team === 'investments') {
+              <div class="investment-progress-tracker">
+                <div class="progress-tracker-title">
+                  <span>📊</span>
+                  <span>Investment Analysis Progress</span>
+                </div>
+                <div class="progress-steps">
+                  @for (step of investmentProgress.steps; track $index) {
+                    <div class="progress-step" [class]="step.status">
+                      <div class="step-icon">{{ step.icon }}</div>
+                      <div class="step-label">{{ step.label }}</div>
+                      <div class="step-status">
+                        @if (step.status === 'completed') { Completed }
+                        @else if (step.status === 'active') { In Progress... }
+                        @else { Pending... }
+                      </div>
+                    </div>
+                  }
+                </div>
+                <div class="progress-timeline">
+                  <div class="progress-timeline-fill" [style.width.%]="getInvestmentProgressPercent()"></div>
+                </div>
+              </div>
+            }
+
+            <!-- Fraud Progress Tracker -->
+            @if (selectedEmail.assigned_team === 'fraud') {
+              <div class="investment-progress-tracker">
+                <div class="progress-tracker-title">
+                  <span>🔍</span>
+                  <span>Fraud Detection Progress</span>
+                </div>
+                <div class="progress-steps">
+                  @for (step of fraudProgress.steps; track $index) {
+                    <div class="progress-step" [class]="step.status">
+                      <div class="step-icon">{{ step.icon }}</div>
+                      <div class="step-label">{{ step.label }}</div>
+                      <div class="step-status">
+                        @if (step.status === 'completed') { Completed }
+                        @else if (step.status === 'active') { In Progress... }
+                        @else { Pending... }
+                      </div>
+                    </div>
+                  }
+                </div>
+                <div class="progress-timeline">
+                  <div class="progress-timeline-fill" [style.width.%]="getFraudProgressPercent()"></div>
+                </div>
+              </div>
+            }
+
+            <!-- Discussion Messages -->
+            @for (message of getEmailDiscussion(selectedEmail.id); track $index) {
+              @if (message.isDecision) {
+                <!-- Decision Panel for final decisions -->
+                <div class="decision-panel">
+                  <div class="decision-title">{{ message.agentName }}</div>
+                  <div class="decision-details">
+                    <div class="message-text" [innerHTML]="parseMarkdown(message.content)"></div>
+                  </div>
+                </div>
+              } @else {
+                <!-- Regular Chat Message -->
+                <div class="chat-message" [class.tool-usage-message]="message.isToolUsage">
+                  <div class="message-header">
+                    <span class="agent-avatar">{{ message.agentIcon }}</span>
+                    <div style="flex: 1;">
+                      <div class="agent-name">{{ message.agentName }}</div>
+                      <div class="message-timestamp">{{ message.timestamp }}</div>
+                    </div>
+                  </div>
+                  <div class="message-content">
+                    <div class="message-text" [innerHTML]="parseMarkdown(message.content)"></div>
+                  </div>
+                </div>
+              }
+            }
+          }
+        </div>
+      </div>
+
+      <!-- Chat Input Container -->
+      @if (selectedEmail) {
+        <div class="chat-input-container">
+          <div class="chat-input-wrapper">
+            <textarea
+              id="chat-message-input"
+              rows="2"
+              [(ngModel)]="chatMessage"
+              placeholder="Ask a follow-up question to the team..."
+              (keypress)="handleChatKeypress($event)"></textarea>
+            <button class="chat-send-btn" (click)="sendChatMessage()">
+              <i class="material-icons-round">send</i>
+              Send
+            </button>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+</div>

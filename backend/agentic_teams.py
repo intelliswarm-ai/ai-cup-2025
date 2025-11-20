@@ -506,6 +506,7 @@ Keep the tone natural and authoritative, like a real team leader closing a meeti
         Run fraud detection workflow for the Fraud Team
         Uses specialized tools for transaction analysis and historical data queries
         """
+        print(f"INFO: Starting fraud analysis for email_id={email_id}, subject='{email_subject[:50]}'")
         try:
             # Import the fraud workflow
             from fraud_workflow import fraud_workflow
@@ -562,53 +563,154 @@ Keep the tone natural and authoritative, like a real team leader closing a meeti
             all_messages = []
             team_info = TEAMS["fraud"]
 
-            # Add messages for each stage
-            for i, stage_data in enumerate(analysis["stages"]):
-                agent_name = stage_data["agent"]
+            # Check if analysis has stages (old format) or is direct result (new format)
+            if "stages" in analysis:
+                # Old format with stages
+                print(f"INFO: Using OLD stages format ({len(analysis['stages'])} stages)")
+                for i, stage_data in enumerate(analysis["stages"]):
+                    agent_name = stage_data["agent"]
 
-                # Find matching agent icon
-                agent_icon = "🔍"
-                for agent in team_info["agents"]:
-                    if agent["role"] == agent_name:
-                        agent_icon = agent["icon"]
-                        break
+                    # Find matching agent icon
+                    agent_icon = "🔍"
+                    for agent in team_info["agents"]:
+                        if agent["role"] == agent_name:
+                            agent_icon = agent["icon"]
+                            break
 
-                # Create message with stage results
-                message_text = self._format_fraud_stage_message(
-                    stage_data["stage"],
-                    stage_data["data"]
-                )
+                    # Create message with stage results
+                    message_text = self._format_fraud_stage_message(
+                        stage_data["stage"],
+                        stage_data["data"]
+                    )
 
-                message = {
-                    "role": agent_name,
-                    "icon": agent_icon,
-                    "text": message_text,
-                    "timestamp": datetime.now().isoformat(),
-                    "is_decision": (stage_data["stage"] == "determination")
+                    message = {
+                        "role": agent_name,
+                        "icon": agent_icon,
+                        "text": message_text,
+                        "timestamp": datetime.now().isoformat(),
+                        "is_decision": (stage_data["stage"] == "determination")
+                    }
+
+                    all_messages.append(message)
+
+                    if on_message_callback:
+                        await on_message_callback(message, all_messages)
+                        await asyncio.sleep(0.5)  # Delay for UX
+
+                return {
+                    "status": "completed",
+                    "team": "fraud",
+                    "team_name": team_info["name"],
+                    "email_id": email_id,
+                    "messages": all_messages,
+                    "decision": analysis.get("final_determination", {}),
+                    "rounds": len(analysis["stages"]),
+                    "fraud_analysis": analysis
+                }
+            else:
+                # New format - direct fraud workflow result
+                print(f"INFO: Using NEW direct result format")
+                fraud_type = analysis.get("fraud_type", "UNKNOWN")
+                print(f"INFO: Fraud type detected: {fraud_type}")
+                fraud_analysis_text = analysis.get("analysis", "No analysis available")
+                fraud_detection = analysis.get("fraud_type_detection", {})
+
+                # Create message for fraud type detection
+                detection_message = {
+                    "role": "Fraud Investigation Unit",
+                    "icon": "🚨",
+                    "text": f"""**Fraud Type Detection**
+
+**Type:** {fraud_type}
+**Confidence:** {fraud_detection.get('confidence', 'N/A')}
+**Urgency:** {fraud_detection.get('urgency', 'N/A')}
+
+**Summary:** {fraud_detection.get('summary', 'N/A')}
+
+**Indicators:**
+{chr(10).join('• ' + indicator for indicator in fraud_detection.get('indicators', []))}
+""",
+                    "timestamp": datetime.now().isoformat()
+                }
+                all_messages.append(detection_message)
+
+                # Create message for main analysis
+                analysis_agent_map = {
+                    "PHISHING": ("Phishing Analysis Specialist", "🎣"),
+                    "SPEAR_PHISHING": ("Phishing Analysis Specialist", "🎣"),
+                    "TRANSACTION_FRAUD": ("Transaction Analyst", "💳"),
+                    "PAYMENT_FRAUD": ("Transaction Analyst", "💳"),
+                    "ACCOUNT_COMPROMISE": ("Account Security Specialist", "🔐"),
+                    "CREDENTIAL_THEFT": ("Account Security Specialist", "🔐"),
+                    "BUSINESS_EMAIL_COMPROMISE": ("BEC Investigation Specialist", "💼"),
+                    "CEO_FRAUD": ("BEC Investigation Specialist", "💼"),
                 }
 
-                all_messages.append(message)
+                agent_role, agent_icon = analysis_agent_map.get(
+                    fraud_type,
+                    ("General Fraud Analyst", "🔍")
+                )
 
+                analysis_message = {
+                    "role": agent_role,
+                    "icon": agent_icon,
+                    "text": fraud_analysis_text,
+                    "timestamp": datetime.now().isoformat()
+                }
+                all_messages.append(analysis_message)
+
+                # Create final determination message
+                final_message = {
+                    "role": "Fraud Decision Agent",
+                    "icon": "⚖️",
+                    "text": f"""**Final Fraud Determination**
+
+Based on the comprehensive analysis above, this email has been classified as **{fraud_type}** with **{fraud_detection.get('confidence', 'MEDIUM')}** confidence.
+
+**Recommended Action:** {"BLOCK and report" if fraud_detection.get('confidence') == 'HIGH' else "Flag for review"}
+
+**Collaboration Insights:**
+• Doer-Checker Pattern: {"Applied" if analysis.get('doer_checker_applied') else "Not Applied"}
+• Debate Pattern: {"Applied" if analysis.get('debate_applied') else "Not Applied"}
+• Iterative Deepening: {analysis.get('iterations', 0)} iteration(s)
+• Shared Thread Entries: {analysis.get('collaboration_summary', {}).get('shared_thread_entries', 0)}
+""",
+                    "timestamp": datetime.now().isoformat(),
+                    "is_decision": True
+                }
+                all_messages.append(final_message)
+
+                # Broadcast all messages
                 if on_message_callback:
-                    await on_message_callback(message, all_messages)
-                    await asyncio.sleep(0.5)  # Delay for UX
+                    for message in all_messages:
+                        await on_message_callback(message, all_messages)
+                        await asyncio.sleep(0.5)
 
-            return {
-                "status": "completed",
-                "team": "fraud",
-                "team_name": team_info["name"],
-                "email_id": email_id,
-                "messages": all_messages,
-                "decision": analysis.get("final_determination", {}),
-                "rounds": len(analysis["stages"]),
-                "fraud_analysis": analysis
-            }
+                print(f"SUCCESS: Fraud analysis completed with {len(all_messages)} messages")
+                result = {
+                    "status": "completed",
+                    "team": "fraud",
+                    "team_name": team_info["name"],
+                    "email_id": email_id,
+                    "messages": all_messages,
+                    "decision": {
+                        "fraud_type": fraud_type,
+                        "confidence": fraud_detection.get('confidence', 'MEDIUM'),
+                        "recommendation": "BLOCK" if fraud_detection.get('confidence') == 'HIGH' else "REVIEW"
+                    },
+                    "rounds": analysis.get('iterations', 1) + 1,
+                    "fraud_analysis": analysis
+                }
+                print(f"SUCCESS: Returning result with messages having icons: {[m.get('icon') for m in all_messages]}")
+                return result
 
         except Exception as e:
             # Fallback to standard team discussion if workflow fails
-            print(f"Fraud workflow error: {e}")
+            print(f"ERROR: Fraud workflow failed: {e}")
+            print(f"ERROR: Email ID: {email_id}, Subject: {email_subject[:50]}")
             import traceback
             traceback.print_exc()
+            print("FALLBACK: Using standard discussion format")
             return await self._run_standard_discussion("fraud", email_id, email_subject, email_body, email_sender, on_message_callback)
 
     def _extract_company_from_text(self, text: str) -> str:

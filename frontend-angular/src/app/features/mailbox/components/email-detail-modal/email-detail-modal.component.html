@@ -1,0 +1,320 @@
+@if (isOpen && email) {
+  <div class="modal fade show d-block" tabindex="-1" role="dialog" (click)="close()">
+    <div class="modal-dialog modal-dialog-centered modal-lg" role="document" (click)="$event.stopPropagation()">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title font-weight-normal">Email Details</h5>
+          <button type="button" class="btn-close text-dark" (click)="close()" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <!-- Basic Information -->
+          <div class="mb-3">
+            <strong>Subject:</strong> {{ email.subject }}<br>
+            <strong>From:</strong> {{ email.sender }}<br>
+            <strong>To:</strong> {{ email.recipient }}<br>
+            <strong>Received:</strong> {{ formatDate(email.received_at) }}<br>
+            <strong>Status:</strong>
+            <span class="badge text-white ms-2" [ngClass]="getStatusBadgeClass()">
+              {{ getStatusText() }}
+            </span>
+          </div>
+
+          <!-- Ground Truth Label -->
+          @if (email.label !== null && email.label !== undefined) {
+            <div class="mb-3">
+              <strong>Ground Truth:</strong>
+              <div class="mt-2">
+                <span class="badge badge-sm text-white"
+                      [ngClass]="email.label === 1 ? 'bg-gradient-danger' : 'bg-gradient-success'">
+                  {{ email.label === 1 ? 'PHISHING' : 'LEGITIMATE' }}
+                </span>
+                @if (email.phishing_type) {
+                  <span class="badge badge-sm bg-gradient-secondary ms-2">
+                    Category: {{ email.phishing_type.replace('_', ' ').toUpperCase() }}
+                  </span>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- Email Badges/Categories -->
+          @if (email.badges && email.badges.length > 0) {
+            <div class="mb-3">
+              <strong>Categories:</strong>
+              <div class="mt-2">
+                @for (badge of email.badges; track badge) {
+                  <span class="badge badge-sm bg-gradient-info me-1">
+                    <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">{{ getBadgeIcon(badge) }}</i>
+                    {{ badge }}
+                  </span>
+                }
+              </div>
+            </div>
+          }
+
+          <!-- Run phishing detection button -->
+          <div class="mb-3">
+            <button class="btn btn-primary btn-sm" (click)="runAnalysis()">
+              <i class="material-icons-round">play_arrow</i> {{ email.processed ? 'Re-run Analysis' : 'Run Analysis' }}
+            </button>
+            @if (email.processed) {
+              <small class="text-muted ms-2">Run phishing detection again</small>
+            }
+          </div>
+
+          <!-- Agentic Team Assignment Section -->
+          @if (email.suggested_team || email.assigned_team) {
+            <div class="mb-3 p-3" style="background: #f0f8ff; border-left: 4px solid #2980b9; border-radius: 4px;">
+              <h6><i class="material-icons-round" style="font-size: 20px; vertical-align: middle;">groups</i> Agentic Team Assignment</h6>
+
+              @if (email.assigned_team) {
+                <div class="mt-2">
+                  <strong>Assigned Team:</strong>
+                  <span class="badge bg-gradient-info ms-2">
+                    <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">groups</i>
+                    {{ getTeamDisplayName(email.assigned_team) }}
+                  </span>
+                  @if (email.team_assigned_at) {
+                    <br><small class="text-muted">Assigned: {{ formatDate(email.team_assigned_at) }}</small>
+                  }
+                </div>
+
+                @if (email.agentic_task_id) {
+                  <div class="mt-3">
+                    <strong>Agentic Workflow:</strong><br>
+                    <button class="btn btn-sm btn-primary mt-2" (click)="viewTeamDiscussion()">
+                      <i class="material-icons-round" style="font-size: 16px; vertical-align: middle;">forum</i>
+                      View Team Discussion
+                    </button>
+                    <br><small class="text-muted">Task ID: {{ email.agentic_task_id }}</small>
+                  </div>
+                }
+              } @else if (email.suggested_team) {
+                <div class="mt-2 mb-3">
+                  <strong>AI Suggested Team:</strong>
+                  <span class="badge bg-gradient-secondary ms-2" style="opacity: 0.85;">
+                    <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">psychology</i>
+                    {{ getTeamDisplayName(email.suggested_team) }}
+                  </span>
+                </div>
+                <div class="mt-2">
+                  <p class="text-sm mb-2"><strong>Assign to Team:</strong></p>
+                  <button class="btn btn-sm btn-outline-primary me-2 mb-2" (click)="assignTeam(email.suggested_team)">
+                    ✓ Accept Suggestion
+                  </button>
+                  <button class="btn btn-sm btn-outline-secondary me-2 mb-2" (click)="assignTeam('fraud')">Fraud</button>
+                  <button class="btn btn-sm btn-outline-secondary me-2 mb-2" (click)="assignTeam('compliance')">Compliance</button>
+                  <button class="btn btn-sm btn-outline-secondary me-2 mb-2" (click)="assignTeam('investments')">Investments</button>
+                </div>
+              }
+            </div>
+          } @else {
+            <div class="mb-3 p-3" style="background: #fff9f0; border-left: 4px solid #f39c12; border-radius: 4px;">
+              <h6><i class="material-icons-round" style="font-size: 20px; vertical-align: middle;">psychology</i> Assign to Agentic Team</h6>
+              <p class="text-sm mb-2">This email can be analyzed by our virtual bank teams. Select a team to start the agentic workflow:</p>
+              <button class="btn btn-sm btn-outline-primary me-2 mb-2" (click)="assignTeam('fraud')">
+                <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">security</i> Fraud
+              </button>
+              <button class="btn btn-sm btn-outline-primary me-2 mb-2" (click)="assignTeam('compliance')">
+                <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">gavel</i> Compliance
+              </button>
+              <button class="btn btn-sm btn-outline-primary me-2 mb-2" (click)="assignTeam('investments')">
+                <i class="material-icons-round" style="font-size: 14px; vertical-align: middle;">show_chart</i> Investments
+              </button>
+            </div>
+          }
+
+          <!-- Fraud Detection Progress Tracker -->
+          @if (showFraudProgress) {
+            <div class="fraud-progress-tracker">
+              <div class="progress-tracker-title">
+                <span>🔍</span>
+                <span>Fraud Detection Analysis Progress</span>
+              </div>
+              <div class="progress-steps">
+                @for (step of fraudProgressSteps; track step.label) {
+                  <div class="progress-step" [ngClass]="step.status">
+                    <div class="step-icon">{{ step.icon }}</div>
+                    <div class="step-label">{{ step.label }}</div>
+                    <div class="step-status">
+                      @if (step.status === 'completed') {
+                        ✓ Complete
+                      } @else if (step.status === 'active') {
+                        In Progress...
+                      } @else {
+                        Pending...
+                      }
+                    </div>
+                  </div>
+                }
+              </div>
+              <div class="progress-timeline">
+                <div class="progress-timeline-fill" [style.width.%]="fraudProgressPercent"></div>
+              </div>
+            </div>
+
+            <!-- Fraud Analysis Messages -->
+            <div class="fraud-messages-container">
+              @if (fraudMessages.length === 0) {
+                <div style="text-align: center; color: #999; padding: 20px;">
+                  <i class="material-icons-round" style="font-size: 48px;">hourglass_empty</i>
+                  <p>Waiting for analysis to begin...</p>
+                </div>
+              } @else {
+                @for (message of fraudMessages; track $index) {
+                  <div class="fraud-message">
+                    <div class="fraud-message-header">
+                      <span class="fraud-message-icon">{{ message.icon }}</span>
+                      <span class="fraud-message-agent">{{ message.agentName }}</span>
+                      <span class="fraud-message-time">{{ message.timestamp }}</span>
+                    </div>
+                    <div class="fraud-message-content">{{ message.content }}</div>
+                  </div>
+                }
+              }
+            </div>
+
+            <!-- Chat Input for Fraud Discussion -->
+            <div class="fraud-chat-input">
+              <textarea class="form-control"
+                        rows="2"
+                        placeholder="Ask the fraud detection team a question..."></textarea>
+              <small class="text-muted">💬 Chat is now active! Ask questions during or after the analysis.</small>
+            </div>
+          }
+
+          <!-- Email Content with Keywords -->
+          @if (email.enriched && email.enriched_data && email.enriched_data.enriched_keywords && email.enriched_data.enriched_keywords.length > 0) {
+            <div class="mb-3">
+              <h6><i class="material-icons-round" style="font-size: 20px; vertical-align: middle;">mail</i> Email Content:</h6>
+              <div class="p-3 bg-light rounded">
+                <p class="text-sm mb-2"><strong>Keywords:</strong>
+                  @for (kw of email.enriched_data.enriched_keywords; track kw.keyword; let last = $last) {
+                    <span>{{ kw.keyword }}{{ last ? '' : ', ' }}</span>
+                  }
+                </p>
+                <pre class="mb-0" style="white-space: pre-wrap; font-size: 0.875rem;">{{ email.body }}</pre>
+              </div>
+            </div>
+          } @else {
+            <div class="mb-3">
+              <strong>Message:</strong>
+              <div class="mt-2 p-3 bg-light rounded">
+                <pre class="mb-0" style="white-space: pre-wrap; font-size: 0.875rem;">{{ email.body_text || email.body || 'No message content available' }}</pre>
+              </div>
+            </div>
+          }
+
+          <!-- AI Summary -->
+          @if (email.summary) {
+            <div class="mb-3">
+              <h6><i class="material-icons-round" style="font-size: 20px; vertical-align: middle;">psychology</i> AI Summary:</h6>
+              <div style="background: #e3f2fd; padding: 15px; border-radius: 8px; border-left: 4px solid #2196f3;">
+                <p class="text-sm mb-0">{{ email.summary }}</p>
+              </div>
+            </div>
+          }
+
+          <!-- Call to Actions -->
+          @if (email.call_to_actions && email.call_to_actions.length > 0) {
+            <div class="mb-3">
+              <h6><i class="material-icons-round" style="font-size: 20px; vertical-align: middle;">task_alt</i> Call-to-Actions:</h6>
+              <div style="background: #fff3e0; padding: 15px; border-radius: 8px; border-left: 4px solid #ff9800;">
+                <ul class="mb-0">
+                  @for (cta of email.call_to_actions; track cta) {
+                    <li class="text-sm">{{ cta }}</li>
+                  }
+                </ul>
+              </div>
+            </div>
+          }
+
+          <!-- Quick Reply Drafts -->
+          @if (email.quick_reply_drafts) {
+            <div class="mb-3">
+              <div class="quick-reply-container">
+                <h6 class="mb-3" style="border-bottom: 2px solid #212529; padding-bottom: 8px;">Quick Reply Drafts</h6>
+
+                @if (email.quick_reply_drafts.formal) {
+                  <div class="mb-3">
+                    <div class="d-flex align-items-center mb-2">
+                      <span class="badge bg-dark me-2">A</span>
+                      <span class="quick-reply-label">(FORMAL)</span>
+                    </div>
+                    <textarea class="form-control quick-reply-text-input" rows="3" readonly>{{ email.quick_reply_drafts.formal }}</textarea>
+                  </div>
+                }
+
+                @if (email.quick_reply_drafts.friendly) {
+                  <div class="mb-3">
+                    <div class="d-flex align-items-center mb-2">
+                      <span class="badge bg-dark me-2">B</span>
+                      <span class="quick-reply-label">(FRIENDLY)</span>
+                    </div>
+                    <textarea class="form-control quick-reply-text-input" rows="3" readonly>{{ email.quick_reply_drafts.friendly }}</textarea>
+                  </div>
+                }
+
+                @if (email.quick_reply_drafts.brief) {
+                  <div class="mb-3">
+                    <div class="d-flex align-items-center mb-2">
+                      <span class="badge bg-dark me-2">C</span>
+                      <span class="quick-reply-label">(BRIEF)</span>
+                    </div>
+                    <textarea class="form-control quick-reply-text-input" rows="2" readonly>{{ email.quick_reply_drafts.brief }}</textarea>
+                  </div>
+                }
+
+                <div class="form-check mb-3">
+                  <input class="form-check-input" type="checkbox" id="readyToSend{{ email.id }}">
+                  <label class="form-check-label" for="readyToSend{{ email.id }}">
+                    Looks good - ready to send
+                  </label>
+                </div>
+
+                <div>
+                  <label class="form-label text-sm text-muted">Signature (optional)</label>
+                  <textarea class="form-control" rows="2" placeholder="Add your signature..."></textarea>
+                </div>
+              </div>
+            </div>
+          }
+
+          <!-- Workflow Results / Analysis Results -->
+          @if (email.workflow_results && email.workflow_results.length > 0) {
+            <div class="mb-3">
+              <h6>Analysis Results:</h6>
+              @for (result of email.workflow_results; track result.id) {
+                <div class="workflow-result mb-3 p-3 border rounded">
+                  <h6 class="mb-2">
+                    {{ result.workflow_name }}
+                    <span class="badge ms-2" [ngClass]="result.is_phishing_detected ? 'bg-danger' : 'bg-success'">
+                      {{ result.is_phishing_detected ? 'Phishing Detected' : 'Safe' }}
+                    </span>
+                    <span class="badge bg-secondary ms-2">Confidence: {{ result.confidence_score }}%</span>
+                  </h6>
+                  @if (result.risk_indicators && result.risk_indicators.length > 0) {
+                    <p class="text-sm mb-2"><strong>Risk Indicators:</strong></p>
+                    <div class="mb-2">
+                      @for (indicator of result.risk_indicators; track indicator) {
+                        <span class="badge bg-warning text-dark me-1 mb-1">{{ indicator }}</span>
+                      }
+                    </div>
+                  } @else {
+                    <p class="text-sm text-success mb-0">No risk indicators found</p>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" (click)="close()">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="modal-backdrop fade show"></div>
+}

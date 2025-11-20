@@ -1,0 +1,151 @@
+<div class="container-fluid py-4">
+  <!-- Statistics Row -->
+  <div class="row">
+    <div class="col-xl-3 col-sm-6 mb-xl-0 mb-4">
+      <app-stats-card
+        title="Total Emails"
+        [value]="(totalEmails$ | async) || 0"
+        icon="mail"
+        iconClass="bg-gradient-dark"
+        shadowColor="dark"
+      />
+    </div>
+    <div class="col-xl-3 col-sm-6 mb-xl-0 mb-4">
+      @if (statistics$ | async; as stats) {
+        <app-stats-card
+          title="Legitimate"
+          [value]="stats.legitimate_emails || 0"
+          icon="check_circle"
+          iconClass="bg-gradient-success"
+          shadowColor="success"
+        />
+      }
+    </div>
+    <div class="col-xl-3 col-sm-6 mb-xl-0 mb-4">
+      <app-stats-card
+        title="Phishing Detected"
+        [value]="(phishingCount$ | async) || 0"
+        icon="warning"
+        iconClass="bg-gradient-danger"
+        shadowColor="danger"
+      />
+    </div>
+    <div class="col-xl-3 col-sm-6">
+      @if (statistics$ | async; as stats) {
+        <app-stats-card
+          title="Pending Analysis"
+          [value]="stats.unprocessed_emails || 0"
+          icon="pending"
+          iconClass="bg-gradient-warning"
+          shadowColor="warning"
+        />
+      }
+    </div>
+  </div>
+
+  <!-- Actions Row -->
+  <div class="row mt-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header pb-0">
+          <h6>Quick Actions</h6>
+        </div>
+        <div class="card-body">
+          <button class="btn btn-primary" (click)="fetchEmails()">
+            <i class="material-icons-round">download</i> Fetch Emails from MailPit
+          </button>
+          <button class="btn btn-success ms-2" (click)="processAll()">
+            <i class="material-icons-round">play_arrow</i> Process All Unprocessed
+          </button>
+          <button class="btn btn-info ms-2" (click)="refresh()">
+            <i class="material-icons-round">refresh</i> Refresh
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Emails List -->
+  <div class="row mt-4">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header pb-0">
+          <h6>Email Inbox</h6>
+        </div>
+        <div class="card-body px-0 pb-2">
+          <div class="email-list-container px-4" (scroll)="onScroll($event)">
+            @if (loading$ | async) {
+              <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-3">Loading emails...</p>
+              </div>
+            } @else {
+              @if (emails$ | async; as emails) {
+                @if (emails.length === 0) {
+                  <div class="text-center py-4">
+                    <p>No emails found. Click "Fetch Emails from MailPit" to load emails.</p>
+                  </div>
+                } @else {
+                  @for (email of emails; track email.id) {
+                    <div class="card email-card mb-3" (click)="viewEmail(email)">
+                      <div class="card-body">
+                        <div class="row">
+                          <div class="col-8">
+                            <h6 class="mb-1">{{ email.subject }}</h6>
+                            <p class="text-sm text-muted mb-1">From: {{ email.sender }}</p>
+                            <p class="text-xs text-muted mb-0">{{ formatDate(email.received_at) }}</p>
+
+                            @if (email.badges && email.badges.length > 0) {
+                              <div class="mt-2">
+                                @for (badge of email.badges; track badge) {
+                                  <span class="badge badge-sm bg-gradient-info me-1">{{ badge }}</span>
+                                }
+                              </div>
+                            }
+
+                            @if (email.label !== null) {
+                              <div class="mt-2">
+                                <span class="badge badge-sm"
+                                      [ngClass]="email.label === 1 ? 'bg-gradient-danger' : 'bg-gradient-success'"
+                                      style="font-size: 10px;">
+                                  Ground Truth: {{ email.label === 1 ? 'PHISHING' : 'LEGITIMATE' }}
+                                </span>
+                              </div>
+                            }
+                          </div>
+                          <div class="col-4 text-end">
+                            <span class="badge text-white" [ngClass]="getStatusBadgeClass(email)">
+                              {{ getStatusText(email) }}
+                            </span>
+                            @if (email.workflow_results && email.workflow_results.length > 0) {
+                              <div class="mt-2">
+                                <span class="badge badge-sm bg-gradient-info">
+                                  {{ email.workflow_results.length }} workflows
+                                </span>
+                              </div>
+                            }
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  }
+                }
+              }
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Email Detail Modal -->
+  <app-email-detail-modal
+    [email]="selectedEmail$ | async"
+    [isOpen]="isModalOpen"
+    (closeModal)="closeModal()"
+    (processEmail)="processEmail($event)"
+    (assignToTeam)="assignTeamToEmail($event)"
+  />
+</div>

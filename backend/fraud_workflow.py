@@ -1183,6 +1183,27 @@ Provide a nuanced, evidence-based synthesis that captures the best insights from
                 "is_progress": True
             })
 
+    async def _notify_tool_usage(
+        self,
+        callback,
+        agent: str,
+        tool_name: str,
+        tool_description: str,
+        tool_type: str = "Tool"  # "Tool" or "MCP"
+    ):
+        """Send tool usage notification via callback"""
+        if callback:
+            icon = "🔧" if tool_type == "Tool" else "🔌"
+            await callback({
+                "role": agent,
+                "icon": icon,
+                "text": f"Using {tool_type}: {tool_name} - {tool_description}",
+                "timestamp": datetime.now().isoformat(),
+                "is_tool_usage": True,
+                "tool_name": tool_name,
+                "tool_type": tool_type
+            })
+
     async def _investigate_phishing(
         self,
         email_subject: str,
@@ -1223,6 +1244,13 @@ Provide a nuanced, evidence-based synthesis that captures the best insights from
         recent_fraud = await self._query_recent_fraud_cases(db, days=30, limit=15)
 
         # Search for similar phishing campaigns
+        await self._notify_tool_usage(
+            on_progress_callback,
+            "Database Investigation Agent",
+            "search_public_records",
+            "Searching public records for similar phishing campaigns",
+            "Tool"
+        )
         public_search = await self.investigation_tools.search_public_records(
             f"phishing {email_from} {email_subject[:50]}"
         )
@@ -1467,6 +1495,13 @@ Focus on DEEPENING the analysis, not repeating it."""
         )
 
         # Check for blacklisted IPs/domains
+        await self._notify_tool_usage(
+            on_progress_callback,
+            "Account Security Specialist",
+            "check_blacklists",
+            "Checking email domain against blacklist databases",
+            "Tool"
+        )
         blacklist_check = await self.investigation_tools.check_blacklists({
             "email": email_from
         })
@@ -1532,6 +1567,13 @@ Provide a detailed analysis in 500-600 words."""
         )
 
         # Verify sender domain
+        await self._notify_tool_usage(
+            on_progress_callback,
+            "BEC Investigation Specialist",
+            "validate_email",
+            "Validating sender email domain and checking DNS records",
+            "Tool"
+        )
         email_validation = await self.investigation_tools.validate_email(email_from or "unknown@unknown.com")
 
         prompt = f"""You are a Business Email Compromise (BEC) Specialist investigating potential CEO fraud or vendor impersonation.
@@ -1595,10 +1637,24 @@ Provide a detailed analysis in 500-600 words."""
         )
 
         # Perform general fraud checks
+        await self._notify_tool_usage(
+            on_progress_callback,
+            "General Fraud Analyst",
+            "search_public_records",
+            "Searching public databases for fraud reports and scam warnings",
+            "Tool"
+        )
         public_search = await self.investigation_tools.search_public_records(
             f"{email_from} {email_subject[:50]} fraud scam"
         )
 
+        await self._notify_tool_usage(
+            on_progress_callback,
+            "General Fraud Analyst",
+            "check_blacklists",
+            "Cross-referencing sender against blacklist databases",
+            "Tool"
+        )
         blacklist_check = await self.investigation_tools.check_blacklists({
             "email": email_from
         })

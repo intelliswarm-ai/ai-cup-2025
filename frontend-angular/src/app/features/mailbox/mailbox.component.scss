@@ -1,0 +1,35 @@
+.email-list-container {
+  // No max-height to allow full email list display (matching vanilla)
+  overflow-x: hidden;
+}
+
+.email-card {
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  border: 1px solid #E8E6E3;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 40, 85, 0.1);
+  }
+}
+
+.phishing-badge {
+  background: linear-gradient(195deg, #6B1C23 0%, #8B2430 100%);
+}
+
+.safe-badge {
+  background: linear-gradient(195deg, #2C5234 0%, #3A6B45 100%);
+}
+
+.pending-badge {
+  background: linear-gradient(195deg, #B8551B 0%, #D46B28 100%);
+}
+
+.btn {
+  .material-icons-round {
+    font-size: 16px;
+    vertical-align: middle;
+    margin-right: 4px;
+  }
+}

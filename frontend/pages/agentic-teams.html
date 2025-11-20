@@ -132,6 +132,8 @@
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      height: 100%; /* Ensure panel takes full height of grid cell */
+      max-height: calc(100vh - 180px); /* Match dashboard grid height */
     }
 
     .discussion-header {
@@ -172,8 +174,10 @@
     .chat-container {
       flex: 1;
       overflow-y: auto;
+      overflow-x: hidden; /* Prevent horizontal scroll */
       padding: 20px;
       background: #f8f9fa;
+      min-height: 0; /* Critical for flex scrolling */
     }
 
     /* Investment Progress Tracker */
@@ -306,6 +310,20 @@
       font-size: 20px;
       margin-right: 12px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    /* Emoji icon display (used when backend provides icon directly) */
+    .agent-avatar-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-right: 12px;
+      background: linear-gradient(195deg, #667eea 0%, #764ba2 100%);
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
     }
 
     .avatar-analyst { background: linear-gradient(195deg, #42424a 0%, #191919 100%); }
@@ -538,6 +556,66 @@
     @keyframes bounce {
       0%, 80%, 100% { transform: scale(0); }
       40% { transform: scale(1); }
+    }
+
+    /* Tool Usage Styles */
+    .tool-usage-message {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 12px 16px;
+      border-radius: 10px;
+      margin: 10px 0 10px 52px;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-left: 4px solid #5a67d8;
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+      animation: toolFadeIn 0.3s ease;
+    }
+
+    @keyframes toolFadeIn {
+      from {
+        opacity: 0;
+        transform: translateX(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+
+    .tool-icon {
+      font-size: 20px;
+      animation: toolRotate 1s ease-in-out;
+    }
+
+    @keyframes toolRotate {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .tool-details {
+      flex: 1;
+    }
+
+    .tool-name {
+      font-weight: 600;
+      font-family: 'Courier New', monospace;
+      margin-bottom: 3px;
+    }
+
+    .tool-description {
+      font-size: 11px;
+      opacity: 0.9;
+    }
+
+    .tool-type-badge {
+      background: rgba(255, 255, 255, 0.3);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 600;
     }
 
     .decision-panel {
@@ -1936,7 +2014,17 @@
           // Display all messages
           for (let i = 0; i < messages.length; i++) {
             const message = messages[i];
-            const agent = TEAMS[team].members.find(m => m.role === message.role) || TEAMS[team].members[0];
+
+            // Use icon from message if available, otherwise fallback to avatar class
+            let avatarHTML;
+            if (message.icon) {
+              // Backend provided an icon (emoji) - use it directly
+              avatarHTML = `<div class="agent-avatar-icon">${message.icon}</div>`;
+            } else {
+              // Fallback to avatar class system
+              const agent = TEAMS[team].members.find(m => m.role === message.role) || TEAMS[team].members[0];
+              avatarHTML = `<div class="agent-avatar ${agent.avatar}"></div>`;
+            }
 
             // Parse Markdown to HTML
             let parsedContent;
@@ -1957,10 +2045,15 @@
               parsedContent = message.text.replace(/\n/g, '<br>');
             }
 
+            // Check if this is a decision message or tool usage
+            const isDecision = message.is_decision === true;
+            const isToolUsage = message.is_tool_usage === true;
+            const messageClass = isDecision ? 'chat-message decision-message' : (isToolUsage ? 'chat-message tool-usage-message' : 'chat-message');
+
             const messageHTML = `
-              <div class="chat-message">
+              <div class="${messageClass}">
                 <div class="message-header">
-                  <div class="agent-avatar ${agent.avatar}"></div>
+                  ${avatarHTML}
                   <div class="agent-info">
                     <div class="agent-name">${message.role}</div>
                   </div>
@@ -2238,7 +2331,16 @@
         };
 
         const displayMessage = (message, team, isLast = false) => {
-          const agent = TEAMS[team].members.find(m => m.role === message.role) || TEAMS[team].members[0];
+          // Use icon from message if available, otherwise fallback to avatar class
+          let avatarHTML;
+          if (message.icon) {
+            // Backend provided an icon (emoji) - use it directly
+            avatarHTML = `<div class="agent-avatar-icon">${message.icon}</div>`;
+          } else {
+            // Fallback to avatar class system
+            const agent = TEAMS[team].members.find(m => m.role === message.role) || TEAMS[team].members[0];
+            avatarHTML = `<div class="agent-avatar ${agent.avatar}"></div>`;
+          }
 
           // Update investment tracker if this is investments team
           if (team === 'investments' && message.role) {
@@ -2260,10 +2362,14 @@
               })
             : message.text.replace(/\n/g, '<br>');
 
+          // Check if this is a tool usage message
+          const isToolUsage = message.is_tool_usage === true;
+          const messageClass = isToolUsage ? 'chat-message tool-usage-message' : 'chat-message';
+
           const messageHTML = `
-            <div class="chat-message" style="opacity: 0; transform: translateY(10px);">
+            <div class="${messageClass}" style="opacity: 0; transform: translateY(10px);">
               <div class="message-header">
-                <div class="agent-avatar ${agent.avatar}"></div>
+                ${avatarHTML}
                 <div class="agent-info">
                   <div class="agent-name">${message.role}</div>
                 </div>
@@ -2748,7 +2854,16 @@
             }
           }
 
-          const agent = TEAMS[selectedTeam].members.find(m => m.role === message.role) || TEAMS[selectedTeam].members[0];
+          // Use icon from message if available, otherwise fallback to avatar class
+          let avatarHTML;
+          if (message.icon) {
+            // Backend provided an icon (emoji) - use it directly
+            avatarHTML = `<div class="agent-avatar-icon">${message.icon}</div>`;
+          } else {
+            // Fallback to avatar class system
+            const agent = TEAMS[selectedTeam].members.find(m => m.role === message.role) || TEAMS[selectedTeam].members[0];
+            avatarHTML = `<div class="agent-avatar ${agent.avatar}"></div>`;
+          }
 
           // Parse Markdown to HTML
           let parsedContent;
@@ -2771,10 +2886,14 @@
             parsedContent = message.text.replace(/\n/g, '<br>');
           }
 
+          // Check if this is a tool usage message
+          const isToolUsage = message.is_tool_usage === true;
+          const messageClass = isToolUsage ? 'chat-message tool-usage-message' : 'chat-message';
+
           const messageHTML = `
-            <div class="chat-message" style="opacity: 0; transform: translateY(10px);">
+            <div class="${messageClass}" style="opacity: 0; transform: translateY(10px);">
               <div class="message-header">
-                <div class="agent-avatar ${agent.avatar}"></div>
+                ${avatarHTML}
                 <div class="agent-info">
                   <div class="agent-name">${message.role}</div>
                 </div>
@@ -3018,6 +3137,7 @@
     function displayMessage(msg, container) {
       const isDecision = msg.is_decision || false;
       const isProgress = msg.is_progress || false;
+      const isToolUsage = msg.is_tool_usage || false;
 
       if (isProgress) {
         // Show progress indicator
@@ -3026,6 +3146,23 @@
         progressDiv.innerHTML = `${msg.icon} ${msg.text}<div class="thinking-dots"><span></span><span></span><span></span></div>`;
         container.appendChild(progressDiv);
         setTimeout(() => progressDiv.remove(), 3000);
+        return;
+      }
+
+      if (isToolUsage) {
+        // Show tool usage message
+        const toolDiv = document.createElement('div');
+        toolDiv.className = 'tool-usage-message';
+        toolDiv.innerHTML = `
+          <span class="tool-icon">${msg.icon || '🔧'}</span>
+          <div class="tool-details">
+            <div class="tool-name">${msg.tool_name || 'Tool'}</div>
+            <div class="tool-description">${escapeHtml(msg.text)}</div>
+          </div>
+          <span class="tool-type-badge">${msg.tool_type || 'TOOL'}</span>
+        `;
+        container.appendChild(toolDiv);
+        container.scrollTop = container.scrollHeight;
         return;
       }
 
