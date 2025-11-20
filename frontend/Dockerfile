@@ -28,11 +28,8 @@ RUN mkdir -p /usr/share/nginx/html && \
 # Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy entrypoint script
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# Expose port 4200
+EXPOSE 4200
 
-# Expose ports 80 (HTTP) and 443 (HTTPS)
-EXPOSE 80 443
-
-ENTRYPOINT ["/entrypoint.sh"]
+# Start nginx directly (no SSL needed)
+CMD ["nginx", "-g", "daemon off;"]
