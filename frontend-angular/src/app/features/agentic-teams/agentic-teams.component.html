@@ -584,6 +584,32 @@
               </div>
             }
 
+            <!-- Compliance Progress Tracker -->
+            @if (selectedEmail.assigned_team === 'compliance') {
+              <div class="investment-progress-tracker">
+                <div class="progress-tracker-title">
+                  <span>⚖️</span>
+                  <span>Compliance Analysis Progress</span>
+                </div>
+                <div class="progress-steps">
+                  @for (step of complianceProgress.steps; track $index) {
+                    <div class="progress-step" [class]="step.status">
+                      <div class="step-icon">{{ step.icon }}</div>
+                      <div class="step-label">{{ step.label }}</div>
+                      <div class="step-status">
+                        @if (step.status === 'completed') { Completed }
+                        @else if (step.status === 'active') { In Progress... }
+                        @else { Pending... }
+                      </div>
+                    </div>
+                  }
+                </div>
+                <div class="progress-timeline">
+                  <div class="progress-timeline-fill" [style.width.%]="getComplianceProgressPercent()"></div>
+                </div>
+              </div>
+            }
+
             <!-- Discussion Messages -->
             @for (message of getEmailDiscussion(selectedEmail.id); track $index) {
               @if (message.isDecision) {

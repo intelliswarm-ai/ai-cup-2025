@@ -1213,7 +1213,11 @@ Return ONLY valid JSON (no other text):
             if regulations and len(regulations) > 0:
                 reg_list = "\n\n**Top Regulations:**"
                 for reg in regulations[:3]:
-                    reg_list += f"\n• {reg.get('name', 'Unknown')}"
+                    # Handle both string and dict formats
+                    if isinstance(reg, str):
+                        reg_list += f"\n• {reg}"
+                    else:
+                        reg_list += f"\n• {reg.get('name', 'Unknown')}"
 
             return f"""**📜 Regulatory Requirements Analysis**
 

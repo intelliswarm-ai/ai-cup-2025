@@ -1,6 +1,10 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../../environments/environment';
+import { EmailDetailModalComponent } from '../mailbox/components/email-detail-modal/email-detail-modal.component';
+import { Email } from '../../core/models/email.model';
 
 type BadgeType = 'MEETING' | 'RISK' | 'EXTERNAL' | 'AUTOMATED' | 'VIP' | 'FOLLOW_UP' | 'NEWSLETTER' | 'FINANCE';
 
@@ -40,12 +44,15 @@ interface CallToAction {
 @Component({
   selector: 'app-daily-inbox-digest',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, EmailDetailModalComponent],
   templateUrl: './daily-inbox-digest.component.html',
   styleUrl: './daily-inbox-digest.component.scss'
 })
 export class DailyInboxDigestComponent implements OnInit {
+  private http = inject(HttpClient);
+
   groupedEmails: GroupedEmails = {};
+  otherEmails: EmailSummary[] = []; // Store OTHER category emails for CTA lookup
   availableCategories: BadgeType[] = [];
   selectedCategories: Set<BadgeType> = new Set();
 
@@ -56,8 +63,9 @@ export class DailyInboxDigestComponent implements OnInit {
 
   allCallToActions: CallToAction[] = [];
 
-  selectedEmail: EmailSummary | null = null;
+  selectedEmail: Email | null = null;
   showEmailModal: boolean = false;
+  isLoading: boolean = false;
 
   badgeIcons: { [key in BadgeType]: string } = {
     'MEETING': 'event',
@@ -82,99 +90,107 @@ export class DailyInboxDigestComponent implements OnInit {
   };
 
   ngOnInit(): void {
-    this.loadMockData();
+    this.loadDigestData();
   }
 
-  loadMockData(): void {
-    // Mock email data
-    this.groupedEmails = {
-      'MEETING': [
-        {
-          id: 1,
-          subject: 'Q4 Strategy Planning - All Hands',
-          sender: 'exec-team@company.com',
-          recipient: 'you@company.com',
-          received_at: new Date().toISOString(),
-          summary: [
-            'Quarterly strategy review scheduled for next week',
-            'All department heads expected to attend'
-          ],
-          body_text: `Dear Team,
+  loadDigestData(): void {
+    this.isLoading = true;
+    const apiUrl = `${environment.apiUrl}/inbox-digest?hours=24`;
 
-I hope this message finds you well. I am writing to inform you about our upcoming Q4 Strategy Planning session.
+    this.http.get<any>(apiUrl).subscribe({
+      next: (response) => {
+        // Map the API response to our component format
+        this.groupedEmails = {};
 
-Date: Next Monday, 10 AM
-Location: Conference Room A
-
-Best regards,
-Executive Team`,
-          has_cta: true,
-          cta_text: 'Accept meeting invite',
-          cta_type: 'meeting',
-          badges: ['MEETING', 'VIP'],
-          processed: true,
-          is_phishing: false
-        }
-      ],
-      'RISK': [
-        {
-          id: 2,
-          subject: 'Security Alert: Unusual Login Activity',
-          sender: 'security@company.com',
-          received_at: new Date(Date.now() - 7200000).toISOString(),
-          summary: [
-            'Multiple failed login attempts detected',
-            'IP address flagged from suspicious location'
-          ],
-          has_cta: true,
-          cta_text: 'Review and verify account',
-          cta_type: 'urgent',
-          badges: ['RISK']
-        }
-      ],
-      'EXTERNAL': [
-        {
-          id: 3,
-          subject: 'Partnership Proposal - Tech Collaboration',
-          sender: 'partnerships@techcorp.com',
-          received_at: new Date(Date.now() - 10800000).toISOString(),
-          summary: [
-            'Interested in exploring partnership opportunities',
-            'Focus on AI integration'
-          ],
-          has_cta: true,
-          cta_text: 'Schedule discovery call',
-          cta_type: 'external',
-          badges: ['EXTERNAL', 'FOLLOW_UP']
-        }
-      ]
-    };
-
-    // Calculate stats
-    let totalToday = 0;
-    const badgeCounts: { [key in BadgeType]?: number } = {};
-
-    Object.values(this.groupedEmails).forEach(emails => {
-      totalToday += emails.length;
-      emails.forEach(email => {
-        email.badges.forEach(badge => {
-          badgeCounts[badge] = (badgeCounts[badge] || 0) + 1;
+        // Initialize all categories
+        const allCategories: BadgeType[] = ['MEETING', 'RISK', 'EXTERNAL', 'AUTOMATED', 'VIP', 'FOLLOW_UP', 'NEWSLETTER', 'FINANCE'];
+        allCategories.forEach(cat => {
+          this.groupedEmails[cat] = [];
         });
-      });
+
+        // Reset CTAs and other emails before extracting
+        this.allCallToActions = [];
+        this.otherEmails = [];
+
+        // Fill with API data - including OTHER category for CTA extraction
+        Object.keys(response.grouped_emails || {}).forEach(category => {
+          const emails = (response.grouped_emails[category] || []).map((email: any) => {
+            // Handle call_to_actions - can be array of strings or array of objects
+            const ctas = email.call_to_actions || [];
+            let ctaText = '';
+            let ctaType = '';
+
+            if (ctas.length > 0) {
+              if (typeof ctas[0] === 'string') {
+                ctaText = ctas[0];
+                ctaType = 'action';
+              } else {
+                ctaText = ctas[0]?.action || ctas[0]?.text || '';
+                ctaType = ctas[0]?.type || 'action';
+              }
+            }
+
+            return {
+              id: email.id,
+              subject: email.subject,
+              sender: email.sender,
+              recipient: email.recipient,
+              received_at: email.received_at,
+              summary: Array.isArray(email.summary) ? email.summary : (email.summary ? [email.summary] : []),
+              body_text: email.body_text,
+              has_cta: ctas.length > 0,
+              cta_text: ctaText,
+              cta_type: ctaType,
+              badges: email.badges || [],
+              processed: true,
+              is_phishing: email.is_phishing
+            };
+          });
+
+          // Store in appropriate category
+          if (category !== 'OTHER') {
+            this.groupedEmails[category as BadgeType] = emails;
+          } else {
+            // Store OTHER category emails for CTA lookup
+            this.otherEmails = emails;
+          }
+
+          // Extract CTAs from ALL categories (including OTHER)
+          emails.forEach((email: EmailSummary) => {
+            if (email.has_cta && email.cta_text) {
+              this.allCallToActions.push({
+                email_id: email.id,
+                subject: email.subject,
+                cta_text: email.cta_text,
+                cta_type: email.cta_type || 'action',
+                category: (category !== 'OTHER' ? category : 'AUTOMATED') as BadgeType
+              });
+            }
+          });
+        });
+
+        // Update stats
+        this.stats = {
+          total_today: response.total_today || 0,
+          badge_counts: response.badge_counts || {}
+        };
+
+        // Get available categories (only those with emails)
+        this.availableCategories = Object.keys(this.groupedEmails).filter(
+          cat => this.groupedEmails[cat].length > 0
+        ) as BadgeType[];
+
+        // Select all by default
+        this.selectedCategories = new Set(this.availableCategories);
+
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Error loading digest data:', error);
+        this.isLoading = false;
+        // Keep empty state on error
+      }
     });
-
-    this.stats = { total_today: totalToday, badge_counts: badgeCounts };
-
-    // Get available categories
-    this.availableCategories = Object.keys(this.groupedEmails).filter(
-      cat => this.groupedEmails[cat].length > 0
-    ) as BadgeType[];
-
-    // Select all by default
-    this.selectedCategories = new Set(this.availableCategories);
-
-    // Extract all CTAs
-    this.extractCallToActions();
   }
 
   extractCallToActions(): void {
@@ -237,9 +253,47 @@ Executive Team`,
     }
   }
 
-  viewEmail(email: EmailSummary): void {
-    this.selectedEmail = email;
-    this.showEmailModal = true;
+  viewEmail(emailSummary: EmailSummary): void {
+    // Fetch the full email details from the mailbox API
+    this.isLoading = true;
+    const apiUrl = `${environment.apiUrl}/emails/${emailSummary.id}`;
+
+    this.http.get<Email>(apiUrl).subscribe({
+      next: (fullEmail) => {
+        this.selectedEmail = fullEmail;
+        this.showEmailModal = true;
+        this.isLoading = false;
+      },
+      error: (error) => {
+        console.error('Error loading full email details:', error);
+        // Fallback to basic email data if API fails
+        this.selectedEmail = {
+          id: emailSummary.id,
+          subject: emailSummary.subject,
+          sender: emailSummary.sender,
+          recipient: emailSummary.recipient || '',
+          body_text: emailSummary.body_text,
+          received_at: emailSummary.received_at,
+          processed: emailSummary.processed || false,
+          is_phishing: emailSummary.is_phishing || false,
+          llm_processed: false,
+          enriched: false,
+          wiki_enriched: false,
+          phone_enriched: false,
+          label: null,
+          phishing_type: null,
+          suggested_team: null,
+          assigned_team: null,
+          badges: emailSummary.badges,
+          ui_badges: emailSummary.badges,
+          workflow_results: [],
+          summary: Array.isArray(emailSummary.summary) ? emailSummary.summary.join(' ') : (emailSummary.summary ? String(emailSummary.summary) : null),
+          call_to_actions: emailSummary.has_cta && emailSummary.cta_text ? [emailSummary.cta_text] : []
+        };
+        this.showEmailModal = true;
+        this.isLoading = false;
+      }
+    });
   }
 
   closeModal(): void {
@@ -253,17 +307,22 @@ Executive Team`,
     }
     console.log('CTA clicked:', cta);
 
-    // Find the email associated with this CTA
-    const email = Object.values(this.groupedEmails)
+    // Find the email associated with this CTA in both grouped and other emails
+    let email = Object.values(this.groupedEmails)
       .flat()
       .find(e => e.id === cta.email_id);
+
+    // If not found in grouped emails, search in other emails
+    if (!email) {
+      email = this.otherEmails.find(e => e.id === cta.email_id);
+    }
 
     if (email) {
       // Show the email details modal
       this.viewEmail(email);
     } else {
-      // Show alert for demo
-      alert(`Action: ${cta.cta_text}\nEmail: ${cta.subject}`);
+      // Log error if email not found
+      console.error('Email not found for CTA:', cta);
     }
   }
 }

@@ -254,6 +254,16 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
     ]
   };
 
+  complianceProgress = {
+    currentStep: -1,
+    steps: [
+      { agent: 'Compliance Officer', icon: '📋', label: 'Policy Compliance Check', status: 'pending' },
+      { agent: 'Sanctions Analyst', icon: '🔍', label: 'Sanctions Screening', status: 'pending' },
+      { agent: 'AML/KYC Specialist', icon: '💰', label: 'AML/KYC Verification', status: 'pending' },
+      { agent: 'Regulatory Liaison', icon: '🏛️', label: 'Final Determination', status: 'pending' }
+    ]
+  };
+
   constructor() {
     // Configure marked for markdown rendering
     marked.setOptions({
@@ -479,6 +489,9 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
 
     this.fraudProgress.currentStep = -1;
     this.fraudProgress.steps.forEach(step => step.status = 'pending');
+
+    this.complianceProgress.currentStep = -1;
+    this.complianceProgress.steps.forEach(step => step.status = 'pending');
   }
 
   updateInvestmentProgress(role: string): void {
@@ -525,6 +538,29 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
   getFraudProgressPercent(): number {
     if (this.fraudProgress.currentStep === -1) return 0;
     return ((this.fraudProgress.currentStep + 1) / this.fraudProgress.steps.length) * 100;
+  }
+
+  updateComplianceProgress(role: string): void {
+    const agentIndex = this.complianceProgress.steps.findIndex(step => step.agent === role);
+    if (agentIndex === -1) return;
+
+    this.complianceProgress.currentStep = agentIndex;
+
+    // Update step statuses
+    this.complianceProgress.steps.forEach((step, index) => {
+      if (index < agentIndex) {
+        step.status = 'completed';
+      } else if (index === agentIndex) {
+        step.status = 'active';
+      } else {
+        step.status = 'pending';
+      }
+    });
+  }
+
+  getComplianceProgressPercent(): number {
+    if (this.complianceProgress.currentStep === -1) return 0;
+    return ((this.complianceProgress.currentStep + 1) / this.complianceProgress.steps.length) * 100;
   }
 
   getEmailDiscussion(emailId: number): DiscussionMessage[] {
@@ -871,6 +907,10 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
       console.log('[Progress] Updating fraud progress for:', agentName);
       this.updateFraudProgress(agentName);
       console.log('[Progress] Current step:', this.fraudProgress.currentStep, 'Steps:', this.fraudProgress.steps.map(s => s.agent + ':' + s.status));
+    } else if (this.selectedEmail?.assigned_team === 'compliance') {
+      console.log('[Progress] Updating compliance progress for:', agentName);
+      this.updateComplianceProgress(agentName);
+      console.log('[Progress] Current step:', this.complianceProgress.currentStep, 'Steps:', this.complianceProgress.steps.map(s => s.agent + ':' + s.status));
     }
 
     // Add message to discussion
@@ -901,6 +941,9 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
     } else if (this.selectedEmail?.assigned_team === 'fraud') {
       this.fraudProgress.steps.forEach(step => step.status = 'completed');
       this.fraudProgress.currentStep = this.fraudProgress.steps.length - 1;
+    } else if (this.selectedEmail?.assigned_team === 'compliance') {
+      this.complianceProgress.steps.forEach(step => step.status = 'completed');
+      this.complianceProgress.currentStep = this.complianceProgress.steps.length - 1;
     }
 
     // Reload emails to get updated status
