@@ -1729,7 +1729,9 @@ async def run_agentic_workflow_background(task_id: str, email_id: int, team: str
             # Broadcast message via SSE for real-time updates
             await broadcaster.broadcast("agentic_message", {
                 "task_id": task_id,
-                "message": message,
+                "email_id": email_id,
+                "agent_name": message.get('role', 'Agent'),
+                "message": message.get('text', ''),
                 "total_messages": len(all_messages),
                 "status": "processing"
             })
@@ -1786,6 +1788,7 @@ async def run_agentic_workflow_background(task_id: str, email_id: int, team: str
         # Broadcast completion via SSE
         await broadcaster.broadcast("agentic_complete", {
             "task_id": task_id,
+            "email_id": email_id,
             "status": "completed",
             "result": agentic_tasks[task_id]["result"]
         })

@@ -707,10 +707,41 @@ Provide a clear, professional analysis in 400-500 words."""
                 "is_thinking": True
             })
 
-        # Perform investigation
+        # Perform investigation with tool usage notifications
+        await self._notify_tool_usage(
+            on_progress_callback,
+            "Investigation Specialist",
+            "search_fraud_database",
+            "Searching internal fraud database for similar transaction patterns",
+            "Tool"
+        )
         fraud_db_search = await self.investigation_tools.search_fraud_database({"amount": 2500})
+
+        await self._notify_tool_usage(
+            on_progress_callback,
+            "Investigation Specialist",
+            "check_blacklists",
+            "Checking blacklist databases for suspicious entities",
+            "Tool"
+        )
         blacklist_check = await self.investigation_tools.check_blacklists({"device_id": "device_123"})
+
+        await self._notify_tool_usage(
+            on_progress_callback,
+            "Investigation Specialist",
+            "analyze_network",
+            f"Analyzing transaction network for user {user_id}",
+            "Tool"
+        )
         network_analysis = await self.investigation_tools.analyze_network(user_id, [])
+
+        await self._notify_tool_usage(
+            on_progress_callback,
+            "Investigation Specialist",
+            "search_public_records",
+            "Searching public records for merchant information",
+            "Tool"
+        )
         public_search = await self.investigation_tools.search_public_records("Online Retailer XYZ")
 
         # Update
@@ -1231,16 +1262,44 @@ Provide a nuanced, evidence-based synthesis that captures the best insights from
         )
 
         # Query similar emails from same sender
+        await self._notify_tool_usage(
+            on_progress_callback,
+            "Database Investigation Agent",
+            "query_emails_by_sender",
+            f"Searching for emails from sender: {email_from}",
+            "Tool"
+        )
         similar_sender_emails = await self._query_similar_emails_by_sender(db, email_from, limit=10)
 
         # Query known phishing emails
+        await self._notify_tool_usage(
+            on_progress_callback,
+            "Database Investigation Agent",
+            "query_known_phishing",
+            "Retrieving known phishing email patterns from database",
+            "Tool"
+        )
         known_phishing = await self._query_known_phishing_emails(db, limit=15)
 
         # Query emails with phishing keywords
         phishing_keywords = ["urgent", "suspended", "verify", "account", "security", "click", "password"]
+        await self._notify_tool_usage(
+            on_progress_callback,
+            "Database Investigation Agent",
+            "query_by_keywords",
+            f"Searching for emails with phishing keywords: {', '.join(phishing_keywords[:3])}...",
+            "Tool"
+        )
         keyword_matches = await self._query_emails_by_keywords(db, phishing_keywords, limit=20)
 
         # Query recent fraud cases
+        await self._notify_tool_usage(
+            on_progress_callback,
+            "Database Investigation Agent",
+            "query_recent_fraud",
+            "Analyzing recent fraud cases from last 30 days",
+            "Tool"
+        )
         recent_fraud = await self._query_recent_fraud_cases(db, days=30, limit=15)
 
         # Search for similar phishing campaigns

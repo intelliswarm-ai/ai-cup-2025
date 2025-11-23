@@ -1042,7 +1042,7 @@ Return ONLY valid JSON (no other text):
         return entity_name, entity_type, additional_info
 
     def _extract_company_from_text(self, text: str) -> str:
-        """Extract company name or ticker from text"""
+        """Extract company name or ticker from text with validation"""
         import re
 
         # Clean the text - remove emojis and common prefixes
@@ -1060,41 +1060,96 @@ Return ONLY valid JSON (no other text):
         # Convert to uppercase for pattern matching (keep original for company names)
         text_upper = text.upper()
 
-        # Pattern 1: Just a standalone ticker (e.g., "AAPL", "IMPP", "TSLA")
+        # Pattern 1: Explicit ticker with exchange suffix (e.g., "CERT.V", "SHOP.TO", "VOD.L")
+        # These are MOST RELIABLE - prioritize them first
+        exchange_ticker_match = re.search(r'\b([A-Z]{1,5}\.[A-Z]{1,3})\b', text_upper)
+        if exchange_ticker_match:
+            return exchange_ticker_match.group(1)
+
+        # Pattern 2: Just a standalone ticker (e.g., "AAPL", "IMPP", "TSLA")
         # Check if the entire text is just a ticker symbol (1-5 uppercase letters)
         standalone_match = re.match(r'^([A-Z]{1,5})$', text_upper)
         if standalone_match:
-            return standalone_match.group(1)
+            ticker = standalone_match.group(1)
+            # Validate it's not a common word
+            if ticker not in ['US', 'IT', 'OR', 'IN', 'TO', 'AT', 'BY', 'OF', 'ON', 'AN', 'AS', 'IS', 'IF', 'FOR', 'THE', 'AND', 'BUT']:
+                return ticker
 
-        # Pattern 2: Ticker in various contexts
-        patterns = [
-            r'\b([A-Z]{2,5})\s*(?:stock|shares?|ticker|analysis|report)',  # "AAPL stock", "IMPP analysis"
-            r'(?:stock|shares?|ticker|analysis|report)\s*(?:for|of|on)?\s*([A-Z]{2,5})\b',  # "stock AAPL", "analysis for TSLA"
-            r'(?:analyze|analysis)\s+(?:stock\s+)?([A-Z]{2,5})\b',  # "analyze AAPL", "analysis TSLA"
-            r'\(([A-Z]{2,5})\)',  # "Tesla (TSLA)"
-            r'^([A-Z]{2,5})\s',  # Ticker at start followed by space
-            r'\s([A-Z]{2,5})$',  # Ticker at end
-            r'\b([A-Z]{2,5})\b',  # Any standalone uppercase 2-5 letter word
+        # Pattern 3: Ticker in explicit contexts (high confidence)
+        high_confidence_patterns = [
+            r'\(([A-Z]{1,5}(?:\.[A-Z]{1,3})?)\)',  # "Cerrado Gold (CERT.V)" or "Tesla (TSLA)"
+            r'ticker[:\s]+([A-Z]{1,5}(?:\.[A-Z]{1,3})?)\b',  # "ticker: TSLA" or "ticker CERT.V"
+            r'\b([A-Z]{2,5})\s*(?:stock|shares?)',  # "AAPL stock", "IMPP shares"
+            r'(?:stock|shares?)\s*(?:for|of)?\s*([A-Z]{2,5})\b',  # "stock AAPL", "shares of TSLA"
         ]
 
-        for pattern in patterns:
+        for pattern in high_confidence_patterns:
             match = re.search(pattern, text_upper)
             if match:
                 ticker = match.group(1)
-                # Exclude common words that might match (like "US", "IT", "OR", etc.)
-                if ticker not in ['US', 'IT', 'OR', 'IN', 'TO', 'AT', 'BY', 'OF', 'ON', 'AN', 'AS', 'IS', 'IF', 'FOR', 'THE']:
+                # Validate it's not a common word
+                if ticker not in ['US', 'IT', 'OR', 'IN', 'TO', 'AT', 'BY', 'OF', 'ON', 'AN', 'AS', 'IS', 'IF', 'FOR', 'THE', 'AND', 'BUT']:
                     return ticker
 
-        # Pattern 3: Company names (capitalized words) - use original text
-        company_name_match = re.search(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b', text)
+        # Pattern 4: Company name extraction (prefer multi-word names)
+        # This catches "Cerrado Gold", "Apple Inc", "Microsoft Corporation"
+        company_name_match = re.search(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b', text)
         if company_name_match:
-            name = company_name_match.group(1)
-            # Return if it looks like a company name (not just one common word)
-            if len(name.split()) > 1 or name in ['Apple', 'Microsoft', 'Amazon', 'Tesla', 'Google', 'Meta', 'Netflix', 'Nvidia', 'Intel']:
-                return name
+            company_name = company_name_match.group(1)
+            # Use ticker lookup API to find correct ticker
+            validated_ticker = self._lookup_ticker_for_company(company_name)
+            if validated_ticker:
+                return validated_ticker
+            # If lookup fails, return company name for the agents to handle
+            return company_name
+
+        # Pattern 5: Single well-known company names
+        single_word_companies = ['Apple', 'Microsoft', 'Amazon', 'Tesla', 'Google', 'Meta', 'Netflix', 'Nvidia', 'Intel', 'Disney', 'Walmart', 'Target']
+        single_company_match = re.search(r'\b(' + '|'.join(single_word_companies) + r')\b', text, re.IGNORECASE)
+        if single_company_match:
+            return single_company_match.group(1)
 
         # If nothing found, return cleaned text (fallback)
         return text if text else "the requested company"
+
+    def _lookup_ticker_for_company(self, company_name: str) -> str:
+        """Look up the correct ticker symbol for a company name using search API"""
+        import asyncio
+        try:
+            # Use Serper API to find the ticker
+            from tools.search_tools import SearchTools
+            search_tool = SearchTools()
+
+            # Run async search in sync context
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+            search_query = f"{company_name} stock ticker symbol"
+            result = loop.run_until_complete(search_tool.search_internet(search_query, num_results=3))
+            loop.close()
+
+            # Extract ticker from results using regex
+            import re
+            # Look for patterns like "CERT.V", "TSLA", "AAPL"
+            ticker_patterns = [
+                r'\b([A-Z]{1,5}\.[A-Z]{1,3})\b',  # Exchange tickers like CERT.V
+                r'ticker[:\s]+([A-Z]{2,5})\b',     # "ticker: TSLA"
+                r'\(([A-Z]{2,5})\)',               # "(TSLA)"
+            ]
+
+            for pattern in ticker_patterns:
+                match = re.search(pattern, result)
+                if match:
+                    ticker = match.group(1)
+                    print(f"INFO: Ticker lookup for '{company_name}' found: {ticker}")
+                    return ticker
+
+            print(f"WARNING: Could not find ticker for company '{company_name}' via search")
+            return None
+
+        except Exception as e:
+            print(f"ERROR: Ticker lookup failed for '{company_name}': {e}")
+            return None
 
     def _format_investment_stage_message(self, stage: str, data: Dict[str, Any]) -> str:
         """Format investment analysis stage data into a readable message"""

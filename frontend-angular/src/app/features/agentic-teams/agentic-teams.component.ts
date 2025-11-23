@@ -1,10 +1,10 @@
-import { Component, OnInit, inject, OnDestroy } from '@angular/core';
+import { Component, OnInit, inject, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { Store } from '@ngrx/store';
 import { Observable, Subject, combineLatest, BehaviorSubject } from 'rxjs';
-import { takeUntil, map } from 'rxjs/operators';
+import { takeUntil, map, filter, take } from 'rxjs/operators';
 import { Email } from '../../core/models/email.model';
 import { selectAllEmails } from '../../store';
 import * as EmailsActions from '../../store/emails/emails.actions';
@@ -73,6 +73,7 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
   private store = inject(Store);
   private emailService = inject(EmailService);
   private sseService = inject(SseService);
+  private cdr = inject(ChangeDetectorRef);
   private destroy$ = new Subject<void>();
   private selectedTeam$ = new BehaviorSubject<string | null>(null);
 
@@ -85,6 +86,7 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
 
   showDirectInteraction: boolean = false;
   showTeamPresentation: boolean = false;
+  showWorkflowModal: boolean = false;
   isEditMode: boolean = false;
   expandedToolIndex: number | null = null;
   editingToolIndex: number | null = null;
@@ -377,6 +379,9 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
   }
 
   selectEmail(email: Email): void {
+    console.log('[selectEmail] START - Email ID:', email.id, 'Subject:', email.subject);
+    console.log('[selectEmail] Email has workflow_results:', email.workflow_results?.length || 0);
+
     this.selectedEmail = email;
 
     // Auto-select team from email if not already selected
@@ -388,7 +393,9 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
       this.loadTeamTools(email.assigned_team);
     }
 
+    console.log('[selectEmail] Before updateViewState - showDirectInteraction:', this.showDirectInteraction, 'showTeamPresentation:', this.showTeamPresentation);
     this.updateViewState();
+    console.log('[selectEmail] After updateViewState - showDirectInteraction:', this.showDirectInteraction, 'showTeamPresentation:', this.showTeamPresentation);
 
     // Reset progress trackers for new email
     this.resetProgressTrackers();
@@ -397,34 +404,51 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
     if (email && email.workflow_results && email.workflow_results.length > 0) {
       console.log(`[selectEmail] Email ${email.id} has ${email.workflow_results.length} workflow results`);
 
-      const workflowResult = email.workflow_results[0];
+      // Find the agentic workflow result (not ML results)
+      const agenticWorkflow = email.workflow_results.find(wr =>
+        wr.workflow_name && wr.workflow_name.startsWith('agentic_')
+      );
 
-      if (!workflowResult.result) {
+      if (!agenticWorkflow) {
+        console.log(`[selectEmail] No agentic workflow found for email ${email.id}`);
+        // Don't return - just skip loading messages
+      } else if (!agenticWorkflow.result) {
         console.warn(`[selectEmail] No result field in workflow_result for email ${email.id}`);
-        return;
-      }
-
-      if (!workflowResult.result.discussion) {
+        // Don't return - just skip loading messages
+      } else if (!agenticWorkflow.result.discussion) {
         console.warn(`[selectEmail] No discussion field in result for email ${email.id}`);
-        return;
-      }
-
-      if (!workflowResult.result.discussion.messages) {
+        // Don't return - just skip loading messages
+      } else if (!agenticWorkflow.result.discussion.messages) {
         console.warn(`[selectEmail] No messages array in discussion for email ${email.id}`);
-        return;
+        // Don't return - just skip loading messages
+      } else {
+        // Convert workflow messages to discussion messages format
+        console.log('[selectEmail] Converting messages - Count:', agenticWorkflow.result.discussion.messages.length);
+
+        this.discussionMessages[email.id] = agenticWorkflow.result.discussion.messages.map((msg: any) => ({
+          agentName: msg.role,
+          agentIcon: msg.icon,
+          content: msg.text,
+          timestamp: msg.timestamp || 'Earlier',
+          isToolUsage: msg.is_tool_usage || false,
+          isDecision: msg.is_decision || false
+        }));
+
+        console.log(`[selectEmail] Successfully loaded ${this.discussionMessages[email.id].length} historical messages for email ${email.id}`);
+        console.log('[selectEmail] Sample message:', this.discussionMessages[email.id][0]);
+
+        // Mark all progress steps as completed for completed workflows
+        if (email.assigned_team === 'investments') {
+          this.investmentProgress.steps.forEach(step => step.status = 'completed');
+          this.investmentProgress.currentStep = this.investmentProgress.steps.length - 1;
+        } else if (email.assigned_team === 'fraud') {
+          this.fraudProgress.steps.forEach(step => step.status = 'completed');
+          this.fraudProgress.currentStep = this.fraudProgress.steps.length - 1;
+        } else if (email.assigned_team === 'compliance') {
+          this.complianceProgress.steps.forEach(step => step.status = 'completed');
+          this.complianceProgress.currentStep = this.complianceProgress.steps.length - 1;
+        }
       }
-
-      // Convert workflow messages to discussion messages format
-      this.discussionMessages[email.id] = workflowResult.result.discussion.messages.map((msg) => ({
-        agentName: msg.role,
-        agentIcon: msg.icon,
-        content: msg.text,
-        timestamp: msg.timestamp || 'Earlier',
-        isToolUsage: msg.is_tool_usage || false,
-        isDecision: msg.is_decision || false
-      }));
-
-      console.log(`[selectEmail] Successfully loaded ${this.discussionMessages[email.id].length} historical messages for email ${email.id}`);
     } else {
       console.log(`[selectEmail] Email ${email.id} has no workflow results`);
     }
@@ -564,7 +588,10 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
   }
 
   getEmailDiscussion(emailId: number): DiscussionMessage[] {
-    return this.discussionMessages[emailId] || [];
+    const messages = this.discussionMessages[emailId] || [];
+    console.log(`[getEmailDiscussion] Email ${emailId} has ${messages.length} messages`);
+    console.log('[getEmailDiscussion] All email IDs with messages:', Object.keys(this.discussionMessages));
+    return messages;
   }
 
   sendChatMessage(): void {
@@ -610,16 +637,25 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
   submitDirectQuery(): void {
     const query = this.directQuery.trim();
 
+    console.log('=====================================');
+    console.log('[submitDirectQuery] *** FUNCTION CALLED ***');
+    console.log('[submitDirectQuery] START - Query:', query, 'Team:', this.selectedTeam);
+    console.log('[submitDirectQuery] Current showWorkflowModal:', this.showWorkflowModal);
+    console.log('=====================================');
+
     if (!query) {
+      console.log('[submitDirectQuery] Empty query, aborting');
       return;
     }
 
     if (!this.selectedTeam || this.selectedTeam === 'all') {
+      console.log('[submitDirectQuery] No team selected, aborting');
       return;
     }
 
     // Show loading state
     this.isSubmittingQuery = true;
+    console.log('[submitDirectQuery] Submitting query...');
 
     // Call API to create direct query task
     this.emailService.submitDirectQuery(this.selectedTeam, query)
@@ -637,17 +673,36 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
 
           // Wait a bit for store to update, then select the email
           setTimeout(() => {
-            // Find and select the email by ID
+            // Find and select the email by ID - wait until it appears in the store
             this.store.select(selectAllEmails)
-              .pipe(takeUntil(this.destroy$))
-              .subscribe(emails => {
-                const email = emails.find(e => e.id === result.email_id);
-                if (email) {
-                  this.selectEmail(email);
-                  console.log('[Direct Query] Selected email:', email.id);
-                }
+              .pipe(
+                map(emails => emails.find(e => e.id === result.email_id)),
+                filter(email => email !== undefined), // Wait for email to exist
+                take(1), // Only take the first emission
+                takeUntil(this.destroy$)
+              )
+              .subscribe(email => {
+                console.log('[Direct Query] Found email in store:', email.id);
+                console.log('[Direct Query] Selecting email:', email.id);
+                this.selectEmail(email);
+
+                // Force view update - hide direct interaction, show email details
+                this.showDirectInteraction = false;
+                this.showTeamPresentation = false;
+
+                // Open the workflow modal AFTER email is selected
+                this.showWorkflowModal = true;
+
+                // Manually trigger change detection to ensure modal displays
+                this.cdr.detectChanges();
+
+                console.log('[Direct Query] View state updated - showDirectInteraction:', this.showDirectInteraction);
+                console.log('[Direct Query] Modal opened - showWorkflowModal:', this.showWorkflowModal);
+                console.log('[Direct Query] Selected email team:', email.assigned_team);
+                console.log('[Direct Query] Selected email ID:', this.selectedEmail?.id);
+                console.log('[Direct Query] Change detection triggered manually');
               });
-          }, 500);
+          }, 1000);
         },
         error: (error) => {
           console.error('[Direct Query] Error:', error);
@@ -658,6 +713,10 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
 
   clearDirectQuery(): void {
     this.directQuery = '';
+  }
+
+  closeWorkflowModal(): void {
+    this.showWorkflowModal = false;
   }
 
   enterEditMode(): void {
@@ -894,30 +953,20 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
     const agentName = data.agent_name || 'Agent';
     const message = data.message || '';
 
-    if (!emailId) return;
-
-    console.log('[Progress] Received message from agent:', agentName, 'for team:', this.selectedEmail?.assigned_team);
-
-    // Update progress trackers based on team and agent
-    if (this.selectedEmail?.assigned_team === 'investments') {
-      console.log('[Progress] Updating investment progress for:', agentName);
-      this.updateInvestmentProgress(agentName);
-      console.log('[Progress] Current step:', this.investmentProgress.currentStep, 'Steps:', this.investmentProgress.steps.map(s => s.agent + ':' + s.status));
-    } else if (this.selectedEmail?.assigned_team === 'fraud') {
-      console.log('[Progress] Updating fraud progress for:', agentName);
-      this.updateFraudProgress(agentName);
-      console.log('[Progress] Current step:', this.fraudProgress.currentStep, 'Steps:', this.fraudProgress.steps.map(s => s.agent + ':' + s.status));
-    } else if (this.selectedEmail?.assigned_team === 'compliance') {
-      console.log('[Progress] Updating compliance progress for:', agentName);
-      this.updateComplianceProgress(agentName);
-      console.log('[Progress] Current step:', this.complianceProgress.currentStep, 'Steps:', this.complianceProgress.steps.map(s => s.agent + ':' + s.status));
+    if (!emailId) {
+      console.warn('[SSE] Received message without email_id:', data);
+      return;
     }
 
-    // Add message to discussion
+    console.log('[SSE] Received message from agent:', agentName, 'for email:', emailId, 'Message:', message.substring(0, 100));
+
+    // Initialize messages array if needed
     if (!this.discussionMessages[emailId]) {
       this.discussionMessages[emailId] = [];
+      console.log('[SSE] Initialized messages array for email:', emailId);
     }
 
+    // Create and add the message
     const newMessage: DiscussionMessage = {
       agentName: agentName,
       agentIcon: this.getAgentIcon(agentName),
@@ -928,6 +977,35 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
     };
 
     this.discussionMessages[emailId].push(newMessage);
+    console.log('[SSE] Added message to email:', emailId, 'Total messages:', this.discussionMessages[emailId].length);
+
+    // Only update progress if this message is for the currently selected email
+    if (!this.selectedEmail || this.selectedEmail.id !== emailId) {
+      console.log('[SSE] Message is not for currently selected email (selected:', this.selectedEmail?.id, 'vs message:', emailId, ')');
+      // Message stored for when/if this email is selected
+      return;
+    }
+
+    console.log('[Progress] Updating progress for currently selected email:', emailId);
+
+    // Update progress trackers based on team and agent
+    if (this.selectedEmail.assigned_team === 'investments') {
+      console.log('[Progress] Updating investment progress for:', agentName);
+      this.updateInvestmentProgress(agentName);
+      console.log('[Progress] Current step:', this.investmentProgress.currentStep, 'Steps:', this.investmentProgress.steps.map(s => s.agent + ':' + s.status));
+    } else if (this.selectedEmail.assigned_team === 'fraud') {
+      console.log('[Progress] Updating fraud progress for:', agentName);
+      this.updateFraudProgress(agentName);
+      console.log('[Progress] Current step:', this.fraudProgress.currentStep, 'Steps:', this.fraudProgress.steps.map(s => s.agent + ':' + s.status));
+    } else if (this.selectedEmail?.assigned_team === 'compliance') {
+      console.log('[Progress] Updating compliance progress for:', agentName);
+      this.updateComplianceProgress(agentName);
+      console.log('[Progress] Current step:', this.complianceProgress.currentStep, 'Steps:', this.complianceProgress.steps.map(s => s.agent + ':' + s.status));
+    }
+
+    // Manually trigger change detection to update the UI
+    this.cdr.detectChanges();
+    console.log('[SSE] Triggered change detection after message update');
   }
 
   private handleAgenticComplete(data: any): void {
@@ -938,13 +1016,19 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
     if (this.selectedEmail?.assigned_team === 'investments') {
       this.investmentProgress.steps.forEach(step => step.status = 'completed');
       this.investmentProgress.currentStep = this.investmentProgress.steps.length - 1;
+      console.log('[Workflow Complete] Investment analysis completed');
     } else if (this.selectedEmail?.assigned_team === 'fraud') {
       this.fraudProgress.steps.forEach(step => step.status = 'completed');
       this.fraudProgress.currentStep = this.fraudProgress.steps.length - 1;
+      console.log('[Workflow Complete] Fraud investigation completed');
     } else if (this.selectedEmail?.assigned_team === 'compliance') {
       this.complianceProgress.steps.forEach(step => step.status = 'completed');
       this.complianceProgress.currentStep = this.complianceProgress.steps.length - 1;
+      console.log('[Workflow Complete] Compliance review completed');
     }
+
+    // Manually trigger change detection
+    this.cdr.detectChanges();
 
     // Reload emails to get updated status
     this.store.dispatch(EmailsActions.loadEmails({ limit: 100, offset: 0, append: false }));
