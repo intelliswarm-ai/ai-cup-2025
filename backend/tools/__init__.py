@@ -10,6 +10,11 @@ from .sec_tools import SECTools
 from .transaction_tools import TransactionTools
 from .risk_tools import RiskTools
 from .investigation_tools import InvestigationTools
+from .regulatory_tools import RegulatoryTools
+from .aml_tools import AMLTools
+from .sanctions_tools import SanctionsTools
+from .entity_resolver import EntityResolver
+from .policy_compliance_tools import PolicyComplianceTools
 
 __all__ = [
     'BrowserTools',
@@ -18,5 +23,10 @@ __all__ = [
     'SECTools',
     'TransactionTools',
     'RiskTools',
-    'InvestigationTools'
+    'InvestigationTools',
+    'RegulatoryTools',
+    'AMLTools',
+    'SanctionsTools',
+    'EntityResolver',
+    'PolicyComplianceTools'
 ]

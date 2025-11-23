@@ -86,12 +86,12 @@ services:
       retries: 5
       start_period: 30s
 
-  # Material Dashboard Frontend (Vanilla JS)
-  frontend:
+  # Angular Frontend (Primary) - Now on ports 80/443 with SSL
+  frontend-angular:
     build:
-      context: ./frontend
+      context: ./frontend-angular
       dockerfile: Dockerfile
-    container_name: mailbox-frontend
+    container_name: mailbox-frontend-angular
     ports:
       - "80:80"
       - "443:443"
@@ -101,30 +101,8 @@ services:
     networks:
       - mailbox-network
     restart: unless-stopped
-
-  # Angular Frontend (New Migration)
-  frontend-angular:
-    build:
-      context: ./frontend-angular
-      dockerfile: Dockerfile.dev
-    container_name: mailbox-frontend-angular
-    ports:
-      - "4200:4200"
-    environment:
-      API_URL: http://backend:8000/api
-      SSE_URL: http://backend:8000/api/events
-    depends_on:
-      backend:
-        condition: service_started
-    volumes:
-      - ./frontend-angular:/app
-      - /app/node_modules
-      - /app/.angular
-    networks:
-      - mailbox-network
-    restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4200/health"]
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80/health"]
       interval: 30s
       timeout: 10s
       retries: 3

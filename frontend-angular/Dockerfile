@@ -10,13 +10,13 @@ WORKDIR /app
 COPY package*.json ./
 
 # Install dependencies
-RUN npm ci --only=production
+RUN npm install
 
 # Copy application files
 COPY . .
 
 # Build for production
-RUN npm run build --configuration=production
+RUN npm run build -- --configuration=production
 
 # Stage 2: Serve with nginx
 FROM nginx:alpine
@@ -27,8 +27,12 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Copy built application from builder stage
 COPY --from=builder /app/dist/frontend-angular/browser /usr/share/nginx/html
 
-# Expose port 80
-EXPOSE 80
+# Copy entrypoint script
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
-# Start nginx
-CMD ["nginx", "-g", "daemon off;"]
+# Expose ports 80 (HTTP) and 443 (HTTPS)
+EXPOSE 80 443
+
+# Use entrypoint to generate SSL certificates
+ENTRYPOINT ["/entrypoint.sh"]

@@ -1453,10 +1453,10 @@ async def get_inbox_digest(
         # Calculate time threshold
         time_threshold = datetime.utcnow() - timedelta(hours=hours)
 
-        # Get recent emails that have been LLM processed
+        # Get recent emails that have been processed (ML phishing detection)
         recent_emails = db.query(Email).filter(
             Email.received_at >= time_threshold,
-            Email.llm_processed == True
+            Email.processed == True
         ).order_by(Email.received_at.desc()).all()
 
         # Group emails by primary badge
@@ -1475,20 +1475,27 @@ async def get_inbox_digest(
         total_today = len(recent_emails)
 
         for email in recent_emails:
+            # Auto-assign RISK badge to phishing emails if no badges exist
+            badges = email.badges or []
+            if not badges and email.is_phishing:
+                badges = ["RISK"]
+
             email_data = {
                 "id": email.id,
                 "subject": email.subject,
                 "sender": email.sender,
-                "summary": email.summary,
-                "badges": email.badges or [],
+                "recipient": email.recipient,
+                "summary": email.summary if email.summary else [email.subject],
+                "badges": badges,
                 "received_at": email.received_at.isoformat(),
                 "is_phishing": email.is_phishing,
-                "call_to_actions": email.call_to_actions or []
+                "call_to_actions": email.call_to_actions or [],
+                "body_text": email.body_text if hasattr(email, 'body_text') else None
             }
 
             # Add to primary badge group (first badge takes priority)
-            if email.badges and len(email.badges) > 0:
-                primary_badge = email.badges[0]
+            if badges and len(badges) > 0:
+                primary_badge = badges[0]
                 if primary_badge in grouped:
                     grouped[primary_badge].append(email_data)
                 else:
@@ -1722,7 +1729,9 @@ async def run_agentic_workflow_background(task_id: str, email_id: int, team: str
             # Broadcast message via SSE for real-time updates
             await broadcaster.broadcast("agentic_message", {
                 "task_id": task_id,
-                "message": message,
+                "email_id": email_id,
+                "agent_name": message.get('role', 'Agent'),
+                "message": message.get('text', ''),
                 "total_messages": len(all_messages),
                 "status": "processing"
             })
@@ -1779,6 +1788,7 @@ async def run_agentic_workflow_background(task_id: str, email_id: int, team: str
         # Broadcast completion via SSE
         await broadcaster.broadcast("agentic_complete", {
             "task_id": task_id,
+            "email_id": email_id,
             "status": "completed",
             "result": agentic_tasks[task_id]["result"]
         })
@@ -2038,6 +2048,10 @@ async def send_chat_message_to_team(task_id: str, request: dict):
         elif team == "fraud":
             from fraud_workflow import fraud_workflow
             fraud_workflow.add_user_message(message)
+        elif team == "compliance":
+            from compliance_workflow import ComplianceWorkflow
+            compliance_workflow = ComplianceWorkflow()
+            compliance_workflow.add_user_message(message)
 
         # Select an appropriate agent to respond (use first agent in team)
         team_info = BACKEND_TEAMS[team]
@@ -2057,8 +2071,7 @@ async def send_chat_message_to_team(task_id: str, request: dict):
         task["messages"].append(user_msg)
 
         # Broadcast user message via SSE
-        await broadcast_sse_event({
-            "type": "agentic_chat_user",
+        await broadcaster.broadcast("agentic_chat_user", {
             "task_id": task_id,
             "message": user_msg
         })
@@ -2107,8 +2120,7 @@ Reference specific findings or data points from the analysis when relevant."""
         task["messages"].append(agent_msg)
 
         # Broadcast agent response via SSE
-        await broadcast_sse_event({
-            "type": "agentic_chat_response",
+        await broadcaster.broadcast("agentic_chat_response", {
             "task_id": task_id,
             "message": agent_msg
         })

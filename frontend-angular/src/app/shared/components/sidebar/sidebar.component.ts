@@ -51,8 +51,7 @@ export class SidebarComponent {
       items: [
         { label: 'Fraud Unit', route: '/agentic-teams', icon: 'security', queryParams: { team: 'fraud' } },
         { label: 'Compliance', route: '/agentic-teams', icon: 'gavel', queryParams: { team: 'compliance' } },
-        { label: 'Investments', route: '/agentic-teams', icon: 'query_stats', queryParams: { team: 'investments' } },
-        { label: 'All Teams', route: '/agentic-teams', icon: 'groups', queryParams: { team: 'all' } }
+        { label: 'Investments', route: '/agentic-teams', icon: 'query_stats', queryParams: { team: 'investments' } }
       ]
     }
   ];

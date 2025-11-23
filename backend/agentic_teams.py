@@ -713,8 +713,336 @@ Based on the comprehensive analysis above, this email has been classified as **{
             print("FALLBACK: Using standard discussion format")
             return await self._run_standard_discussion("fraud", email_id, email_subject, email_body, email_sender, on_message_callback)
 
+    async def run_compliance_analysis(
+        self,
+        email_id: int,
+        email_subject: str,
+        email_body: str,
+        email_sender: str,
+        on_message_callback = None,
+        db = None
+    ) -> Dict[str, Any]:
+        """
+        Run compliance workflow for the Compliance Team
+        Uses specialized tools for regulatory, AML/KYC, and sanctions checks
+        """
+        print(f"INFO: Starting compliance analysis for email_id={email_id}, subject='{email_subject[:50]}'")
+        try:
+            # Import the compliance workflow
+            from compliance_workflow import ComplianceWorkflow
+
+            # Extract entity information from email
+            combined_text = f"{email_subject} {email_body}".lower()
+
+            # Extract entity name and type
+            entity_name, entity_type, additional_info = self._extract_entity_from_text(
+                combined_text, email_subject, email_body
+            )
+
+            # Track all messages for display
+            all_messages = []
+
+            # STEP 0: Send initial message
+            initial_message = {
+                "role": "Compliance Officer",
+                "icon": "✅",
+                "text": f"""**🔍 Starting Comprehensive Compliance Analysis**
+
+**Email Subject:** {email_subject[:80]}...
+**Entity Detected:** {entity_name}
+**Type:** {entity_type.upper()}
+
+Initiating multi-stage compliance verification...""",
+                "timestamp": datetime.now().isoformat()
+            }
+            all_messages.append(initial_message)
+            if on_message_callback:
+                await on_message_callback(initial_message, all_messages)
+                await asyncio.sleep(0.5)
+
+            # Run the compliance analysis workflow with message tracking
+            async def progress_callback(update):
+                message = {
+                    "role": update.get("role", "Compliance System"),
+                    "icon": update.get("icon", "📋"),
+                    "text": update.get("text", ""),
+                    "timestamp": datetime.now().isoformat(),
+                    "is_thinking": update.get("is_thinking", False)
+                }
+                all_messages.append(message)
+                if on_message_callback:
+                    await on_message_callback(message, all_messages)
+                    if not update.get("is_thinking"):
+                        await asyncio.sleep(0.3)
+
+            # Initialize workflow
+            compliance_workflow = ComplianceWorkflow()
+
+            # STEP 1: Check Email Policy Compliance (direction + policy violations)
+            enable_policy_check = os.getenv("ENABLE_POLICY_COMPLIANCE", "true").lower() == "true"
+
+            email_policy_result = None
+            if enable_policy_check:
+                policy_start_msg = {
+                    "role": "Policy Compliance Officer",
+                    "icon": "📋",
+                    "text": "**📧 Email Policy Compliance Check**\n\nAnalyzing email direction and policy violations...",
+                    "timestamp": datetime.now().isoformat(),
+                    "is_thinking": True
+                }
+                all_messages.append(policy_start_msg)
+                if on_message_callback:
+                    await on_message_callback(policy_start_msg, all_messages)
+                    await asyncio.sleep(0.5)
+
+                email_policy_result = await compliance_workflow.check_email_policy_compliance(
+                    email_subject=email_subject,
+                    email_body=email_body,
+                    email_sender=email_sender,
+                    email_recipient=None,
+                    attachments=None,
+                    on_progress_callback=progress_callback
+                )
+
+                # Format policy compliance result as message
+                if email_policy_result:
+                    direction = email_policy_result.get("email_direction", "unknown")
+                    status = email_policy_result.get("compliance_status", "UNKNOWN")
+                    risk = email_policy_result.get("overall_risk", "UNKNOWN")
+                    violations = email_policy_result.get("violations", [])
+
+                    policy_icon = "✅" if status == "COMPLIANT" else "⚠️"
+                    violations_text = ""
+                    if violations:
+                        violations_text = "\n\n**Policy Violations Detected:**\n"
+                        for v in violations[:3]:
+                            violations_text += f"• {v.get('description', 'Unknown')} (Severity: {v.get('severity', 'UNKNOWN')})\n"
+
+                    policy_result_msg = {
+                        "role": "Policy Compliance Officer",
+                        "icon": policy_icon,
+                        "text": f"""**📧 Email Policy Compliance Result**
+
+**Email Direction:** {direction.upper()}
+**Policy Status:** {status}
+**Risk Level:** {risk}
+{violations_text}""",
+                        "timestamp": datetime.now().isoformat()
+                    }
+                    all_messages.append(policy_result_msg)
+                    if on_message_callback:
+                        await on_message_callback(policy_result_msg, all_messages)
+                        await asyncio.sleep(0.5)
+
+            # STEP 2: Entity Resolution and Sanctions Check
+            entity_check_msg = {
+                "role": "Sanctions Analyst",
+                "icon": "🔍",
+                "text": f"**🌐 Entity Compliance Analysis**\n\nChecking: {entity_name}\nRunning sanctions, AML, and regulatory verification...",
+                "timestamp": datetime.now().isoformat(),
+                "is_thinking": True
+            }
+            all_messages.append(entity_check_msg)
+            if on_message_callback:
+                await on_message_callback(entity_check_msg, all_messages)
+                await asyncio.sleep(0.5)
+
+            # Run comprehensive entity compliance analysis
+            analysis = await compliance_workflow.analyze_entity_compliance(
+                entity_name=entity_name,
+                entity_type=entity_type,
+                additional_info=additional_info,
+                on_progress_callback=progress_callback,
+                db=db
+            )
+
+            # Add email policy results to analysis
+            if email_policy_result:
+                analysis["email_policy_compliance"] = email_policy_result
+
+            # Format the results as messages (don't reset all_messages - keep existing ones)
+            team_info = TEAMS["compliance"]
+
+            # Add messages for each stage
+            for i, stage_data in enumerate(analysis["stages"]):
+                agent_name = stage_data["agent"]
+
+                # Find matching agent icon
+                agent_icon = "📋"
+                for agent in team_info["agents"]:
+                    if agent["role"] == agent_name:
+                        agent_icon = agent["icon"]
+                        break
+
+                # Create message with stage results
+                message_text = self._format_compliance_stage_message(
+                    stage_data["stage"],
+                    stage_data["data"]
+                )
+
+                message = {
+                    "role": agent_name,
+                    "icon": agent_icon,
+                    "text": message_text,
+                    "timestamp": datetime.now().isoformat(),
+                    "is_decision": (stage_data["stage"] == "final_determination")
+                }
+
+                all_messages.append(message)
+
+                if on_message_callback:
+                    await on_message_callback(message, all_messages)
+                    await asyncio.sleep(0.5)  # Delay for UX
+
+            print(f"SUCCESS: Compliance analysis completed with {len(all_messages)} messages")
+            return {
+                "status": "completed",
+                "team": "compliance",
+                "team_name": team_info["name"],
+                "email_id": email_id,
+                "messages": all_messages,
+                "decision": analysis.get("final_determination", {}),
+                "rounds": len(analysis["stages"]),
+                "compliance_analysis": analysis
+            }
+
+        except Exception as e:
+            # Fallback to standard team discussion if workflow fails
+            print(f"ERROR: Compliance workflow failed: {e}")
+            print(f"ERROR: Email ID: {email_id}, Subject: {email_subject[:50]}")
+            import traceback
+            traceback.print_exc()
+            print("FALLBACK: Using standard discussion format")
+            return await self._run_standard_discussion("compliance", email_id, email_subject, email_body, email_sender, on_message_callback)
+
+    def _extract_entity_from_text(self, text: str, subject: str, body: str) -> tuple:
+        """Extract entity name, type, and additional info from text using LLM"""
+        import re
+        from openai import OpenAI
+
+        # Try LLM-based extraction first (better for natural language)
+        try:
+            client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+            extraction_prompt = f"""Extract compliance-related entity information from this user query.
+
+Subject: {subject}
+Body: {body}
+
+Identify:
+1. Entity name (company name, person name, OR ticker symbol like IMPP, TSLA, AAPL)
+2. Entity type (company, individual, or transaction)
+3. Any additional context (country, amount, industry, etc.)
+
+IMPORTANT:
+- If you see a ticker symbol (2-5 capital letters like IMPP, TSLA), return it as the entity_name
+- Handle natural language queries like "is IMPP sanctioned?" or "check company IMPP"
+- If the query mentions "company" followed by a name/ticker, extract that name/ticker
+
+Return ONLY valid JSON (no other text):
+{{
+    "entity_name": "extracted name or ticker symbol",
+    "entity_type": "company",
+    "confidence": "high",
+    "additional_info": {{
+        "country": "if mentioned",
+        "industry": "if mentioned",
+        "transaction_amount": "if mentioned"
+    }}
+}}"""
+
+            response = client.chat.completions.create(
+                model=os.getenv("OPENAI_MODEL", "gpt-4o-mini"),
+                messages=[{"role": "user", "content": extraction_prompt}],
+                temperature=0.1,
+                max_tokens=500
+            )
+
+            result_text = response.choices[0].message.content.strip()
+
+            # Parse JSON response
+            json_match = re.search(r'\{.*\}', result_text, re.DOTALL)
+            if json_match:
+                extracted = json.loads(json_match.group())
+                entity_name = extracted.get("entity_name", "").strip()
+                entity_type = extracted.get("entity_type", "company")
+                additional_info = extracted.get("additional_info", {})
+                confidence = extracted.get("confidence", "medium")
+
+                # Validate extraction
+                if entity_name and entity_name.lower() not in ["unknown", "not found", "none", ""]:
+                    # Clean up additional_info - remove None values and "if mentioned" placeholders
+                    cleaned_info = {}
+                    for key, value in additional_info.items():
+                        if value and isinstance(value, (str, int, float)):
+                            if not any(phrase in str(value).lower() for phrase in ["if mentioned", "not mentioned", "unknown", "none", "n/a"]):
+                                cleaned_info[key] = value
+
+                    return entity_name, entity_type, cleaned_info
+
+        except Exception as e:
+            print(f"Warning: LLM extraction failed: {e}. Falling back to regex.")
+
+        # Fallback to improved regex patterns
+        entity_type = "individual"  # default
+        additional_info = {}
+
+        # Look for entity type indicators
+        if any(word in text for word in ["company", "corporation", "inc", "llc", "ltd", "business", "firm", "ticker", "stock"]):
+            entity_type = "company"
+        elif any(word in text for word in ["transaction", "transfer", "payment", "wire"]):
+            entity_type = "transaction"
+
+        # Enhanced entity name extraction patterns
+        name_patterns = [
+            # Ticker symbols (IMPP, TSLA, AAPL, etc.)
+            r'\b([A-Z]{2,5})\b',
+            # "company IMPP" or "sanctioned IMPP"
+            r'(?:company|sanctioned|check|verify|screen|analyze)\s+([A-Z]{2,5})\b',
+            # Traditional patterns
+            r'(?:check|verify|screen|analyze|compliance for|review)\s+([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)',
+            r'(?:entity|customer|client|company|individual):\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)',
+            r'([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,3})'  # Capitalized name (2-4 words)
+        ]
+
+        entity_name = None
+        for pattern in name_patterns:
+            match = re.search(pattern, subject + " " + body, re.IGNORECASE)
+            if match:
+                potential_name = match.group(1)
+                # Skip common words
+                skip_words = ["Direct", "Query", "Check", "Verify", "This", "That", "Company", "Sanctioned"]
+                if potential_name not in skip_words:
+                    entity_name = potential_name
+                    break
+
+        if not entity_name or entity_name in ["Unknown Entity", "Direct Query"]:
+            entity_name = "Unknown Entity"
+
+        # Extract additional info
+        # Look for country
+        country_pattern = r'\b(?:country|location|jurisdiction):\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)'
+        country_match = re.search(country_pattern, subject + " " + body)
+        if country_match:
+            additional_info["country"] = country_match.group(1)
+
+        # Look for transaction amount
+        amount_pattern = r'\$\s*([\d,]+(?:\.\d{2})?)'
+        amount_match = re.search(amount_pattern, subject + " " + body)
+        if amount_match:
+            amount_str = amount_match.group(1).replace(',', '')
+            additional_info["transaction_amount"] = float(amount_str)
+
+        # Look for industry
+        industry_pattern = r'\b(?:industry|sector):\s*([A-Z][a-z]+(?:\s+[A-Z][a-z]+)?)'
+        industry_match = re.search(industry_pattern, subject + " " + body)
+        if industry_match:
+            additional_info["industry"] = industry_match.group(1)
+
+        return entity_name, entity_type, additional_info
+
     def _extract_company_from_text(self, text: str) -> str:
-        """Extract company name or ticker from text"""
+        """Extract company name or ticker from text with validation"""
         import re
 
         # Clean the text - remove emojis and common prefixes
@@ -732,41 +1060,96 @@ Based on the comprehensive analysis above, this email has been classified as **{
         # Convert to uppercase for pattern matching (keep original for company names)
         text_upper = text.upper()
 
-        # Pattern 1: Just a standalone ticker (e.g., "AAPL", "IMPP", "TSLA")
+        # Pattern 1: Explicit ticker with exchange suffix (e.g., "CERT.V", "SHOP.TO", "VOD.L")
+        # These are MOST RELIABLE - prioritize them first
+        exchange_ticker_match = re.search(r'\b([A-Z]{1,5}\.[A-Z]{1,3})\b', text_upper)
+        if exchange_ticker_match:
+            return exchange_ticker_match.group(1)
+
+        # Pattern 2: Just a standalone ticker (e.g., "AAPL", "IMPP", "TSLA")
         # Check if the entire text is just a ticker symbol (1-5 uppercase letters)
         standalone_match = re.match(r'^([A-Z]{1,5})$', text_upper)
         if standalone_match:
-            return standalone_match.group(1)
+            ticker = standalone_match.group(1)
+            # Validate it's not a common word
+            if ticker not in ['US', 'IT', 'OR', 'IN', 'TO', 'AT', 'BY', 'OF', 'ON', 'AN', 'AS', 'IS', 'IF', 'FOR', 'THE', 'AND', 'BUT']:
+                return ticker
 
-        # Pattern 2: Ticker in various contexts
-        patterns = [
-            r'\b([A-Z]{2,5})\s*(?:stock|shares?|ticker|analysis|report)',  # "AAPL stock", "IMPP analysis"
-            r'(?:stock|shares?|ticker|analysis|report)\s*(?:for|of|on)?\s*([A-Z]{2,5})\b',  # "stock AAPL", "analysis for TSLA"
-            r'(?:analyze|analysis)\s+(?:stock\s+)?([A-Z]{2,5})\b',  # "analyze AAPL", "analysis TSLA"
-            r'\(([A-Z]{2,5})\)',  # "Tesla (TSLA)"
-            r'^([A-Z]{2,5})\s',  # Ticker at start followed by space
-            r'\s([A-Z]{2,5})$',  # Ticker at end
-            r'\b([A-Z]{2,5})\b',  # Any standalone uppercase 2-5 letter word
+        # Pattern 3: Ticker in explicit contexts (high confidence)
+        high_confidence_patterns = [
+            r'\(([A-Z]{1,5}(?:\.[A-Z]{1,3})?)\)',  # "Cerrado Gold (CERT.V)" or "Tesla (TSLA)"
+            r'ticker[:\s]+([A-Z]{1,5}(?:\.[A-Z]{1,3})?)\b',  # "ticker: TSLA" or "ticker CERT.V"
+            r'\b([A-Z]{2,5})\s*(?:stock|shares?)',  # "AAPL stock", "IMPP shares"
+            r'(?:stock|shares?)\s*(?:for|of)?\s*([A-Z]{2,5})\b',  # "stock AAPL", "shares of TSLA"
         ]
 
-        for pattern in patterns:
+        for pattern in high_confidence_patterns:
             match = re.search(pattern, text_upper)
             if match:
                 ticker = match.group(1)
-                # Exclude common words that might match (like "US", "IT", "OR", etc.)
-                if ticker not in ['US', 'IT', 'OR', 'IN', 'TO', 'AT', 'BY', 'OF', 'ON', 'AN', 'AS', 'IS', 'IF', 'FOR', 'THE']:
+                # Validate it's not a common word
+                if ticker not in ['US', 'IT', 'OR', 'IN', 'TO', 'AT', 'BY', 'OF', 'ON', 'AN', 'AS', 'IS', 'IF', 'FOR', 'THE', 'AND', 'BUT']:
                     return ticker
 
-        # Pattern 3: Company names (capitalized words) - use original text
-        company_name_match = re.search(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)*)\b', text)
+        # Pattern 4: Company name extraction (prefer multi-word names)
+        # This catches "Cerrado Gold", "Apple Inc", "Microsoft Corporation"
+        company_name_match = re.search(r'\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+)+)\b', text)
         if company_name_match:
-            name = company_name_match.group(1)
-            # Return if it looks like a company name (not just one common word)
-            if len(name.split()) > 1 or name in ['Apple', 'Microsoft', 'Amazon', 'Tesla', 'Google', 'Meta', 'Netflix', 'Nvidia', 'Intel']:
-                return name
+            company_name = company_name_match.group(1)
+            # Use ticker lookup API to find correct ticker
+            validated_ticker = self._lookup_ticker_for_company(company_name)
+            if validated_ticker:
+                return validated_ticker
+            # If lookup fails, return company name for the agents to handle
+            return company_name
+
+        # Pattern 5: Single well-known company names
+        single_word_companies = ['Apple', 'Microsoft', 'Amazon', 'Tesla', 'Google', 'Meta', 'Netflix', 'Nvidia', 'Intel', 'Disney', 'Walmart', 'Target']
+        single_company_match = re.search(r'\b(' + '|'.join(single_word_companies) + r')\b', text, re.IGNORECASE)
+        if single_company_match:
+            return single_company_match.group(1)
 
         # If nothing found, return cleaned text (fallback)
         return text if text else "the requested company"
+
+    def _lookup_ticker_for_company(self, company_name: str) -> str:
+        """Look up the correct ticker symbol for a company name using search API"""
+        import asyncio
+        try:
+            # Use Serper API to find the ticker
+            from tools.search_tools import SearchTools
+            search_tool = SearchTools()
+
+            # Run async search in sync context
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
+            search_query = f"{company_name} stock ticker symbol"
+            result = loop.run_until_complete(search_tool.search_internet(search_query, num_results=3))
+            loop.close()
+
+            # Extract ticker from results using regex
+            import re
+            # Look for patterns like "CERT.V", "TSLA", "AAPL"
+            ticker_patterns = [
+                r'\b([A-Z]{1,5}\.[A-Z]{1,3})\b',  # Exchange tickers like CERT.V
+                r'ticker[:\s]+([A-Z]{2,5})\b',     # "ticker: TSLA"
+                r'\(([A-Z]{2,5})\)',               # "(TSLA)"
+            ]
+
+            for pattern in ticker_patterns:
+                match = re.search(pattern, result)
+                if match:
+                    ticker = match.group(1)
+                    print(f"INFO: Ticker lookup for '{company_name}' found: {ticker}")
+                    return ticker
+
+            print(f"WARNING: Could not find ticker for company '{company_name}' via search")
+            return None
+
+        except Exception as e:
+            print(f"ERROR: Ticker lookup failed for '{company_name}': {e}")
+            return None
 
     def _format_investment_stage_message(self, stage: str, data: Dict[str, Any]) -> str:
         """Format investment analysis stage data into a readable message"""
@@ -872,6 +1255,116 @@ Based on the comprehensive analysis above, this email has been classified as **{
 
         return str(data)
 
+    def _format_compliance_stage_message(self, stage: str, data: Dict[str, Any]) -> str:
+        """Format compliance analysis stage data into a readable message"""
+        if stage == "regulatory_analysis":
+            summary = data.get('regulatory_summary', 'Regulatory analysis in progress...')
+            regulations = data.get('applicable_regulations', [])
+            compliance_level = data.get('compliance_level', 'UNKNOWN')
+            licensing_status = data.get('licensing_status', 'UNKNOWN')
+
+            # Show top regulations if available
+            reg_list = ""
+            if regulations and len(regulations) > 0:
+                reg_list = "\n\n**Top Regulations:**"
+                for reg in regulations[:3]:
+                    # Handle both string and dict formats
+                    if isinstance(reg, str):
+                        reg_list += f"\n• {reg}"
+                    else:
+                        reg_list += f"\n• {reg.get('name', 'Unknown')}"
+
+            return f"""**📜 Regulatory Requirements Analysis**
+
+**Compliance Level:** {compliance_level}
+**Licensing Status:** {licensing_status}
+**Regulations Identified:** {len(regulations)}
+{reg_list}
+
+**Summary:**
+{summary}"""
+
+        elif stage == "aml_kyc_analysis":
+            summary = data.get('aml_summary', 'AML/KYC analysis in progress...')
+            is_pep = data.get('is_pep', False)
+            risk_classification = data.get('risk_classification', 'UNKNOWN')
+            aml_risk_score = data.get('aml_risk_score', 0)
+            sar_recommended = data.get('sar_recommended', False)
+
+            pep_icon = "⚠️" if is_pep else "✓"
+            sar_icon = "⚠️" if sar_recommended else "✓"
+
+            return f"""**🔐 AML/KYC Assessment**
+
+**Risk Classification:** {risk_classification}
+**AML Risk Score:** {aml_risk_score}/100
+**PEP Status:** {pep_icon} {'YES - Enhanced Due Diligence Required' if is_pep else 'NO'}
+**SAR Filing:** {sar_icon} {'RECOMMENDED' if sar_recommended else 'Not Required'}
+
+**Analysis:**
+{summary}"""
+
+        elif stage == "sanctions_screening":
+            summary = data.get('sanctions_summary', 'Sanctions screening in progress...')
+            ofac_match = data.get('ofac_match', False)
+            total_matches = data.get('total_matches', 0)
+            sanctions_risk = data.get('sanctions_risk_level', 'UNKNOWN')
+            recommended_action = data.get('recommended_action', 'UNKNOWN')
+
+            ofac_icon = "🚨" if ofac_match else "✅"
+            data_source = data.get('data_source', 'Unknown')
+
+            match_details = ""
+            if total_matches > 0:
+                match_details = f"\n\n**⚠️ CRITICAL: {total_matches} sanction list match(es) found**"
+
+            return f"""**🚫 Sanctions & Watchlist Screening**
+
+**OFAC Match:** {ofac_icon} {'YES' if ofac_match else 'NO'}
+**Watchlist Matches:** {total_matches}
+**Sanctions Risk:** {sanctions_risk}
+**Data Source:** {data_source}
+**Recommended Action:** {recommended_action}
+{match_details}
+
+**Analysis:**
+{summary}"""
+
+        elif stage == "final_determination":
+            exec_summary = data.get('executive_summary', 'Making final determination...')
+            compliance_status = data.get('compliance_status', 'UNKNOWN')
+            risk_level = data.get('overall_risk_level', 'UNKNOWN')
+            approval_rec = data.get('approval_recommendation', 'UNKNOWN')
+            key_concerns = data.get('key_concerns', [])
+
+            # Visual indicators based on risk
+            status_icon = "✅" if compliance_status == "COMPLIANT" else "⚠️" if compliance_status == "REQUIRES_REVIEW" else "🚨"
+
+            concerns_text = "\n".join([f"• {concern}" for concern in key_concerns]) if key_concerns else "• No critical concerns identified"
+
+            next_steps = data.get('next_steps', '')
+            next_steps_text = ""
+            if next_steps:
+                next_steps_text = f"\n\n**Next Steps:**\n{next_steps}"
+
+            return f"""**{status_icon} Final Compliance Determination**
+
+**Compliance Status:** {compliance_status}
+**Overall Risk Level:** {risk_level}
+**Approval Recommendation:** {approval_rec}
+
+**Key Concerns:**
+{concerns_text}
+
+**Executive Summary:**
+{exec_summary}
+{next_steps_text}
+
+---
+*Analysis completed on {datetime.now().strftime('%Y-%m-%d at %H:%M UTC')} using OpenSanctions.org, regulatory databases, and AML screening tools.*"""
+
+        return str(data)
+
     async def _run_standard_discussion(self, team: str, email_id: int, email_subject: str, email_body: str, email_sender: str, on_message_callback):
         """Fallback to standard discussion format"""
         team_info = TEAMS[team]
@@ -928,6 +1421,17 @@ Based on the comprehensive analysis above, this email has been classified as **{
         # Special handling for Fraud Team - use fraud detection workflow with database access
         if team == "fraud":
             return await self.run_fraud_analysis(
+                email_id,
+                email_subject,
+                email_body,
+                email_sender,
+                on_message_callback,
+                db
+            )
+
+        # Special handling for Compliance Team - use compliance workflow with database access
+        if team == "compliance":
+            return await self.run_compliance_analysis(
                 email_id,
                 email_subject,
                 email_body,

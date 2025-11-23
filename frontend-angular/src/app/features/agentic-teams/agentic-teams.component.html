@@ -531,6 +531,16 @@
 
         <!-- Email Discussion -->
         <div class="discussion-messages" [style.display]="(selectedEmail && !showDirectInteraction && !showTeamPresentation) ? 'block' : 'none'">
+          <!-- DEBUG INFO -->
+          @if (selectedEmail) {
+            <div style="background: #ffffcc; padding: 10px; margin: 10px 0; border: 1px solid #ffcc00; border-radius: 4px; font-size: 12px;">
+              <strong>DEBUG:</strong> Email #{{ selectedEmail.id }} | Team: {{ selectedEmail.assigned_team }} |
+              showDirectInteraction: {{ showDirectInteraction }} | showTeamPresentation: {{ showTeamPresentation }} |
+              Workflow Results: {{ (selectedEmail.workflow_results && selectedEmail.workflow_results.length) || 0 }} |
+              Discussion Messages: {{ getEmailDiscussion(selectedEmail.id).length }}
+            </div>
+          }
+
           @if (selectedEmail) {
             <!-- Investment Progress Tracker -->
             @if (selectedEmail.assigned_team === 'investments') {
@@ -580,6 +590,32 @@
                 </div>
                 <div class="progress-timeline">
                   <div class="progress-timeline-fill" [style.width.%]="getFraudProgressPercent()"></div>
+                </div>
+              </div>
+            }
+
+            <!-- Compliance Progress Tracker -->
+            @if (selectedEmail.assigned_team === 'compliance') {
+              <div class="investment-progress-tracker">
+                <div class="progress-tracker-title">
+                  <span>⚖️</span>
+                  <span>Compliance Analysis Progress</span>
+                </div>
+                <div class="progress-steps">
+                  @for (step of complianceProgress.steps; track $index) {
+                    <div class="progress-step" [class]="step.status">
+                      <div class="step-icon">{{ step.icon }}</div>
+                      <div class="step-label">{{ step.label }}</div>
+                      <div class="step-status">
+                        @if (step.status === 'completed') { Completed }
+                        @else if (step.status === 'active') { In Progress... }
+                        @else { Pending... }
+                      </div>
+                    </div>
+                  }
+                </div>
+                <div class="progress-timeline">
+                  <div class="progress-timeline-fill" [style.width.%]="getComplianceProgressPercent()"></div>
                 </div>
               </div>
             }
@@ -634,3 +670,176 @@
     </div>
   </div>
 </div>
+
+<!-- Workflow Progress Modal -->
+@if (showWorkflowModal && selectedEmail) {
+  <div class="workflow-modal-overlay" (click)="closeWorkflowModal()">
+    <div class="workflow-modal-content" (click)="$event.stopPropagation()">
+      <!-- Modal Header -->
+      <div class="workflow-modal-header">
+        <div style="flex: 1;">
+          <h3>
+            @if (selectedEmail.assigned_team === 'investments') {
+              📊 Investment Analysis in Progress
+            } @else if (selectedEmail.assigned_team === 'fraud') {
+              🔍 Fraud Investigation in Progress
+            } @else if (selectedEmail.assigned_team === 'compliance') {
+              ⚖️ Compliance Review in Progress
+            }
+          </h3>
+          <p class="workflow-modal-subtitle">{{ selectedEmail.subject }}</p>
+        </div>
+        <button class="workflow-modal-close-btn" (click)="closeWorkflowModal()">
+          <i class="material-icons-round">close</i>
+        </button>
+      </div>
+
+      <!-- Progress Tracker -->
+      <div class="workflow-modal-body">
+        @if (selectedEmail.assigned_team === 'investments') {
+          <div class="investment-progress-tracker">
+            <div class="progress-tracker-title">
+              <span>📊</span>
+              <span>Investment Analysis Progress</span>
+            </div>
+            <div class="progress-steps">
+              @for (step of investmentProgress.steps; track $index) {
+                <div class="progress-step"
+                     [class.active]="step.status === 'active'"
+                     [class.completed]="step.status === 'completed'"
+                     [class.pending]="step.status === 'pending'">
+                  <div class="step-icon">
+                    @if (step.status === 'completed') {
+                      <i class="material-icons-round">check_circle</i>
+                    } @else if (step.status === 'active') {
+                      <div class="spinner-border spinner-border-sm"></div>
+                    } @else {
+                      <i class="material-icons-round">radio_button_unchecked</i>
+                    }
+                  </div>
+                  <div class="step-content">
+                    <div class="step-label">{{ step.label }}</div>
+                    <div class="step-agent">{{ step.agent }}</div>
+                  </div>
+                </div>
+              }
+            </div>
+            <div class="progress-bar-container">
+              <div class="progress-bar-fill" [style.width.%]="getInvestmentProgressPercent()"></div>
+            </div>
+          </div>
+        } @else if (selectedEmail.assigned_team === 'fraud') {
+          <div class="fraud-progress-tracker">
+            <div class="progress-tracker-title">
+              <span>🔍</span>
+              <span>Fraud Investigation Progress</span>
+            </div>
+            <div class="progress-steps">
+              @for (step of fraudProgress.steps; track $index) {
+                <div class="progress-step"
+                     [class.active]="step.status === 'active'"
+                     [class.completed]="step.status === 'completed'"
+                     [class.pending]="step.status === 'pending'">
+                  <div class="step-icon">
+                    @if (step.status === 'completed') {
+                      <i class="material-icons-round">check_circle</i>
+                    } @else if (step.status === 'active') {
+                      <div class="spinner-border spinner-border-sm"></div>
+                    } @else {
+                      <i class="material-icons-round">radio_button_unchecked</i>
+                    }
+                  </div>
+                  <div class="step-content">
+                    <div class="step-label">{{ step.label }}</div>
+                    <div class="step-agent">{{ step.agent }}</div>
+                  </div>
+                </div>
+              }
+            </div>
+            <div class="progress-bar-container">
+              <div class="progress-bar-fill" [style.width.%]="getFraudProgressPercent()"></div>
+            </div>
+          </div>
+        } @else if (selectedEmail.assigned_team === 'compliance') {
+          <div class="compliance-progress-tracker">
+            <div class="progress-tracker-title">
+              <span>⚖️</span>
+              <span>Compliance Analysis Progress</span>
+            </div>
+            <div class="progress-steps">
+              @for (step of complianceProgress.steps; track $index) {
+                <div class="progress-step"
+                     [class.active]="step.status === 'active'"
+                     [class.completed]="step.status === 'completed'"
+                     [class.pending]="step.status === 'pending'">
+                  <div class="step-icon">
+                    @if (step.status === 'completed') {
+                      <i class="material-icons-round">check_circle</i>
+                    } @else if (step.status === 'active') {
+                      <div class="spinner-border spinner-border-sm"></div>
+                    } @else {
+                      <i class="material-icons-round">radio_button_unchecked</i>
+                    }
+                  </div>
+                  <div class="step-content">
+                    <div class="step-label">{{ step.label }}</div>
+                    <div class="step-agent">{{ step.agent }}</div>
+                  </div>
+                </div>
+              }
+            </div>
+            <div class="progress-bar-container">
+              <div class="progress-bar-fill" [style.width.%]="getComplianceProgressPercent()"></div>
+            </div>
+          </div>
+        }
+
+        <!-- Real-time Discussion Messages -->
+        <div class="workflow-modal-messages">
+          <h5 class="messages-title">Team Discussion</h5>
+          <div class="messages-container">
+            @for (message of getEmailDiscussion(selectedEmail.id); track $index) {
+              @if (message.isDecision) {
+                <!-- Decision Panel for final decisions -->
+                <div class="decision-panel">
+                  <div class="decision-title">{{ message.agentName }}</div>
+                  <div class="decision-details">
+                    <div class="message-text" [innerHTML]="parseMarkdown(message.content)"></div>
+                  </div>
+                </div>
+              } @else {
+                <!-- Regular Chat Message -->
+                <div class="chat-message" [class.tool-usage-message]="message.isToolUsage">
+                  <div class="message-header">
+                    <span class="agent-avatar">{{ message.agentIcon }}</span>
+                    <div style="flex: 1;">
+                      <div class="agent-name">{{ message.agentName }}</div>
+                      <div class="message-timestamp">{{ message.timestamp }}</div>
+                    </div>
+                  </div>
+                  <div class="message-content">
+                    <div class="message-text" [innerHTML]="parseMarkdown(message.content)"></div>
+                  </div>
+                </div>
+              }
+            }
+
+            @if (getEmailDiscussion(selectedEmail.id).length === 0) {
+              <div class="no-messages-state">
+                <div class="spinner-border text-primary"></div>
+                <p>Waiting for team to start discussion...</p>
+              </div>
+            }
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="workflow-modal-footer">
+        <button class="btn btn-secondary" (click)="closeWorkflowModal()">
+          Continue in Background
+        </button>
+      </div>
+    </div>
+  </div>
+}

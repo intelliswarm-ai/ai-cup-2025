@@ -79,13 +79,15 @@ export class SseService {
       'agentic_error',
       'agentic_chat_response',
       'agentic_chat_user',
-      'statistics_updated'
+      'statistics_updated',
+      'connected'
     ];
 
     eventTypes.forEach(type => {
       this.eventSource!.addEventListener(type, (event: any) => {
         try {
           const data = JSON.parse(event.data);
+          console.log(`[SSE] Received ${type} event:`, data);
           this.events$.next({ type, data });
         } catch (error) {
           console.error(`[SSE] Failed to parse ${type} event:`, error);
