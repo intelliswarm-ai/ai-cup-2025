@@ -86,21 +86,6 @@ services:
       retries: 5
       start_period: 30s
 
-  # Material Dashboard Frontend (Vanilla JS) - Now on port 4200
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    container_name: mailbox-frontend
-    ports:
-      - "4200:4200"
-    depends_on:
-      backend:
-        condition: service_started
-    networks:
-      - mailbox-network
-    restart: unless-stopped
-
   # Angular Frontend (Primary) - Now on ports 80/443 with SSL
   frontend-angular:
     build:
