@@ -21,23 +21,9 @@
             </span>
           </div>
 
-          <!-- Ground Truth Label -->
-          @if (email.label !== null && email.label !== undefined) {
-            <div class="mb-3">
-              <strong>Ground Truth:</strong>
-              <div class="mt-2">
-                <span class="badge badge-sm text-white"
-                      [ngClass]="email.label === 1 ? 'bg-gradient-danger' : 'bg-gradient-success'">
-                  {{ email.label === 1 ? 'PHISHING' : 'LEGITIMATE' }}
-                </span>
-                @if (email.phishing_type) {
-                  <span class="badge badge-sm bg-gradient-secondary ms-2">
-                    Category: {{ email.phishing_type.replace('_', ' ').toUpperCase() }}
-                  </span>
-                }
-              </div>
-            </div>
-          }
+          <!-- REMOVED: Ground Truth Label -->
+          <!-- Ground truth labels are training data and should not be shown to users -->
+          <!-- They remain in database for evaluation purposes only -->
 
           <!-- Email Badges/Categories -->
           @if (email.badges && email.badges.length > 0) {

@@ -668,22 +668,16 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
           this.directQuery = '';
           this.isSubmittingQuery = false;
 
-          // Reload emails to get the newly created task email
-          this.store.dispatch(EmailsActions.loadEmails({ limit: 100, offset: 0, append: false }));
-
-          // Wait a bit for store to update, then select the email
-          setTimeout(() => {
-            // Find and select the email by ID - wait until it appears in the store
-            this.store.select(selectAllEmails)
-              .pipe(
-                map(emails => emails.find(e => e.id === result.email_id)),
-                filter(email => email !== undefined), // Wait for email to exist
-                take(1), // Only take the first emission
-                takeUntil(this.destroy$)
-              )
-              .subscribe(email => {
-                console.log('[Direct Query] Found email in store:', email.id);
+          // FIX: Directly fetch the email by ID instead of waiting for store
+          // This is more reliable than waiting for pagination/filtering
+          this.emailService.getEmailById(result.email_id)
+            .pipe(takeUntil(this.destroy$))
+            .subscribe({
+              next: (email) => {
+                console.log('[Direct Query] Fetched email directly:', email.id);
                 console.log('[Direct Query] Selecting email:', email.id);
+
+                // Select the email
                 this.selectEmail(email);
 
                 // Force view update - hide direct interaction, show email details
@@ -696,13 +690,18 @@ export class AgenticTeamsComponent implements OnInit, OnDestroy {
                 // Manually trigger change detection to ensure modal displays
                 this.cdr.detectChanges();
 
-                console.log('[Direct Query] View state updated - showDirectInteraction:', this.showDirectInteraction);
+                console.log('[Direct Query] View state updated');
                 console.log('[Direct Query] Modal opened - showWorkflowModal:', this.showWorkflowModal);
                 console.log('[Direct Query] Selected email team:', email.assigned_team);
                 console.log('[Direct Query] Selected email ID:', this.selectedEmail?.id);
-                console.log('[Direct Query] Change detection triggered manually');
-              });
-          }, 1000);
+
+                // Also reload emails in background to update the list
+                this.store.dispatch(EmailsActions.loadEmails({ limit: 100, offset: 0, append: false }));
+              },
+              error: (error) => {
+                console.error('[Direct Query] Error fetching email:', error);
+              }
+            });
         },
         error: (error) => {
           console.error('[Direct Query] Error:', error);

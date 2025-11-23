@@ -699,21 +699,10 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
           borderColor: 'rgba(107, 142, 111, 1)',
           borderWidth: 2,
           stack: 'detected'
-        }, {
-          label: 'Ground Truth: Phishing',
-          data: [0, 0, 0],
-          backgroundColor: 'rgba(184, 85, 27, 0.75)',    // Bronze/Orange
-          borderColor: 'rgba(184, 85, 27, 1)',
-          borderWidth: 2,
-          stack: 'ground_truth'
-        }, {
-          label: 'Ground Truth: Legitimate',
-          data: [0, 0, 0],
-          backgroundColor: 'rgba(103, 126, 175, 0.75)',  // Blue
-          borderColor: 'rgba(103, 126, 175, 1)',
-          borderWidth: 2,
-          stack: 'ground_truth'
-        }]
+        }
+        // REMOVED: Ground Truth datasets
+        // Ground truth labels are training data and should not be shown to users
+      ]
       },
       options: {
         responsive: true,
@@ -829,11 +818,8 @@ export class DashboardComponent implements OnInit, OnDestroy, AfterViewInit {
         this.workflowChart.data.datasets[0].data = mainWorkflows.map((w: any) => w.phishing_detected || 0);
         this.workflowChart.data.datasets[1].data = mainWorkflows.map((w: any) => w.safe_detected || 0);
 
-        // Ground truth (if available and chart has 4 datasets)
-        if (this.workflowChart.data.datasets.length >= 4) {
-          this.workflowChart.data.datasets[2].data = mainWorkflows.map((w: any) => w.ground_truth_phishing || 0);
-          this.workflowChart.data.datasets[3].data = mainWorkflows.map((w: any) => w.ground_truth_legitimate || 0);
-        }
+        // REMOVED: Ground truth data population
+        // Ground truth labels are training data and should not be shown to users
 
         this.workflowChart.update();
       }

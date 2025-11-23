@@ -280,8 +280,7 @@ export class DailyInboxDigestComponent implements OnInit {
           enriched: false,
           wiki_enriched: false,
           phone_enriched: false,
-          label: null,
-          phishing_type: null,
+          // REMOVED: label and phishing_type - Ground truth fields removed
           suggested_team: null,
           assigned_team: null,
           badges: emailSummary.badges,
