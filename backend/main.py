@@ -86,8 +86,9 @@ class EmailResponse(BaseModel):
     received_at: datetime
     is_phishing: bool
     processed: bool
-    label: Optional[int] = None  # Ground truth: 1=phishing, 0=legitimate
-    phishing_type: Optional[str] = None  # e.g., credential_harvesting, authority_scam, legitimate
+    # REMOVED: label and phishing_type - These are GROUND TRUTH from training dataset
+    # They should NOT be exposed to workflows or UI during analysis
+    # They are kept in database for evaluation purposes only
     summary: Optional[str] = None
     call_to_actions: Optional[List[str]] = None
     badges: Optional[List[str]] = None
@@ -901,22 +902,16 @@ async def get_enriched_dashboard_stats(db: Session = Depends(get_db)):
     for workflow_name, stats in workflow_stats_dict.items():
         avg_confidence = sum(stats["confidence_scores"]) / len(stats["confidence_scores"]) if stats["confidence_scores"] else 0
 
-        # Get ground truth for these emails
-        unique_email_ids = list(set(stats["email_ids"]))
-        ground_truth_phishing = db.query(Email).filter(
-            Email.id.in_(unique_email_ids),
-            Email.label == 1  # 1 = phishing in ground truth
-        ).count()
-        ground_truth_legitimate = len(unique_email_ids) - ground_truth_phishing
+        # REMOVED: Ground truth statistics
+        # Ground truth labels are training data and should not be exposed via API
+        # They remain in database for evaluation purposes only
 
         workflows_summary.append({
             "workflow_name": workflow_name,
             "total_executions": stats["total_executions"],
             "phishing_detected": stats["phishing_detected"],
             "safe_detected": stats["total_executions"] - stats["phishing_detected"],
-            "avg_confidence": round(avg_confidence, 1),
-            "ground_truth_phishing": ground_truth_phishing,
-            "ground_truth_legitimate": ground_truth_legitimate
+            "avg_confidence": round(avg_confidence, 1)
         })
 
     # === TEAM ASSIGNMENT STATS ===
@@ -979,19 +974,21 @@ async def get_enriched_dashboard_stats(db: Session = Depends(get_db)):
     emails_with_replies = db.query(Email).filter(Email.quick_reply_drafts.isnot(None)).count()
     emails_with_team_assignment = db.query(Email).filter(Email.assigned_team.isnot(None)).count()
 
+    # More realistic time saved calculation
+    # Only count unique time savings, avoid double-counting
+    # Estimates based on realistic time savings vs manual work
+
     # Estimate daily digest usage based on LLM processed emails
-    # Assume digest is generated once per day when there are processed emails
-    days_with_activity = max(1, llm_processed_emails // 10)  # Rough estimate: 10 emails per day average
-    daily_digest_time_saved = days_with_activity * 35  # 35 min saved per day
+    days_with_activity = max(1, llm_processed_emails // 20)  # Rough estimate: 20 emails per day average
+    daily_digest_time_saved = days_with_activity * 15  # 15 min saved per day (more realistic)
 
     time_saved_minutes = (
-        (processed_emails * 2.5) +  # Email review time
-        (phishing_emails * 5) +      # Phishing detection time
-        (emails_with_summaries * 3.5) +  # Summary generation time
-        (emails_with_replies * 5) +  # Quick reply draft time
-        (emails_with_team_assignment * 2) +  # Team routing time
-        (enriched_emails * 3) +  # Wiki enrichment time
-        daily_digest_time_saved  # Daily inbox digest time savings
+        (emails_with_summaries * 1.0) +  # AI summary saves 1 min vs reading full email
+        (phishing_emails * 2.0) +         # Phishing detection saves 2 min vs manual analysis
+        (emails_with_replies * 2.0) +     # Quick reply draft saves 2 min
+        (emails_with_team_assignment * 0.5) +  # Team routing saves 30 sec
+        (enriched_emails * 1.0) +         # Wiki enrichment saves 1 min of research
+        daily_digest_time_saved           # Daily inbox digest time savings
     )
 
     time_saved_hours = round(time_saved_minutes / 60, 1)
@@ -1030,22 +1027,20 @@ async def get_enriched_dashboard_stats(db: Session = Depends(get_db)):
             "total_hours": time_saved_hours,
             "total_days": time_saved_days,
             "breakdown": {
-                "email_review": round(processed_emails * 2.5, 1),
-                "phishing_detection": round(phishing_emails * 5, 1),
-                "summary_generation": round(emails_with_summaries * 3.5, 1),
-                "reply_drafting": round(emails_with_replies * 5, 1),
-                "team_routing": round(emails_with_team_assignment * 2, 1),
-                "wiki_enrichment": round(enriched_emails * 3, 1),
+                "summary_generation": round(emails_with_summaries * 1.0, 1),
+                "phishing_detection": round(phishing_emails * 2.0, 1),
+                "reply_drafting": round(emails_with_replies * 2.0, 1),
+                "team_routing": round(emails_with_team_assignment * 0.5, 1),
+                "wiki_enrichment": round(enriched_emails * 1.0, 1),
                 "daily_digest": round(daily_digest_time_saved, 1)
             },
             "calculations": {
-                "email_review": {"count": processed_emails, "rate": 2.5, "unit": "emails"},
-                "phishing_detection": {"count": phishing_emails, "rate": 5, "unit": "phishing emails"},
-                "summary_generation": {"count": emails_with_summaries, "rate": 3.5, "unit": "summaries"},
-                "reply_drafting": {"count": emails_with_replies, "rate": 5, "unit": "drafts"},
-                "team_routing": {"count": emails_with_team_assignment, "rate": 2, "unit": "assignments"},
-                "wiki_enrichment": {"count": enriched_emails, "rate": 3, "unit": "enrichments"},
-                "daily_digest": {"count": days_with_activity, "rate": 35, "unit": "days"}
+                "summary_generation": {"count": emails_with_summaries, "rate": 1.0, "unit": "summaries"},
+                "phishing_detection": {"count": phishing_emails, "rate": 2.0, "unit": "phishing emails"},
+                "reply_drafting": {"count": emails_with_replies, "rate": 2.0, "unit": "drafts"},
+                "team_routing": {"count": emails_with_team_assignment, "rate": 0.5, "unit": "assignments"},
+                "wiki_enrichment": {"count": enriched_emails, "rate": 1.0, "unit": "enrichments"},
+                "daily_digest": {"count": days_with_activity, "rate": 15, "unit": "days"}
             },
             "daily_digest_days": days_with_activity
         }

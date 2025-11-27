@@ -105,15 +105,9 @@
                               </div>
                             }
 
-                            @if (email.label !== null) {
-                              <div class="mt-2">
-                                <span class="badge badge-sm"
-                                      [ngClass]="email.label === 1 ? 'bg-gradient-danger' : 'bg-gradient-success'"
-                                      style="font-size: 10px;">
-                                  Ground Truth: {{ email.label === 1 ? 'PHISHING' : 'LEGITIMATE' }}
-                                </span>
-                              </div>
-                            }
+                            <!-- REMOVED: Ground Truth display -->
+                            <!-- Ground truth labels are training data and should not be shown to users -->
+                            <!-- They remain in database for evaluation purposes only -->
                           </div>
                           <div class="col-4 text-end">
                             <span class="badge text-white" [ngClass]="getStatusBadgeClass(email)">

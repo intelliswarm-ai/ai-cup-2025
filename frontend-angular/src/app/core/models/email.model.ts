@@ -13,8 +13,7 @@ export interface Email {
   enriched: boolean;
   wiki_enriched: boolean;
   phone_enriched: boolean;
-  label: number | null;
-  phishing_type: string | null;
+  // REMOVED: label and phishing_type - Ground truth fields removed from API
   suggested_team: string | null;
   assigned_team: string | null;
   team_assigned_at?: string | null;

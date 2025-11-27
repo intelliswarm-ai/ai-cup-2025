@@ -724,35 +724,53 @@ Based on the comprehensive analysis above, this email has been classified as **{
     ) -> Dict[str, Any]:
         """
         Run compliance workflow for the Compliance Team
-        Uses specialized tools for regulatory, AML/KYC, and sanctions checks
+        Intelligently detects the type of compliance analysis needed:
+        - Email Policy Compliance: Is this email request/action allowed?
+        - Entity Sanctions Screening: Is this company/person sanctioned?
+        - Transaction Compliance: Is this transaction compliant?
         """
         print(f"INFO: Starting compliance analysis for email_id={email_id}, subject='{email_subject[:50]}'")
         try:
             # Import the compliance workflow
             from compliance_workflow import ComplianceWorkflow
 
-            # Extract entity information from email
+            # Detect what type of compliance analysis is needed
             combined_text = f"{email_subject} {email_body}".lower()
 
-            # Extract entity name and type
-            entity_name, entity_type, additional_info = self._extract_entity_from_text(
-                combined_text, email_subject, email_body
-            )
+            # STEP 1: Detect compliance analysis type
+            analysis_type = self._detect_compliance_analysis_type(email_subject, email_body)
+            print(f"INFO: Detected compliance analysis type: {analysis_type}")
+
+            # Extract entity information if needed
+            entity_name, entity_type, additional_info = None, None, {}
+            if analysis_type in ["entity_screening", "hybrid"]:
+                entity_name, entity_type, additional_info = self._extract_entity_from_text(
+                    combined_text, email_subject, email_body
+                )
 
             # Track all messages for display
             all_messages = []
 
-            # STEP 0: Send initial message
+            # STEP 0: Send initial message based on analysis type
+            analysis_descriptions = {
+                "policy_compliance": "Email Policy Compliance Check",
+                "entity_screening": "Entity Sanctions & AML Screening",
+                "hybrid": "Comprehensive Policy & Entity Compliance Review"
+            }
+
+            entity_info_text = ""
+            if analysis_type in ["entity_screening", "hybrid"] and entity_name:
+                entity_info_text = f"\n**Entity Detected:** {entity_name}\n**Type:** {entity_type.upper() if entity_type else 'UNKNOWN'}"
+
             initial_message = {
                 "role": "Compliance Officer",
                 "icon": "✅",
-                "text": f"""**🔍 Starting Comprehensive Compliance Analysis**
+                "text": f"""**🔍 Starting {analysis_descriptions.get(analysis_type, 'Compliance Analysis')}**
 
-**Email Subject:** {email_subject[:80]}...
-**Entity Detected:** {entity_name}
-**Type:** {entity_type.upper()}
+**Email Subject:** {email_subject[:80]}...{entity_info_text}
+**Analysis Type:** {analysis_type.replace('_', ' ').title()}
 
-Initiating multi-stage compliance verification...""",
+Initiating compliance review...""",
                 "timestamp": datetime.now().isoformat()
             }
             all_messages.append(initial_message)
@@ -779,10 +797,11 @@ Initiating multi-stage compliance verification...""",
             compliance_workflow = ComplianceWorkflow()
 
             # STEP 1: Check Email Policy Compliance (direction + policy violations)
+            # Only run if analysis type is "policy_compliance" or "hybrid"
             enable_policy_check = os.getenv("ENABLE_POLICY_COMPLIANCE", "true").lower() == "true"
 
             email_policy_result = None
-            if enable_policy_check:
+            if enable_policy_check and analysis_type in ["policy_compliance", "hybrid"]:
                 policy_start_msg = {
                     "role": "Policy Compliance Officer",
                     "icon": "📋",
@@ -835,30 +854,48 @@ Initiating multi-stage compliance verification...""",
                         await asyncio.sleep(0.5)
 
             # STEP 2: Entity Resolution and Sanctions Check
-            entity_check_msg = {
-                "role": "Sanctions Analyst",
-                "icon": "🔍",
-                "text": f"**🌐 Entity Compliance Analysis**\n\nChecking: {entity_name}\nRunning sanctions, AML, and regulatory verification...",
-                "timestamp": datetime.now().isoformat(),
-                "is_thinking": True
-            }
-            all_messages.append(entity_check_msg)
-            if on_message_callback:
-                await on_message_callback(entity_check_msg, all_messages)
-                await asyncio.sleep(0.5)
+            # Only run if analysis type is "entity_screening" or "hybrid"
+            analysis = None
+            if analysis_type in ["entity_screening", "hybrid"]:
+                entity_check_msg = {
+                    "role": "Sanctions Analyst",
+                    "icon": "🔍",
+                    "text": f"**🌐 Entity Compliance Analysis**\n\nChecking: {entity_name}\nRunning sanctions, AML, and regulatory verification...",
+                    "timestamp": datetime.now().isoformat(),
+                    "is_thinking": True
+                }
+                all_messages.append(entity_check_msg)
+                if on_message_callback:
+                    await on_message_callback(entity_check_msg, all_messages)
+                    await asyncio.sleep(0.5)
 
-            # Run comprehensive entity compliance analysis
-            analysis = await compliance_workflow.analyze_entity_compliance(
-                entity_name=entity_name,
-                entity_type=entity_type,
-                additional_info=additional_info,
-                on_progress_callback=progress_callback,
-                db=db
-            )
+                # Run comprehensive entity compliance analysis
+                analysis = await compliance_workflow.analyze_entity_compliance(
+                    entity_name=entity_name,
+                    entity_type=entity_type,
+                    additional_info=additional_info,
+                    on_progress_callback=progress_callback,
+                    db=db
+                )
 
-            # Add email policy results to analysis
-            if email_policy_result:
-                analysis["email_policy_compliance"] = email_policy_result
+                # Add email policy results to analysis
+                if email_policy_result:
+                    analysis["email_policy_compliance"] = email_policy_result
+
+            # If ONLY policy compliance (no entity screening), create a simplified result
+            if analysis_type == "policy_compliance":
+                analysis = {
+                    "entity_name": "N/A (Policy Analysis Only)",
+                    "email_policy_compliance": email_policy_result,
+                    "stages": [],
+                    "final_determination": {
+                        "compliance_status": email_policy_result.get("compliance_status", "UNKNOWN") if email_policy_result else "UNKNOWN",
+                        "overall_risk_level": email_policy_result.get("overall_risk", "UNKNOWN") if email_policy_result else "UNKNOWN",
+                        "approval_recommendation": "PROCEED" if email_policy_result and email_policy_result.get("compliance_status") == "COMPLIANT" else "REVIEW",
+                        "executive_summary": email_policy_result.get("summary", "Policy compliance review completed.") if email_policy_result else "Policy compliance review completed.",
+                        "key_concerns": [v.get("description", "") for v in email_policy_result.get("violations", [])] if email_policy_result else []
+                    }
+                }
 
             # Format the results as messages (don't reset all_messages - keep existing ones)
             team_info = TEAMS["compliance"]
@@ -914,6 +951,61 @@ Initiating multi-stage compliance verification...""",
             traceback.print_exc()
             print("FALLBACK: Using standard discussion format")
             return await self._run_standard_discussion("compliance", email_id, email_subject, email_body, email_sender, on_message_callback)
+
+    def _detect_compliance_analysis_type(self, subject: str, body: str) -> str:
+        """
+        Detect what type of compliance analysis is needed based on email content
+
+        Returns:
+            - "policy_compliance": Email asking about policies, permissions, procedures
+            - "entity_screening": Email asking to screen specific company/person/entity
+            - "hybrid": Both policy and entity screening needed
+        """
+        combined_text = f"{subject} {body}".lower()
+
+        # Policy compliance indicators (asking about permissions, policies, procedures)
+        policy_keywords = [
+            # Permission/approval questions
+            "can i", "may i", "allowed to", "permitted to", "able to", "is it ok",
+            "should i", "would it be ok", "is it acceptable", "do i need approval",
+            # Policy/procedure questions
+            "policy", "procedure", "guideline", "rule", "regulation", "requirement",
+            "protocol", "standard", "directive", "compliance check",
+            # Common requests
+            "conference", "registration", "attend", "participate", "enroll",
+            "expense", "reimbursement", "travel", "purchase", "subscription",
+            "training", "certification", "membership", "donation", "contribution",
+            "external", "vendor", "third party", "contractor"
+        ]
+
+        # Entity screening indicators (asking to check specific entities)
+        entity_keywords = [
+            # Explicit screening requests
+            "check sanctions", "screen", "verify", "ofac", "sanctioned", "blacklist",
+            "aml check", "kyc", "due diligence", "background check",
+            # Entity mentions
+            "company", "ticker", "stock", "individual", "person", "customer",
+            "counterparty", "supplier", "vendor name", "business partner",
+            # Compliance for named entities
+            "compliance for", "compliance check for", "is x sanctioned",
+            "check if", "verify if", "screen if"
+        ]
+
+        # Count matches
+        policy_matches = sum(1 for keyword in policy_keywords if keyword in combined_text)
+        entity_matches = sum(1 for keyword in entity_keywords if keyword in combined_text)
+
+        # Decision logic
+        if policy_matches > 0 and entity_matches > 0:
+            return "hybrid"  # Both types of analysis
+        elif policy_matches > entity_matches and policy_matches >= 1:
+            return "policy_compliance"  # Primarily policy question
+        elif entity_matches > policy_matches and entity_matches >= 2:
+            return "entity_screening"  # Primarily entity screening
+        elif policy_matches >= 1:
+            return "policy_compliance"  # Default to policy if any policy indicators
+        else:
+            return "entity_screening"  # Default to entity screening for ambiguous cases
 
     def _extract_entity_from_text(self, text: str, subject: str, body: str) -> tuple:
         """Extract entity name, type, and additional info from text using LLM"""
