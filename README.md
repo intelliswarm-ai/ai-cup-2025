@@ -393,36 +393,32 @@ Extensible tool architecture for agentic workflows with graceful fallbacks:
 - Automatic migration on startup
 - Changelog: `backend/db/changelog/`
 
-#### API Endpoints (57 Endpoints)
+#### API Endpoints (46 Endpoints)
+
+**System:**
+- `GET /` - API information and welcome message
+- `GET /health` - Health check endpoint
+- `GET /api/mailpit/stats` - MailPit server statistics
 
 **Email Management:**
 - `GET /api/emails` - List all emails with summaries, badges, quick replies
-- `GET /api/emails/{id}` - Get email details with workflow results
+- `GET /api/emails/{email_id}` - Get email details with workflow results
 - `POST /api/emails/fetch` - Fetch new emails from MailPit
-- `DELETE /api/emails/{id}` - Delete specific email
-- `DELETE /api/emails` - Delete all emails
+- `POST /api/emails/update-bodies` - Update email bodies from MailPit
+- `DELETE /api/emails/{email_id}` - Delete specific email
 
-**Phishing Detection:**
-- `POST /api/emails/{id}/process` - Run ML workflows
+**Phishing Detection & Workflows:**
+- `POST /api/emails/{email_id}/process` - Run ML phishing detection workflows
 - `POST /api/emails/process-all` - Batch process all unprocessed emails
-- `GET /api/workflows` - List available workflows
-- `GET /api/workflows/{id}` - Get workflow configuration
+- `GET /api/workflows` - List available workflow configurations
+- `GET /api/emails/{email_id}/workflow-status` - Get workflow execution status
 
-**LLM Processing:**
-- `POST /api/emails/{id}/process-llm` - Generate summary, badges, CTAs, quick replies
-- `POST /api/emails/process-all-llm` - Batch LLM processing
-- `POST /api/emails/{id}/enrich` - RAG enrichment (wiki + employee directory)
+**LLM Processing & Enrichment:**
+- `POST /api/emails/{email_id}/process-llm` - Generate summary, badges, CTAs, quick replies
+- `POST /api/emails/process-all-llm` - Batch LLM processing for all emails
+- `POST /api/emails/{email_id}/enrich` - RAG enrichment (wiki + employee directory)
 
-**Agentic Teams:**
-- `GET /api/agentic/teams` - List all teams
-- `GET /api/agentic/teams/{team_key}/config` - Get team configuration
-- `POST /api/agentic/emails/{email_id}/process` - Start team discussion
-- `GET /api/agentic/tasks/{task_id}` - Poll discussion progress
-- `GET /api/agentic/tasks/{task_id}/stream` - Stream real-time updates (SSE)
-- `POST /api/emails/{email_id}/suggest-team` - LLM-based team suggestion
-- `POST /api/emails/{email_id}/assign-team` - Assign email to team
-
-**Inbox Management:**
+**Inbox Management & Statistics:**
 - `GET /api/inbox-digest` - **Intelligent Email Digest with Automatic Filtering**
   - Returns emails automatically grouped by AI-assigned badges (8 categories)
   - Includes email count per category
@@ -437,23 +433,47 @@ Extensible tool architecture for agentic workflows with graceful fallbacks:
   - Total emails in database
   - Phishing detection rate
   - Average confidence scores
-  - Processing time statistics
 - `GET /api/dashboard/enriched-stats` - Enhanced statistics with enrichment data
   - Wiki enrichment coverage
   - Employee directory match rate
   - RAG performance metrics
 
-**Background Services:**
-- `POST /api/background/email-fetcher/start` - Start continuous fetching
-- `POST /api/background/email-fetcher/stop` - Stop fetcher
-- `GET /api/background/email-fetcher/status` - Check fetcher status
-- `POST /api/background/email-analyzer/start` - Start continuous analysis
-- `POST /api/background/email-analyzer/stop` - Stop analyzer
-- `GET /api/background/email-analyzer/status` - Check analyzer status
+**Agentic Teams - Team Management:**
+- `GET /api/agentic/teams` - List all available teams
+- `GET /api/agentic/teams/{team_key}/config` - Get team configuration
+- `POST /api/agentic/teams/{team_key}/config` - Update team configuration
+- `POST /api/agentic/teams` - Create new team
+- `PUT /api/agentic/teams/{team_key}` - Update existing team
+- `DELETE /api/agentic/teams/{team_key}` - Delete team (soft delete)
 
-**System:**
-- `GET /health` - Health check
-- `GET /` - API info
+**Agentic Teams - Email Analysis:**
+- `POST /api/agentic/emails/{email_id}/process` - Start multi-agent team discussion
+- `GET /api/agentic/tasks/{task_id}` - Poll discussion progress and results
+- `POST /api/agentic/direct-query` - Direct query to agentic system
+- `POST /api/agentic/task/{task_id}/chat` - Continue chat with task
+- `GET /api/agentic/emails/{email_id}/team` - Get team assignment for email
+- `GET /api/agentic/simulate-discussion` - Simulate team discussion
+- `POST /api/emails/{email_id}/suggest-team` - LLM-based team suggestion
+- `POST /api/emails/{email_id}/assign-team` - Manually assign email to team
+
+**Tools Management:**
+- `GET /api/teams/{team_key}/tools` - Get tools available for specific team
+- `POST /api/tools/test` - Test tool execution
+- `GET /api/tools/registry` - Get complete tool registry
+- `GET /api/tools/registry/stats` - Get tool registry statistics
+- `GET /api/tools/search/capability/{capability}` - Search tools by capability
+- `GET /api/tools/search/category/{category}` - Search tools by category
+- `GET /api/tools/{tool_name}` - Get specific tool details
+- `POST /api/tools/registry/assign` - Assign tools to team
+- `GET /api/tools/{tool_name}/readiness` - Check tool readiness status
+
+**Background Services (Email Fetcher):**
+- `POST /api/fetcher/start` - Start continuous email fetching
+- `POST /api/fetcher/stop` - Stop email fetcher
+- `GET /api/fetcher/status` - Check email fetcher status
+
+**Real-time Events:**
+- `GET /api/events` - Server-Sent Events stream for real-time updates
 
 ## How It Works - Automatic Email Analysis Pipeline
 
@@ -1169,7 +1189,7 @@ For issues, questions, or contributions:
 - **Tools Framework**: 13 specialized tools with extensible architecture
 
 ### API & Features
-- **API Endpoints**: 57 total endpoints
+- **API Endpoints**: 46 REST endpoints across 8 categories
 - **Specialized Workflows**: 3 fully implemented (Fraud, Compliance, Investment)
 - **Individual Agents**: 12 specialized agents (4 per workflow)
 - **Additional Team Definitions**: 4 basic teams in agentic_teams.py
