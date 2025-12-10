@@ -47,6 +47,3 @@ frontend/node_modules/
 
 # ML Models
 model-fine-tuned-llm/models/
-
-# Documentation
-/docs
