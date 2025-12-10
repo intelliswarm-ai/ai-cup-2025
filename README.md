@@ -310,6 +310,8 @@ Extensible tool architecture for agentic workflows with graceful fallbacks:
 - `IPGEOLOCATION_API_KEY` - IP threat intel (fallback: mock)
 - `ABSTRACTAPI_EMAIL_KEY` - Email validation (fallback: format check)
 
+📖 **For detailed tool documentation with usage examples and API integration, see [Tools Framework Guide](docs/TOOLS_FRAMEWORK.md)**
+
 #### 9. Specialized Workflows with Multi-Agent Patterns
 
 **Fraud Detection Workflow** (`fraud_workflow.py`):
@@ -351,12 +353,14 @@ Extensible tool architecture for agentic workflows with graceful fallbacks:
 - **Capabilities**: Financial metrics calculation, SEC filing analysis, Company research, Market analysis
 
 **Orchestration & Infrastructure**:
-- **File**: `backend/agentic_teams.py` 
+- **File**: `backend/agentic_teams.py`
 - **Class**: `AgenticTeamOrchestrator`
 - **Team Detection**: Rule-based + LLM-based suggestion
 - **Pattern Support**: Doer-Checker, Multi-round debate, Research synthesis
 - **Real-time Updates**: SSE progress updates for all patterns
 - **Tool Integration**: Dynamic tool registry with 13 specialized tools
+
+📖 **For complete workflow documentation with API examples and best practices, see [Agentic Workflows Guide](docs/AGENTIC_WORKFLOWS.md)**
 
 ### Architecture
 
@@ -392,6 +396,8 @@ Extensible tool architecture for agentic workflows with graceful fallbacks:
 - Liquibase-managed schema versioning
 - Automatic migration on startup
 - Changelog: `backend/db/changelog/`
+
+📖 **For complete database schema documentation, see [Database Schema Guide](docs/database-schema.md)**
 
 #### API Endpoints (46 Endpoints)
 
@@ -639,6 +645,8 @@ Final Decision & Action Items:
 - **LLM Requirements**: Prefers OpenAI (gpt-4o-mini), falls back to Ollama (tinyllama)
 - **Use Cases**: Complex fraud analysis, regulatory compliance, investment due diligence
 - **Output**: Detailed multi-perspective analysis with action items
+
+📖 **For complete details, see [Agentic Workflows Guide](docs/AGENTIC_WORKFLOWS.md) and [Tools Framework Guide](docs/TOOLS_FRAMEWORK.md)**
 
 ### Complete Processing Timeline
 - **Email arrival to full enrichment** (Automatic): ~3-5 seconds
@@ -1161,12 +1169,64 @@ docker compose exec backend env | grep OPENAI
 
 MIT License - See LICENSE file for details
 
+## Detailed Documentation
+
+For in-depth technical documentation, see the specialized guides in the `/docs` directory:
+
+### Core Documentation
+
+**[Agentic Workflows Guide](docs/AGENTIC_WORKFLOWS.md)** - Complete guide to multi-agent collaboration
+- Architecture overview and orchestration
+- Collaboration patterns (Doer-Checker, Multi-Round Debate, Research Synthesis)
+- Fraud Investigation Workflow
+- Compliance & Regulatory Workflow
+- Investment Research Workflow
+- API usage and real-time streaming (SSE)
+- Configuration and best practices
+- Performance metrics and optimization
+
+**[Tools Framework Guide](docs/TOOLS_FRAMEWORK.md)** - Complete guide to pluggable tools system
+- Architecture and design principles
+- All 13 specialized tools documented:
+  - Investigation Tools (OFAC screening, fraud detection)
+  - Sanctions Tools (Multi-database screening)
+  - AML Tools (KYC risk assessment)
+  - Policy Compliance Tools
+  - Regulatory Tools
+  - Risk Tools (IP geolocation, threat intel)
+  - Transaction Tools
+  - SEC Tools (EDGAR filings)
+  - Entity Resolver
+  - Search Tools (Serper API)
+  - Browser Tools (Browserless)
+  - Calculator Tools
+  - Serper Search Plugin
+- API integration and tool registry
+- Usage examples and development guide
+- Environment variables and fallback strategies
+- Performance benchmarks
+
+**[Database Schema](docs/database-schema.md)** - Database design and migrations
+- Complete schema documentation
+- Entity relationships
+- Liquibase migration history
+- Table descriptions and indexes
+
+### Additional Resources
+
+**[ML Model Accuracy Results](docs/ML_MODEL_ACCURACY_RESULTS.txt)** - Ensemble model performance metrics
+- Individual model accuracy scores
+- Ensemble voting results (82.10% accuracy)
+- Test dataset statistics
+
 ## Support
 
 For issues, questions, or contributions:
 - **API Documentation**: http://localhost:8000/docs (when running)
+- **Agentic Workflows**: See [docs/AGENTIC_WORKFLOWS.md](docs/AGENTIC_WORKFLOWS.md)
+- **Tools Framework**: See [docs/TOOLS_FRAMEWORK.md](docs/TOOLS_FRAMEWORK.md)
+- **Database Schema**: See [docs/database-schema.md](docs/database-schema.md)
 - **Logs**: Use `./logs.sh` for debugging
-- **README**: All documentation is in this file
 
 ## Acknowledgments
 
