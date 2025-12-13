@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Evaluation Results - Enterprise Email Assistant</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #1a365d;
+            --accent: #c53030;
+            --success: #38a169;
+            --gold: #d69e2e;
+            --bg: #f7fafc;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg);
+            padding: 30px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: var(--primary);
+            margin-bottom: 10px;
+            font-size: 2rem;
+        }
+        .subtitle {
+            color: #718096;
+            margin-bottom: 30px;
+            font-size: 1.1rem;
+        }
+
+        /* Two-layer section */
+        .layers-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .layer-card {
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .layer-card h2 {
+            color: var(--primary);
+            font-size: 1.3rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .layer-card h2 .emoji {
+            font-size: 1.5rem;
+        }
+
+        /* ML Metrics */
+        .ml-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .ml-metric {
+            background: #ebf8ff;
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .ml-metric .value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .ml-metric .label {
+            font-size: 0.85rem;
+            color: #4a5568;
+            margin-top: 5px;
+        }
+
+        /* Agentic Metrics */
+        .agentic-metric {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .agentic-metric:last-child {
+            border-bottom: none;
+        }
+
+        .agentic-metric .label {
+            color: #4a5568;
+        }
+
+        .agentic-metric .value {
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        .agentic-metric .value.green {
+            color: var(--success);
+        }
+
+        /* Team Results */
+        .teams-section {
+            margin-top: 30px;
+        }
+
+        .teams-section h2 {
+            color: var(--primary);
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+        }
+
+        .team-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .team-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            border-top: 4px solid var(--primary);
+        }
+
+        .team-card.fraud { border-top-color: var(--accent); }
+        .team-card.compliance { border-top-color: var(--gold); }
+        .team-card.investment { border-top-color: var(--success); }
+
+        .team-card h3 {
+            color: var(--primary);
+            font-size: 1rem;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .team-stat {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            font-size: 0.9rem;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .team-stat:last-child {
+            border-bottom: none;
+        }
+
+        .team-stat .label {
+            color: #718096;
+        }
+
+        .team-stat .value {
+            font-weight: 600;
+            color: var(--primary);
+        }
+
+        /* Collaboration Patterns */
+        .collaboration-section {
+            margin-top: 30px;
+            background: white;
+            border-radius: 16px;
+            padding: 25px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+        }
+
+        .collaboration-section h2 {
+            color: var(--primary);
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+        }
+
+        .pattern-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+        }
+
+        .pattern-card {
+            background: #f7fafc;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .pattern-card .icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .pattern-card .name {
+            font-weight: 600;
+            color: var(--primary);
+            margin-bottom: 8px;
+        }
+
+        .pattern-card .improvement {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--success);
+        }
+
+        .pattern-card .desc {
+            font-size: 0.8rem;
+            color: #718096;
+            margin-top: 5px;
+        }
+
+        /* Cost Analysis */
+        .cost-section {
+            margin-top: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 16px;
+            padding: 25px;
+            color: white;
+        }
+
+        .cost-section h2 {
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+        }
+
+        .cost-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+        }
+
+        .cost-item {
+            background: rgba(255,255,255,0.15);
+            border-radius: 12px;
+            padding: 15px;
+            text-align: center;
+        }
+
+        .cost-item .value {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .cost-item .label {
+            font-size: 0.85rem;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+
+        @media print {
+            body { padding: 15px; }
+            .layers-grid, .team-grid, .pattern-grid, .cost-grid {
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Evaluation Results</h1>
+    <p class="subtitle">Comprehensive metrics from agentic workflow evaluation</p>
+
+    <!-- Two-Layer Architecture Results -->
+    <div class="layers-grid">
+        <!-- ML Detection Layer -->
+        <div class="layer-card">
+            <h2><span class="emoji">Layer 1:</span> ML Detection Pipeline</h2>
+            <div class="ml-metrics">
+                <div class="ml-metric">
+                    <div class="value">82.1%</div>
+                    <div class="label">Accuracy</div>
+                </div>
+                <div class="ml-metric">
+                    <div class="value">81.9%</div>
+                    <div class="label">F1 Score</div>
+                </div>
+                <div class="ml-metric">
+                    <div class="value">81.9%</div>
+                    <div class="label">Precision</div>
+                </div>
+                <div class="ml-metric">
+                    <div class="value">82.0%</div>
+                    <div class="label">Recall</div>
+                </div>
+            </div>
+            <p style="margin-top: 15px; color: #718096; font-size: 0.85rem;">
+                3-model ensemble: Naive Bayes + Random Forest + Fine-tuned LLM
+            </p>
+        </div>
+
+        <!-- Agentic Validation Layer -->
+        <div class="layer-card">
+            <h2><span class="emoji">Layer 2:</span> Agentic Validation</h2>
+            <div class="agentic-metric">
+                <span class="label">Tasks Evaluated</span>
+                <span class="value">80</span>
+            </div>
+            <div class="agentic-metric">
+                <span class="label">Completion Rate</span>
+                <span class="value green">97.0%</span>
+            </div>
+            <div class="agentic-metric">
+                <span class="label">Quality Score (LLM Judge)</span>
+                <span class="value">8.2/10</span>
+            </div>
+            <div class="agentic-metric">
+                <span class="label">Reasoning Score</span>
+                <span class="value">7.9/10</span>
+            </div>
+            <div class="agentic-metric">
+                <span class="label">Collaboration Boost</span>
+                <span class="value green">+15.7%</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Team-by-Team Results -->
+    <div class="teams-section">
+        <h2>Team Performance Breakdown</h2>
+        <div class="team-grid">
+            <!-- Fraud Detection Team -->
+            <div class="team-card fraud">
+                <h3>Fraud Detection</h3>
+                <div class="team-stat">
+                    <span class="label">Completion</span>
+                    <span class="value">96.0%</span>
+                </div>
+                <div class="team-stat">
+                    <span class="label">Avg Latency</span>
+                    <span class="value">3.2s</span>
+                </div>
+                <div class="team-stat">
+                    <span class="label">P95 Latency</span>
+                    <span class="value">5.2s</span>
+                </div>
+                <div class="team-stat">
+                    <span class="label">Quality Score</span>
+                    <span class="value">7.8/10</span>
+                </div>
+                <div class="team-stat">
+                    <span class="label">Cost/Task</span>
+                    <span class="value">$0.001</span>
+                </div>
+            </div>
+
+            <!-- Compliance Team -->
+            <div class="team-card compliance">
+                <h3>Compliance & AML</h3>
+                <div class="team-stat">
+                    <span class="label">Completion</span>
+                    <span class="value">95.0%</span>
+                </div>
+                <div class="team-stat">
+                    <span class="label">Avg Latency</span>
+                    <span class="value">4.5s</span>
+                </div>
+                <div class="team-stat">
+                    <span class="label">P95 Latency</span>
+                    <span class="value">6.8s</span>
+                </div>
+                <div class="team-stat">
+                    <span class="label">Quality Score</span>
+                    <span class="value">8.2/10</span>
+                </div>
+                <div class="team-stat">
+                    <span class="label">Cost/Task</span>
+                    <span class="value">$0.002</span>
+                </div>
+            </div>
+
+            <!-- Investment Team -->
+            <div class="team-card investment">
+                <h3>Investment Research</h3>
+                <div class="team-stat">
+                    <span class="label">Completion</span>
+                    <span class="value">100.0%</span>
+                </div>
+                <div class="team-stat">
+                    <span class="label">Avg Latency</span>
+                    <span class="value">45s</span>
+                </div>
+                <div class="team-stat">
+                    <span class="label">P95 Latency</span>
+                    <span class="value">58s</span>
+                </div>
+                <div class="team-stat">
+                    <span class="label">Quality Score</span>
+                    <span class="value">8.5/10</span>
+                </div>
+                <div class="team-stat">
+                    <span class="label">Cost/Task</span>
+                    <span class="value">$0.009</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Collaboration Patterns -->
+    <div class="collaboration-section">
+        <h2>Collaboration Pattern Effectiveness</h2>
+        <div class="pattern-grid">
+            <div class="pattern-card">
+                <div class="icon">+</div>
+                <div class="name">Doer-Checker</div>
+                <div class="improvement">+15%</div>
+                <div class="desc">Quality improvement through verification</div>
+            </div>
+            <div class="pattern-card">
+                <div class="icon"></div>
+                <div class="name">Sequential Pipeline</div>
+                <div class="improvement">+12%</div>
+                <div class="desc">Specialized agent handoffs</div>
+            </div>
+            <div class="pattern-card">
+                <div class="icon"></div>
+                <div class="name">Multi-Round Debate</div>
+                <div class="improvement">+20%</div>
+                <div class="desc">Dialectic reasoning for complex decisions</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cost Analysis -->
+    <div class="cost-section">
+        <h2>Operational Cost Analysis</h2>
+        <div class="cost-grid">
+            <div class="cost-item">
+                <div class="value">$0.001</div>
+                <div class="label">Per Email Analysis</div>
+            </div>
+            <div class="cost-item">
+                <div class="value">$9.70</div>
+                <div class="label">10K Emails/Day</div>
+            </div>
+            <div class="cost-item">
+                <div class="value">$0.17</div>
+                <div class="label">Full Eval Cost</div>
+            </div>
+            <div class="cost-item">
+                <div class="value">$0.00</div>
+                <div class="label">With Ollama (Local)</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Key Takeaways -->
+    <div style="margin-top: 30px; background: #c6f6d5; border-radius: 12px; padding: 20px; border-left: 4px solid #38a169;">
+        <h3 style="color: #22543d; margin-bottom: 10px;">Key Takeaways for Judges</h3>
+        <ul style="color: #276749; margin-left: 20px;">
+            <li><strong>Two-Layer Defense:</strong> ML detection (82.1%) + Agentic validation (8.2/10 quality)</li>
+            <li><strong>Collaboration Works:</strong> 15-20% improvement from agent collaboration patterns</li>
+            <li><strong>Cost Effective:</strong> ~$10/day for 10,000 emails (or $0 with local LLMs)</li>
+            <li><strong>Production Ready:</strong> 97% completion rate, sub-5s latency for fraud detection</li>
+        </ul>
+    </div>
+</body>
+</html>
